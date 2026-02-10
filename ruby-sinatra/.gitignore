@@ -1,0 +1,14 @@
+# Ruby/Bundler
+.bundle/
+vendor/bundle/
+
+# Database
+*.db
+*.sqlite3
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db

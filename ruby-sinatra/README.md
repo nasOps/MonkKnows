@@ -35,6 +35,11 @@ whoknows_variations/
 - Matcher produktionslignende Linux-setup
 - Mindre PATH- og permissions-problemer end Windows-only
 
+**macOS**
+- macOS er Unix-baseret og minder i forvejen om Linux
+- Kræver ingen ekstra virtualisering som WSL
+- Kan anvende samme Ruby- og Sinatra-setup som WSL
+
 ### Ruby & Sinatra
 
 **Ruby 3.2.x**
