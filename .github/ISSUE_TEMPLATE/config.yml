@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Project Board
+    url: https://github.com/orgs/TeamOrnOps/projects/3
+    about: View and manage issues on the project board

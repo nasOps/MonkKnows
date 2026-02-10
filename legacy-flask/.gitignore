@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# ignore DB
+*.db
+
 # C extensions
 *.so
 
@@ -164,3 +167,5 @@ cython_debug/
 
 # Ruby-Sinatra
 ruby-sinatra/vendor/
+
+.DS_Store
