@@ -1,0 +1,43 @@
+name: Documentation
+description: Create or update documentation
+title: "[DOCS]: "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What needs to be documented?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - README
+        - OpenAPI spec
+        - API docs
+        - Setup guide
+        - Architecture
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Files to create/update
+      placeholder: |
+        - README.md
+        - docs/api.md
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      placeholder: |
+        - [ ] 
+        - [ ] 
+    validations:
+      required: true
