@@ -1,0 +1,6 @@
+# DB config : skal pege til ../whoknows.db
+
+# Kan udkommenteres når db skal bruges
+#development:
+  #adapter: sqlite3
+  #database: ../whoknows.db
