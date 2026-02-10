@@ -1,1 +1,1 @@
-# Load paths, requires
+# Load gems & setup environment

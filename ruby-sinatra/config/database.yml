@@ -1,4 +1,5 @@
 # DB config : skal pege til ../whoknows.db
+# Database connection settings
 
 # Kan udkommenteres når db skal bruges
 #development:
