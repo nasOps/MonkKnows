@@ -1,6 +1,13 @@
 # DB config : skal pege til ../whoknows.db
+# Database connection settings
 
 # Kan udkommenteres når db skal bruges
 #development:
   #adapter: sqlite3
   #database: ../whoknows.db
+
+development:
+  adapter: sqlite3
+  database: ../whoknows.db
+  pool: 5
+  timeout: 5000

@@ -1,0 +1,16 @@
+<!-- Search results page -->
+
+<h1>Search Results for "<%= @query %>"</h1>
+
+<% if @results.any? %>
+  <ul>
+    <% @results.each do |page| %>
+      <li>
+        <h2><%= page.title %></h2>
+        <a href="<%= page.url %>"><%= page.url %></a>
+      </li>
+    <% end %>
+  </ul>
+<% else %>
+  <p>No results found</p>
+<% end %>
