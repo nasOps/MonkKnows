@@ -1,0 +1,71 @@
+name: Rewrite
+description: Migrate a feature from Python/Flask to Ruby/Sinatra
+title: "[REWRITE]: "
+labels: ["rewrite"]
+body:
+  - type: textarea
+    id: feature
+    attributes:
+      label: What is being migrated?
+      placeholder: "e.g., User authentication (login/logout/register)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: legacy
+    attributes:
+      label: Legacy code (Python/Flask)
+      description: Where does this live in the old codebase?
+      placeholder: |
+        - File(s): app.py lines 45-120
+        - Route(s): /login, /logout
+        - DB table(s): users
+        - Dependencies: Flask-Login
+    validations:
+      required: true
+
+  - type: textarea
+    id: ruby
+    attributes:
+      label: Ruby/Sinatra implementation
+      description: What needs to be built?
+      placeholder: |
+        - File(s): routes/auth.rb
+        - Gems: bcrypt
+        - DB changes: none
+
+  - type: textarea
+    id: openapi
+    attributes:
+      label: OpenAPI endpoints
+      placeholder: |
+        - POST /login
+        - POST /logout
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      value: |
+        - [ ] Legacy code understood
+        - [ ] Ruby implementation complete
+        - [ ] Matches OpenAPI spec
+        - [ ] Tested locally
+        - [ ] Legacy code marked for removal
+    validations:
+      required: true
+
+  - type: textarea
+    id: removal
+    attributes:
+      label: Legacy removal plan
+      description: When can the Python code be deleted?
+      placeholder: |
+        - Remove after: [milestone]
+        - Files to delete: 
+        - Cleanup: 
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context

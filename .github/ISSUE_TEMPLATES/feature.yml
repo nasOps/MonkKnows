@@ -1,0 +1,37 @@
+name: Feature
+description: Propose or plan a new feature
+title: "[FEATURE]: "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What should be built?
+    validations:
+      required: true
+
+  - type: textarea
+    id: endpoints
+    attributes:
+      label: Endpoints / Routes
+      description: If applicable, which routes does this involve?
+      placeholder: |
+        - GET /example
+        - POST /example
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      placeholder: |
+        - [ ] 
+        - [ ] 
+        - [ ] 
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
