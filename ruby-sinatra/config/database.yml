@@ -5,3 +5,9 @@
 #development:
   #adapter: sqlite3
   #database: ../whoknows.db
+
+development:
+  adapter: sqlite3
+  database: ../whoknows.db
+  pool: 5
+  timeout: 5000
