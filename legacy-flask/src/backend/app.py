@@ -97,7 +97,30 @@ def after_request(response):
 
 @app.route('/')
 def search():
-    """Shows the search page."""
+    """Serve the root search page
+    ---
+    tags:
+      - Pages
+    parameters:
+      - name: q
+        in: query
+        type: string
+        required: false
+        description: Search query (optional)
+      - name: language
+        in: query
+        type: string
+        required: false
+        default: en
+        description: Language code (e.g., 'en')
+    responses:
+      200:
+        description: Returns HTML search page
+        content:
+          text/html:
+            schema:
+              type: string
+    """
     q = request.args.get('q', None)
     language = request.args.get('language', "en")
     if not q:
@@ -110,13 +133,37 @@ def search():
 
 @app.route('/about')
 def about():
-    """Displays the about page."""
+    """Serve the about page
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: Returns HTML about page
+        content:
+          text/html:
+            schema:
+              type: string
+    """
     return render_template('about.html')
 
 
 @app.route('/login')
 def login():
-    """Displays the login page."""
+    """Serve the login page
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: Returns HTML login page
+        content:
+          text/html:
+            schema:
+              type: string
+      302:
+        description: Redirects to search if already logged in
+    """
     if g.user:
         return redirect(url_for('search'))
     return render_template('login.html')
@@ -124,7 +171,20 @@ def login():
 
 @app.route('/register')
 def register():
-    """Displays the registration page."""
+    """Serve the registration page
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: Returns HTML registration page
+        content:
+          text/html:
+            schema:
+              type: string
+      302:
+        description: Redirects to search if already logged in
+    """
     if g.user:
         return redirect(url_for('search'))
     return render_template('register.html')
@@ -139,6 +199,8 @@ def register():
 def api_search():
     """API endpoint for search
     ---
+    tags:
+        - API
     parameters:
       - name: q
         in: query
