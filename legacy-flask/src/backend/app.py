@@ -12,7 +12,7 @@ from flasgger import Swagger # openAPI Tool
 # Configuration
 ################################################################################
 
-DATABASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'whoknows.db')
+DATABASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'whoknows.db')
 PER_PAGE = 30
 DEBUG = False
 SECRET_KEY = 'development key'
