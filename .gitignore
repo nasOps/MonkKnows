@@ -1,40 +1,82 @@
-# Python
+ # ============================================
+# WhoKnows — Root .gitignore
+# Covers: Python/Flask (legacy) + Ruby/Sinatra
+# ============================================
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- IDE / Editor ----
+.idea/
+.vscode/
+
+# ---- Database ----
+*.db
+*.sqlite3
+*.sqlite3-journal
+
+# ---- Environment / Secrets ----
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ---- Python ----
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.Python
+build/
+dist/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+*.manifest
+*.spec
 
-# Virtual Environment
-venv/
-.venv/
-env/
-
-# SQLite database
-*.db
-*.sqlite3
+# Python test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
 
 # Flask
 instance/
 .webassets-cache
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment variables
-.env
-.flaskenv
+# Translations
+*.mo
+*.pot
 
 # Logs
 *.log
 
-# Database
-whoknows.db-shm
-whoknows.db-wal
+# mypy / type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+
+# ---- Ruby / Sinatra ----
+ruby-sinatra/vendor/
+ruby-sinatra/.bundle/
