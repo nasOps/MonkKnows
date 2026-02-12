@@ -6,6 +6,7 @@ import hashlib
 from datetime import datetime
 from contextlib import closing
 from flask import Flask, request, session, url_for, redirect, render_template, g, flash, jsonify
+from flasgger import Swagger # openAPI Tool
 
 ################################################################################
 # Configuration
@@ -19,6 +20,9 @@ SECRET_KEY = 'development key'
 app = Flask(__name__)
 
 app.secret_key = SECRET_KEY
+
+# Initialize Flasgger for OpenAPI spec generation
+swagger = Swagger(app)
 
 
 ################################################################################ 
@@ -93,7 +97,30 @@ def after_request(response):
 
 @app.route('/')
 def search():
-    """Shows the search page."""
+    """Serve the root search page
+    ---
+    tags:
+      - Pages
+    parameters:
+      - name: q
+        in: query
+        type: string
+        required: false
+        description: Search query (optional)
+      - name: language
+        in: query
+        type: string
+        required: false
+        default: en
+        description: Language code (e.g., 'en')
+    responses:
+      200:
+        description: Returns HTML search page
+        content:
+          text/html:
+            schema:
+              type: string
+    """
     q = request.args.get('q', None)
     language = request.args.get('language', "en")
     if not q:
@@ -106,13 +133,37 @@ def search():
 
 @app.route('/about')
 def about():
-    """Displays the about page."""
+    """Serve the about page
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: Returns HTML about page
+        content:
+          text/html:
+            schema:
+              type: string
+    """
     return render_template('about.html')
 
 
 @app.route('/login')
 def login():
-    """Displays the login page."""
+    """Serve the login page
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: Returns HTML login page
+        content:
+          text/html:
+            schema:
+              type: string
+      302:
+        description: Redirects to search if already logged in
+    """
     if g.user:
         return redirect(url_for('search'))
     return render_template('login.html')
@@ -120,7 +171,20 @@ def login():
 
 @app.route('/register')
 def register():
-    """Displays the registration page."""
+    """Serve the registration page
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: Returns HTML registration page
+        content:
+          text/html:
+            schema:
+              type: string
+      302:
+        description: Redirects to search if already logged in
+    """
     if g.user:
         return redirect(url_for('search'))
     return render_template('register.html')
@@ -133,7 +197,32 @@ def register():
 
 @app.route('/api/search')
 def api_search():
-    """API endpoint for search. Returns search results."""
+    """API endpoint for search
+    ---
+    tags:
+        - API
+    parameters:
+      - name: q
+        in: query
+        type: string
+        required: true
+        description: Search query
+      - name: language
+        in: query
+        type: string
+        required: false
+        description: Language code (e.g., 'en')
+    responses:
+      200:
+        description: Search results
+        schema:
+          type: object
+          properties:
+            search_results:
+              type: array
+              items:
+                type: object
+    """
     q = request.args.get('q', None)
     language = request.args.get('language', "en")
     if not q:
@@ -146,7 +235,29 @@ def api_search():
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
-    """Logs the user in."""
+    """Logs the user in
+    ---
+    tags:
+      - API
+    consumes:
+      - application/x-www-form-urlencoded
+    parameters:
+      - name: username
+        in: formData
+        type: string
+        required: true
+        description: Username
+      - name: password
+        in: formData
+        type: string
+        required: true
+        description: Password
+    responses:
+      200:
+        description: Login successful, redirects to search page
+      401:
+        description: Invalid credentials
+    """
     error = None
     user = query_db("SELECT * FROM users WHERE username = '%s'" % request.form['username'], one=True)
     if user is None:
@@ -162,7 +273,39 @@ def api_login():
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
-    """Registers the user."""
+    """Registers a new user
+    ---
+    tags:
+      - API
+    consumes:
+      - application/x-www-form-urlencoded
+    parameters:
+      - name: username
+        in: formData
+        type: string
+        required: true
+        description: Username
+      - name: email
+        in: formData
+        type: string
+        required: true
+        description: Email address
+      - name: password
+        in: formData
+        type: string
+        required: true
+        description: Password
+      - name: password2
+        in: formData
+        type: string
+        required: true
+        description: Password confirmation
+    responses:
+      200:
+        description: Registration successful, redirects to login
+      400:
+        description: Validation error
+    """
     if g.user:
         return redirect(url_for('search'))
     error = None
@@ -186,7 +329,14 @@ def api_register():
 
 @app.route('/api/logout')
 def logout():
-    """Logs the user out."""
+    """Logs the user out
+    ---
+    tags:
+      - API
+    responses:
+      200:
+        description: Logout successful, redirects to search page
+    """
     flash('You were logged out')
     session.pop('user_id', None)
     return redirect(url_for('search'))

@@ -1,4 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# SQLite database
+*.db
+*.sqlite3
+
+# Flask
+instance/
+.webassets-cache
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.flaskenv
+
+# Logs
+*.log
+
+# Database
 whoknows.db-shm
 whoknows.db-wal

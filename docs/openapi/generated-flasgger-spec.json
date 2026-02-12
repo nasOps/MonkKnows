@@ -1,0 +1,232 @@
+{
+  "definitions": {},
+  "info": {
+    "description": "powered by Flasgger",
+    "termsOfService": "/tos",
+    "title": "A swagger API",
+    "version": "0.0.1"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Search query (optional)",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": "en",
+            "description": "Language code (e.g., 'en')",
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Returns HTML search page"
+          }
+        },
+        "summary": "Serve the root search page",
+        "tags": ["Pages"]
+      }
+    },
+    "/about": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Returns HTML about page"
+          }
+        },
+        "summary": "Serve the about page",
+        "tags": ["Pages"]
+      }
+    },
+    "/api/login": {
+      "post": {
+        "consumes": ["application/x-www-form-urlencoded"],
+        "parameters": [
+          {
+            "description": "Username",
+            "in": "formData",
+            "name": "username",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Password",
+            "in": "formData",
+            "name": "password",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login successful, redirects to search page"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        },
+        "summary": "Logs the user in",
+        "tags": ["API"]
+      }
+    },
+    "/api/logout": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Logout successful, redirects to search page"
+          }
+        },
+        "summary": "Logs the user out",
+        "tags": ["API"]
+      }
+    },
+    "/api/register": {
+      "post": {
+        "consumes": ["application/x-www-form-urlencoded"],
+        "parameters": [
+          {
+            "description": "Username",
+            "in": "formData",
+            "name": "username",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Email address",
+            "in": "formData",
+            "name": "email",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Password",
+            "in": "formData",
+            "name": "password",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Password confirmation",
+            "in": "formData",
+            "name": "password2",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registration successful, redirects to login"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        },
+        "summary": "Registers a new user",
+        "tags": ["API"]
+      }
+    },
+    "/api/search": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Search query",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Language code (e.g., 'en')",
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "schema": {
+              "properties": {
+                "search_results": {
+                  "items": {
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          }
+        },
+        "summary": "API endpoint for search",
+        "tags": ["API"]
+      }
+    },
+    "/login": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Returns HTML login page"
+          },
+          "302": {
+            "description": "Redirects to search if already logged in"
+          }
+        },
+        "summary": "Serve the login page",
+        "tags": ["Pages"]
+      }
+    },
+    "/register": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Returns HTML registration page"
+          },
+          "302": {
+            "description": "Redirects to search if already logged in"
+          }
+        },
+        "summary": "Serve the registration page",
+        "tags": ["Pages"]
+      }
+    }
+  },
+  "swagger": "2.0"
+}

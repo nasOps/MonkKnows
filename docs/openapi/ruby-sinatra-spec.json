@@ -1,0 +1,11 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WhoKnows",
+    "version": "0.1.0",
+    "description": "Ruby/Sinatra implementation - WIP"
+},
+"paths":{
+
+}
+}
