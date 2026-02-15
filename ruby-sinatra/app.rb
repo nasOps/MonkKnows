@@ -42,7 +42,7 @@ class WhoknowsApp < Sinatra::Base
   # HTML Routes (Page Routes)
   ################################################################################
 
-  # GET / - Root/Search page
+  # GET / - Root/Search page - http://localhost:4567
   # OpenAPI: operationId "serve_root_page__get"
   get '/' do
     @query = params[:q]
