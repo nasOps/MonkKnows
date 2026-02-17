@@ -45,15 +45,22 @@ class WhoknowsApp < Sinatra::Base
   # GET / - Root/Search page - http://localhost:4567
   # OpenAPI: operationId "serve_root_page__get"
   get '/' do
-    @query = params[:q]
+    erb :index
+  end
+
+  get '/search' do
+    @q = params[:q]
     @language = params[:language] || 'en'
 
-    if @query
+    if @q && !@q.strip.empty?
       @results = Page.where(language: @language)
-                    .where("content LIKE ?", "%#{@query}%")
+                     .where("content LIKE ?", "%#{@q}%")
     else
       @results = []
     end
+
+    erb :search
+  end
 
     erb :index
   end
