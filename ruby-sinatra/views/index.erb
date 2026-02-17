@@ -1,3 +1,12 @@
 <!-- Frontpage -->
 
-Frontpage from of GET / - Root/Search page on localhost:5467
+Frontpage from of GET / - Root/Search page on localhost:4567
+
+<form action="/api/search" method="get">
+  <input type="text" name="q" placeholder="Søg..." required>
+  <select name="language">
+    <option value="en">English</option>
+    <option value="da">Dansk</option>
+  </select>
+  <button type="submit">Søg</button>
+</form>
