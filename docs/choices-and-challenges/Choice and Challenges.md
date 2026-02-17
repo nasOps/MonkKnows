@@ -304,3 +304,72 @@ ruby-sinatra/
 - Microframeworks giver frihed, men kræver disciplin
 - MVC kan tilpasses selv når framework ikke enforcer det
 - Start simple, refaktorer når smertepunkter opstår
+
+---
+
+## Initial Deployment Strategy - week 3
+
+### Context
+- Vi skulle deploye første gang i uge 3 på Azure.
+- Ingen CI endnu (kommer uge 4), Docker/CD kommer senere (uge 5–6).
+- Skolens rettigheder krævede VM-oprettelse via scripts (ikke Azure Portal UI).
+- Krav: statisk public IP (skal whitelist’es til simulation/underviser)
+
+### Challenge
+- Azure policies/regions var begrænsede → ikke alle regioner virkede.
+- VM fik ikke automatisk “stabil” IP i vores første forsøg.
+- Ruby-version mismatch på Ubuntu (3.0.2) vs projektets Ruby (3.2.3) → bundler mismatch.
+- SQLite er en fil → skulle placeres korrekt + skrive-rettigheder (WAL/SHM).
+- App skulle køre stabilt efter logout → krævede service management (systemd).
+- Port-regler/NSG priority konflikter (22 vs 80).
+
+**Overvejede alternativer:**
+- SCP upload + manual restart (simpelt, men ikke reproducérbart)
+- SSH + git pull + manual restart (simpelt, men drift “dør” ved logout uden service)
+- Cron sync + auto restart (for meget “CD” nu)
+- Build/CI/CD (for tidligt ift. kursusplan)
+
+### Choice
+**Beslutning:** Azure VM + manuel deploy via SSH + git clone/pull, med systemd til drift og Nginx som reverse proxy. Statisk public IP via Azure CLI.
+
+**Implementering:**
+
+```markdown
+1) Opret VM via lærerens scripts (Azure CLI) + Static Public IP
+2) SSH ind + apt update/full-upgrade + reboot
+3) Installer Ruby 3.2.3 via rbenv (match dev) + bundler 4.0.6
+4) Standard layout: /opt/whoknows/app (kode) + /opt/whoknows/data (db)
+5) git clone repo → bundle install
+6) Upload SQLite db med scp → styr sti via DB_PATH env-var
+7) systemd service: starter app på 127.0.0.1:4567 og overlever reboot/logout
+8) Nginx proxy: port 80 → 127.0.0.1:4567
+9) Åbn port 80 i Azure NSG med unik priority (Azure CLI kommando)
+10) Test i browser + curl mod /api/search
+```
+
+**Rationale:**
+- Minimal løsning nu, men “klar til næste step”: systemd + Nginx passer direkte ind når vi senere Dockeriserer (bytter bare ExecStart/container).
+- Reproducerbar drift uden CI/CD.
+- Sikkerhed: app lytter kun på localhost; kun Nginx eksponeres på 80.
+
+**Fordele:**
+- Stabil runtime (systemd) + restart ved crash/reboot.
+- Simple “deploy flow”: ssh → git pull → bundle install → systemctl restart.
+- Statisk public IP gør whitelisting nem.
+- Nginx gør senere TLS og routing nemmere.
+
+
+**Ulemper:**
+-Manuelt arbejde (ingen CI endnu).
+- rbenv er ekstra setup/fejlkilde ift. PATH.
+- SQLite som fil er ikke optimal til skalering.
+
+**Retrospektiv:** (Opdateres løbende)
+- Fejl i systemd pga RACK_ENV=production uden production: i database.yml → fixed ved at tilføje production config.
+- Route /search gav 404 (mens /api/search virkede) → vurderet som kode-/wiring-issue, udskudt.
+- 
+**Læring:**
+- Match runtime versions (Ruby/Bundler) mellem dev og prod tidligt.
+- Env-vars + standard /opt layout gør deploy mere robust (vi kan flytte DB + repo uden at ændre koden).
+- systemd + reverse proxy er “baseline” drift, også før CI/CD/Docker.
+- Azure NSG rules kræver unikke priorities (undgå conflicts).
