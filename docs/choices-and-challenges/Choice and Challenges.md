@@ -373,3 +373,38 @@ ruby-sinatra/
 - Env-vars + standard /opt layout gør deploy mere robust (vi kan flytte DB + repo uden at ændre koden).
 - systemd + reverse proxy er “baseline” drift, også før CI/CD/Docker.
 - Azure NSG rules kræver unikke priorities (undgå conflicts).
+
+---
+
+## OpenAPI Specification: Afvigelser fra whoknows-spec.json
+
+### Context
+Vi tog udgangspunkt i Anders' whoknows-spec.json som reference og tilpassede den til vores Ruby/Sinatra implementation. Undervejs identificerede vi steder hvor vores kode afveg fra spec, og tog bevidste beslutninger om hvad der skulle rettes og hvad der skulle beholdes.
+
+### Challenge
+Hvordan dokumenterer man et API der bevidst afviger fra referencen på enkelte punkter, uden at miste overblikket over hvad der er en fejl og hvad der er et aktivt valg?
+
+### Choice
+
+**Beslutning**: To bevidste afvigelser fra Anders' spec blev bibeholdt. Resten blev tilpasset til at følge hans spec så tæt som muligt, inklusiv brug af navngivne `$ref` schemas i components.
+
+**Hvordan valget blev truffet:**
+Vi gennemgik alle endpoints og schemas systematisk og sammenlignede dem med Anders' spec. For hver forskel vurderede vi om den skyldtes en fejl eller en bevidst implementationsbeslutning.
+
+Afvigelse 1 — `GET /` dokumenterer query parameters `q` og `language`. Anders' spec dokumenterer dem ikke, fordi hans Python-implementation bruger en separat `/search` route. Vi mergede `/search` ind i `/` for at følge spec-strukturen, og dokumenterer derfor parametrene direkte på `/`.
+
+Afvigelse 2 — `language` parameteren bruger `default: "en"` fremfor Anders' `anyOf string/null`. Vores kode bruger `params[:language] || 'en'`, hvilket betyder at parameteren aldrig er null i praksis.
+
+**Fordele:**
+- Spec afspejler hvad koden reelt gør
+- Navngivne schemas i components følger DRY-princippet og gør spec lettere at vedligeholde
+- Færre routes med samme funktionalitet
+
+**Ulemper:**
+- To punkter afviger fra Anders' spec, hvilket kan skabe forvirring ved direkte sammenligning
+- `default: "en"` er mindre eksplicit om null-håndtering end `anyOf string/null`
+
+**Læring:**
+- OpenAPI er sprogagnostisk — spec beskriver hvad API'et gør, ikke hvordan det er implementeret
+- Spec bør være en sandfærdig kontrakt for hvad API'et returnerer
+- `$ref` i components er DRY-princippet anvendt på API dokumentation
