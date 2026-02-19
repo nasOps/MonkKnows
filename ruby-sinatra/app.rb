@@ -16,8 +16,8 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
   set :views, File.expand_path('../views', __FILE__)
 
   # Session configuration (nødvendig for login/logout)
-  # enable :sessions
-  # set :session_secret, ENV.fetch('SESSION_SECRET') { 'development_secret_key' }
+   enable :sessions
+   set :session_secret, ENV.fetch('SESSION_SECRET') { 'development_secret_key' }
 
    # Test - no DB needed - http://localhost:4567/hello
   get "/hello" do
@@ -122,8 +122,32 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
 
   # GET /api/logout - User logout
   # OpenAPI: operationId "logout_api_logout_get"
-  get '/api/logout' do
+  # POST /api/login - logger brugeren ind
+  # Flask-ækvivalent: app.py linje 127-140
+  post '/api/login' do
     content_type :json
+
+    user = User.find_by(username: params[:username])
+
+    if user.nil?
+      status 422
+      return {
+        detail: [{ loc: ["body", "username"], msg: "Invalid username", type: "value_error" }]
+      }.to_json
+    end
+
+    unless user.verify_password(params[:password])
+      status 422
+      return {
+        detail: [{ loc: ["body", "password"], msg: "Invalid password", type: "value_error" }]
+      }.to_json
+    end
+
+    # Gem bruger-id i session - svarer til Flask's session['user_id'] = user['id']
+    session[:user_id] = user.id
+
+    status 200
+    { statusCode: 200, message: "You were logged in" }.to_json
   end
 
   ################################################################################
