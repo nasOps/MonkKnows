@@ -160,14 +160,6 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
   # OpenAPI: operationId "login_api_login_post"
   post '/api/login' do
     content_type :json
-  end
-
-  # GET /api/logout - User logout
-  # OpenAPI: operationId "logout_api_logout_get"
-  # POST /api/login - logger brugeren ind
-  # Flask-ækvivalent: app.py linje 127-140
-  post '/api/login' do
-    content_type :json
 
     user = User.find_by(username: params[:username])
 
@@ -190,6 +182,15 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
 
     status 200
     { statusCode: 200, message: "You were logged in" }.to_json
+  end
+
+  # GET /api/logout - User logout
+  # OpenAPI: operationId "logout_api_logout_get"
+  get '/api/logout' do
+    content_type :json
+    session.clear
+    status 200
+    { statusCode: 200, message: "You were logged out" }.to_json
   end
 
   ################################################################################
