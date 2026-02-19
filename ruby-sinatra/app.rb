@@ -52,17 +52,21 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
   # GET / - Root/Search page - http://localhost:4567
   # OpenAPI: operationId "serve_root_page__get"
   get '/' do
-    @query = params[:q]
+    erb :index
+  end
+
+  get '/search' do
+    @q = params[:q]
     @language = params[:language] || 'en'
 
-    if @query
+    if @q && !@q.strip.empty?
       @results = Page.where(language: @language)
-                    .where("content LIKE ?", "%#{@query}%")
+                     .where("content LIKE ?", "%#{@q}%")
     else
       @results = []
     end
 
-    erb :index
+    erb :search
   end
 
   # GET /weather - Weather page
@@ -94,16 +98,24 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
     q = params[:q]
     language = params[:language] || 'en'
 
-    if q.nil? || q.empty?
-      search_results = []
-    else
-      search_results = Page.where(language: language)
-                           .where("content LIKE ?", "%#{q}%")
-                           .as_json
-    end
+    if q.nil? || q.strip.empty?
+      status 422
+      {
+        statusCode: 422,
+        message: "Query parameter 'q' is required"
+      }.to_json
 
-    { data: search_results }.to_json
-  end
+    else
+    search_results = Page.where(language: language)
+                         .where("content LIKE ?", "%#{q}%")
+                         .as_json
+
+    status 200
+    {
+      data: search_results
+    }.to_json
+    end
+    end
 
   # GET /api/weather - Weather API endpoint
   # OpenAPI: operationId "weather_api_weather_get"
@@ -162,4 +174,4 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
   end
 
   run! if app_file == $0
-end
+  end

@@ -95,6 +95,8 @@ def after_request(response):
 # Page Routes
 ################################################################################
 
+# TODO: REMOVE - Replaced by Ruby/Sinatra implementation
+# LEGACY CODE - DELETE AFTER MIGRATION COMPLETE
 @app.route('/')
 def search():
     """Serve the root search page
@@ -195,6 +197,8 @@ def register():
 # API Routes
 ################################################################################
 
+# TODO: REMOVE - Replaced by Ruby/Sinatra implementation
+# LEGACY CODE - DELETE AFTER MIGRATION COMPLETE
 @app.route('/api/search')
 def api_search():
     """API endpoint for search
