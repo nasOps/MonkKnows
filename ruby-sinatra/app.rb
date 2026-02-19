@@ -125,8 +125,37 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
 
   # POST /api/register - User registration
   # OpenAPI: operationId "register_api_register_post"
+  # POST /api/register - opretter en ny bruger
+  # Flask-akvivalent: app.py linje 143-165
   post '/api/register' do
     content_type :json
+
+    password  = params[:password]
+    password2 = params[:password2]
+
+    # Tjek password-match foerst (ikke en model-validation,
+    # da password2 ikke er en kolonne i databasen)
+    if password != password2
+      status 400
+      return { statusCode: 400, message: "The two passwords do not match" }.to_json
+    end
+
+    user = User.new(
+      username: params[:username],
+      email:    params[:email],
+      password: User.hash_password(password || "")
+    )
+
+    if user.save
+      # Svarer til Flask's "You were successfully registered..."
+      status 200
+      { statusCode: 200, message: "You were successfully registered and can login now" }.to_json
+    else
+      # .errors.full_messages.first giver foerste validation-fejl
+      # f.eks. "You have to enter a username"
+      status 400
+      { statusCode: 400, message: user.errors.full_messages.first }.to_json
+    end
   end
 
   # POST /api/login - User login
