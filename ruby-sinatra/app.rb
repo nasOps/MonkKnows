@@ -132,8 +132,10 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
     # Tjek password-match foerst (ikke en model-validation,
     # da password2 ikke er en kolonne i databasen)
     if password != password2
-      status 400
-      return { statusCode: 400, message: "The two passwords do not match" }.to_json
+      status 422
+      return {
+        detail: [{ loc: ["body", "password2"], msg: "The two passwords do not match", type: "value_error" }]
+      }.to_json
     end
 
     user = User.new(
