@@ -1,12 +1,11 @@
 # Main application file - Routes + Controllers (combined)
-
+require 'dotenv/load'
 require 'sinatra'
 require 'sinatra/activerecord'
 require 'json'
 require_relative 'config/environment'
 require_relative 'models/page' 
 require_relative 'models/user'       
-# require_relative 'models/user' # Uncomment når User model er oprettet
 
 
 class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular style
