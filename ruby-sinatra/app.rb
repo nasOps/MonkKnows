@@ -72,7 +72,9 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
 
   # GET /register - Registration page
   # OpenAPI: operationId "serve_register_page_register_get"
+ # GET /register - viser registrerings-formularen
   get '/register' do
+    erb :register, locals: { error: nil }
   end
 
   # GET /login - Login page
