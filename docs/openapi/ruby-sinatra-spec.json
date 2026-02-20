@@ -1,55 +1,102 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "WhoKnows",
+    "title": "MonkKnows",
     "version": "0.1.0",
     "description": "Ruby/Sinatra implementation - WIP"
-
-},
-"paths":{
-"/api/login": {
-  "post": {
-    "summary": "Login",
-    "operationId": "login_api_login_post",
-    "requestBody": {
-      "content": {
-        "application/x-www-form-urlencoded": {
-          "schema": {
-            "type": "object",
-            "required": ["username", "password"],
-            "properties": {
-              "username": { "type": "string" },
-              "password": { "type": "string" }
-            }
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Serve Root Page",
+        "operationId": "serve_root_page__get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "en" }
           }
-        }
-      },
-      "required": true
-    },
-    "responses": {
-      "200": {
-        "description": "Login successful",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/AuthResponse"
-            }
-          }
-        }
-      },
-      "422": {
-        "description": "Validation Error",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/HTTPValidationError"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": { "type": "string" }
+              }
             }
           }
         }
       }
-    }
-  }
- },
+    },
+    "/weather": {},
+    "/register": {
+      "get": {
+        "summary": "Serve Register Page",
+        "operationId": "serve_register_page_register_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login": {},
+    "/api/search": {
+      "get": {
+        "summary": "Search",
+        "operationId": "search_api_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "en" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/weather": {},
     "/api/register": {
       "post": {
         "summary": "Register",
@@ -58,14 +105,7 @@
           "content": {
             "application/x-www-form-urlencoded": {
               "schema": {
-                "type": "object",
-                "required": ["username", "email", "password"],
-                "properties": {
-                  "username": { "type": "string" },
-                  "email": { "type": "string" },
-                  "password": { "type": "string" },
-                  "password2": { "type": "string" }
-                }
+                "$ref": "#/components/schemas/Body_register_api_register_post"
               }
             }
           },
@@ -94,49 +134,173 @@
           }
         }
       }
+    },
+    "/api/login": {
+      "post": {
+        "summary": "Login",
+        "operationId": "login_api_login_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_login_api_login_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logout": {
+      "get": {
+        "summary": "Logout",
+        "operationId": "logout_api_logout_get",
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
       "AuthResponse": {
         "type": "object",
+        "title": "AuthResponse",
         "properties": {
           "statusCode": {
             "anyOf": [{ "type": "integer" }, { "type": "null" }],
+            "title": "Statuscode",
             "description": "HTTP status code"
           },
           "message": {
             "anyOf": [{ "type": "string" }, { "type": "null" }],
+            "title": "Message",
             "description": "Response message"
           }
         }
       },
+      "Body_login_api_login_post": {
+        "type": "object",
+        "title": "Body_login_api_login_post",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "title": "Username" },
+          "password": { "type": "string", "title": "Password" }
+        }
+      },
+      "Body_register_api_register_post": {
+        "type": "object",
+        "title": "Body_register_api_register_post",
+        "required": ["username", "email", "password"],
+        "properties": {
+          "username": { "type": "string", "title": "Username" },
+          "email": { "type": "string", "title": "Email" },
+          "password": { "type": "string", "title": "Password" },
+          "password2": { "type": "string", "title": "Password2" }
+        }
+      },
       "HTTPValidationError": {
         "type": "object",
+        "title": "HTTPValidationError",
         "properties": {
           "detail": {
             "type": "array",
+            "title": "Detail",
             "items": {
               "$ref": "#/components/schemas/ValidationError"
             }
           }
         }
       },
+      "RequestValidationError": {
+        "type": "object",
+        "title": "RequestValidationError",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "default": 422,
+            "title": "Statuscode",
+            "description": "HTTP status code. Defaulting to HTTP 422 Unprocessable Entity."
+          },
+          "message": {
+            "anyOf": [{ "type": "string" }, { "type": "null" }],
+            "title": "Message",
+            "description": "Detail of the validation error"
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "title": "SearchResponse",
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "title": "Data",
+            "items": { "type": "object" },
+            "description": "List of data dictionaries with mixed types."
+          }
+        }
+      },
+      "StandardResponse": {
+        "type": "object",
+        "title": "StandardResponse",
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "title": "Data",
+            "description": "Dictionary with mixed types."
+          }
+        }
+      },
       "ValidationError": {
         "type": "object",
+        "title": "ValidationError",
         "required": ["loc", "msg", "type"],
         "properties": {
           "loc": {
             "type": "array",
+            "title": "Location",
             "items": {
               "anyOf": [{ "type": "string" }, { "type": "integer" }]
             }
           },
-          "msg": { "type": "string" },
-          "type": { "type": "string" }
+          "msg": { "type": "string", "title": "Message" },
+          "type": { "type": "string", "title": "Error Type" }
         }
       }
     }
   }
 }
-

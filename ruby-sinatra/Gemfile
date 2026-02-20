@@ -6,7 +6,7 @@ gem "sinatra", "~> 3.0"
 gem "sinatra-activerecord"
 gem "activerecord", "~> 7.0"
 gem "sqlite3", "~> 1.6"
-#gem "webrick" # Required for Ruby 3.0 and later to run Sinatra with the default server
-# gem "ostruct"
+gem "ostruct" # We avoid this warning: warning: ostruct was loaded from the standard library, but will no longer be part of the default gems starting from Ruby 4.0.0.
 gem "rackup"
 gem "puma"
+gem "dotenv"

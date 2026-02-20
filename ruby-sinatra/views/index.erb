@@ -1,11 +1,22 @@
-<!-- Frontpage -->
-
 <!-- Frontpage from of GET / - Root/Search page on localhost:4567 -->
 
-<form action="/search" method="get">
-  <input type="text" name="q" placeholder="Søg..." required>
+<form action="/" method="get">
+  <input type="text" name="q" value="<%= @q %>" placeholder="Søg..." >
   <select name="language">
     <option value="en">English</option>
   </select>
   <button type="submit">Søg</button>
 </form>
+
+<% if @results && @results.any? %>
+  <ul>
+    <% @results.each do |page| %>
+      <li>
+        <h2><%= page.title %></h2>
+        <a href="<%= page.url %>"><%= page.url %></a>
+      </li>
+    <% end %>
+  </ul>
+<% elsif @q && !@q.strip.empty? %>
+  <p>No results found</p>
+<% end %>

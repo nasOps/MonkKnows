@@ -1,12 +1,11 @@
 # Main application file - Routes + Controllers (combined)
-
+require 'dotenv/load'
 require 'sinatra'
 require 'sinatra/activerecord'
 require 'json'
 require_relative 'config/environment'
 require_relative 'models/page' 
 require_relative 'models/user'       
-# require_relative 'models/user' # Uncomment når User model er oprettet
 
 
 class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular style
@@ -52,10 +51,6 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
   # GET / - Root/Search page - http://localhost:4567
   # OpenAPI: operationId "serve_root_page__get"
   get '/' do
-    erb :index
-  end
-
-  get '/search' do
     @q = params[:q]
     @language = params[:language] || 'en'
 
@@ -66,7 +61,7 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
       @results = []
     end
 
-    erb :search
+    erb :index
   end
 
   # GET /weather - Weather page
@@ -136,8 +131,10 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
     # Tjek password-match foerst (ikke en model-validation,
     # da password2 ikke er en kolonne i databasen)
     if password != password2
-      status 400
-      return { statusCode: 400, message: "The two passwords do not match" }.to_json
+      status 422
+      return {
+        detail: [{ loc: ["body", "password2"], msg: "The two passwords do not match", type: "value_error" }]
+      }.to_json
     end
 
     user = User.new(
@@ -153,21 +150,13 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
     else
       # .errors.full_messages.first giver foerste validation-fejl
       # f.eks. "You have to enter a username"
-      status 400
-      { statusCode: 400, message: user.errors.full_messages.first }.to_json
+      status 422
+      { detail: [{ loc: ["body"], msg: user.errors.full_messages.first, type: "value_error" }] }.to_json
     end
   end
 
   # POST /api/login - User login
   # OpenAPI: operationId "login_api_login_post"
-  post '/api/login' do
-    content_type :json
-  end
-
-  # GET /api/logout - User logout
-  # OpenAPI: operationId "logout_api_logout_get"
-  # POST /api/login - logger brugeren ind
-  # Flask-ækvivalent: app.py linje 127-140
   post '/api/login' do
     content_type :json
 
@@ -192,6 +181,15 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
 
     status 200
     { statusCode: 200, message: "You were logged in" }.to_json
+  end
+
+  # GET /api/logout - User logout
+  # OpenAPI: operationId "logout_api_logout_get"
+  get '/api/logout' do
+    content_type :json
+    session.clear
+    status 200
+    { statusCode: 200, message: "You were logged out" }.to_json
   end
 
   ################################################################################
