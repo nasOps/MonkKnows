@@ -68,6 +68,10 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
   # GET /weather - Weather page
   # OpenAPI: operationId "serve_weather_page_weather_get"
   get '/weather' do
+    content_type :html
+    status 200
+    @weather = WeatherService.fetch # @weather makes it accessible in weather.erb
+    erb :weather
   end
 
   # GET /register - Registration page

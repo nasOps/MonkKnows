@@ -408,3 +408,46 @@ Afvigelse 2 — `language` parameteren bruger `default: "en"` fremfor Anders' `a
 - OpenAPI er sprogagnostisk — spec beskriver hvad API'et gør, ikke hvordan det er implementeret
 - Spec bør være en sandfærdig kontrakt for hvad API'et returnerer
 - `$ref` i components er DRY-princippet anvendt på API dokumentation
+
+---
+
+## 3rd party Integration af weather API
+
+### Context
+
+### Challenge
+- Frontend eller backend implementering?
+
+**Overvejede alternativer:**
+- Frontend: Fetch direkte fra browser → mindre backend kode
+
+### Choice
+**Beslutning:** Backend implementering
+
+**Implementering:**
+
+```markdown
+1) Valg af tredjepart: OpenWeather API (https://openweathermap.org/api)
+2) Serviceklasse oprettet til at håndtere tredjeparts API integration isoleret fra routes
+3) API key gemt i environment variable (WEATHER_API_KEY)
+4) Endpoint i app.rb /api/weather og /weather
+5) Tilføjede in-memory caching ved at bruge klasse-variabel for at reducere antal API calls som har rate limits på gratis subscription
+```
+
+**Rationale:**
+
+
+**Fordele:**
+- Rate limit kontrol med caching: et request sendes til API, 100 brugere får cached svar
+- Ingen CORS problemer (hvis frontend fetcher direkte fra browser, skal API'en håndtere CORS headers)
+- API nøgle eksponeres ikke (som i frontend kode)
+
+**Ulemper:**
+- Mere server load
+- Mere kode: HTTP client, error handling, caching-logik, ENV variabler
+
+**Retrospektiv:** (Opdateres løbende)
+
+-
+**Læring:**
+
