@@ -414,6 +414,9 @@ Afvigelse 2 — `language` parameteren bruger `default: "en"` fremfor Anders' `a
 ## 3rd party Integration af weather API
 
 ### Context
+- Ny feature: vise vejrdata i applikationen via ekstern service.
+- OpenAPI-spec krævede /api/weather (JSON) og /weather (HTML).
+- Underviser simulerer load og kan ramme endpoint mange gange.
 
 ### Challenge
 - Frontend eller backend implementering?
@@ -428,26 +431,38 @@ Afvigelse 2 — `language` parameteren bruger `default: "en"` fremfor Anders' `a
 
 ```markdown
 1) Valg af tredjepart: OpenWeather API (https://openweathermap.org/api)
-2) Serviceklasse oprettet til at håndtere tredjeparts API integration isoleret fra routes
-3) API key gemt i environment variable (WEATHER_API_KEY)
-4) Endpoint i app.rb /api/weather og /weather
-5) Tilføjede in-memory caching ved at bruge klasse-variabel for at reducere antal API calls som har rate limits på gratis subscription
+2) Serviceklasse (WeatherService) isolerer integration fra routes
+3) API key gemt i environment variable (OPENWEATHER_API_KEY)
+4) GET /api/weather returnerer JSON (StandardResponse)
+5) Tilføjede in-memory caching ved at bruge klasse-variabel for at reducere antal API calls som har rate limits på gratis subscription (10 min TTL)
 ```
 
 **Rationale:**
+Backend integration giver bedre kontrol over:
+- Security (API key eksponeres ikke)
+- Rate limiting (caching reducerer calls)
+- Fejlhåndtering og fallback 
+- Overholdelse af OpenAPI-kontrakt 
 
+Valget understøtter DevOps-principper:
+- Separation of concerns 
+- Secret management via environment variables 
+- Robusthed mod eksterne afhængigheder
 
 **Fordele:**
 - Rate limit kontrol med caching: et request sendes til API, 100 brugere får cached svar
 - Ingen CORS problemer (hvis frontend fetcher direkte fra browser, skal API'en håndtere CORS headers)
-- API nøgle eksponeres ikke (som i frontend kode)
+- API nøgle eksponeres ikke i frontend
+- Centraliseret fejlhåndtering i backend
 
 **Ulemper:**
 - Mere server load
 - Mere kode: HTTP client, error handling, caching-logik, ENV variabler
 
 **Retrospektiv:** (Opdateres løbende)
+-OpenWeather API keys har aktiveringsforsinkelse (ikke instant)
 
--
 **Læring:**
+- Vigtigheden af at isolere ekstern integration i service layer
+- Caching som strategi mod rate limiting og load
 
