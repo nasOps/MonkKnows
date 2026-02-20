@@ -25,6 +25,8 @@ class WeatherService
     response = Net::HTTP.get_response(uri) # Making the HTTP GET request to the weather API
 
     unless response.is_a?(Net::HTTPSuccess) # Checking if the response is successful (status code 200)
+      # 🔥 Fallback to cache if available
+      return @@cache if @@cache
       raise "Weather API error: #{response.code}"
     end
 
