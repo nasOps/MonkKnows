@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # = (Less memory usage by freezing string literals)
 
 # Main application file - Routes + Controllers (combined)
@@ -20,7 +21,7 @@ class WhoknowsApp < Sinatra::Base
 
   # Session configuration (nødvendig for login/logout)
   enable :sessions
-  set :session_secret, ENV.fetch('SESSION_SECRET') { 'development_secret_key' }
+  set :session_secret, ENV.fetch('SESSION_SECRET', 'development_secret_key')
 
   # Test - no DB needed - http://localhost:4567/hello
   get '/hello' do
