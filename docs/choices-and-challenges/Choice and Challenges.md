@@ -376,35 +376,96 @@ ruby-sinatra/
 
 ---
 
-## OpenAPI Specification: Afvigelser fra whoknows-spec.json
+## Implementering af GitHub Actions CI pipeline
 
 ### Context
-Vi tog udgangspunkt i Anders' whoknows-spec.json som reference og tilpassede den til vores Ruby/Sinatra implementation. Undervejs identificerede vi steder hvor vores kode afveg fra spec, og tog bevidste beslutninger om hvad der skulle rettes og hvad der skulle beholdes.
+Projektet migreres fra Flask til Sinatra.
+Der var ingen automatisk validering af:
+- Tests
+- Code style
+- Dependency consistency
+Vi ønskede en deterministisk og reproducerbar build-proces.
 
 ### Challenge
-Hvordan dokumenterer man et API der bevidst afviger fra referencen på enkelte punkter, uden at miste overblikket over hvad der er en fejl og hvad der er et aktivt valg?
+- Monorepo struktur (Flask + Ruby i samme repo)
+- Ruby-projekt ligger i subfolder (ruby-sinatra)
+- Environment variables (SESSION_SECRET) manglede i CI
+- Gemfile og Gemfile.lock skulle være synkroniseret
 
 ### Choice
+**Beslutning:**
+Vi implementerede en GitHub Actions CI pipeline med:
+- ruby/setup-ruby
+- Fast Ruby-version (3.2.3)
+- Bundler install
+- RuboCop lint step
+- RSpec test step
 
-**Beslutning**: To bevidste afvigelser fra Anders' spec blev bibeholdt. Resten blev tilpasset til at følge hans spec så tæt som muligt, inklusiv brug af navngivne `$ref` schemas i components.
+**Rationale:**
+- GitHub Actions er native i GitHub
+- Minimal opsætning
+- Understøtter caching og version pinning 
 
-**Hvordan valget blev truffet:**
-Vi gennemgik alle endpoints og schemas systematisk og sammenlignede dem med Anders' spec. For hver forskel vurderede vi om den skyldtes en fejl eller en bevidst implementationsbeslutning.
+**Fordele (forudset):**
+- Automatisk test ved push og pull request
+- Deterministisk build (Ruby-version pinned)
+- Fanger fejl før merge
+- Sikrer Gemfile.lock konsistens (frozen mode)
 
-Afvigelse 1 — `GET /` dokumenterer query parameters `q` og `language`. Anders' spec dokumenterer dem ikke, fordi hans Python-implementation bruger en separat `/search` route. Vi mergede `/search` ind i `/` for at følge spec-strukturen, og dokumenterer derfor parametrene direkte på `/`.
+**Ulemper (forudset):**
+- Kræver korrekt environment setup
+- Monorepo kræver eksplicit working-directory
+- CI kan fejle på små lint-fejl (strengt setup)
 
-Afvigelse 2 — `language` parameteren bruger `default: "en"` fremfor Anders' `anyOf string/null`. Vores kode bruger `params[:language] || 'en'`, hvilket betyder at parameteren aldrig er null i praksis.
+**Retrospektiv:**
 
-**Fordele:**
-- Spec afspejler hvad koden reelt gør
-- Navngivne schemas i components følger DRY-princippet og gør spec lettere at vedligeholde
-- Færre routes med samme funktionalitet
-
-**Ulemper:**
-- To punkter afviger fra Anders' spec, hvilket kan skabe forvirring ved direkte sammenligning
-- `default: "en"` er mindre eksplicit om null-håndtering end `anyOf string/null`
 
 **Læring:**
-- OpenAPI er sprogagnostisk — spec beskriver hvad API'et gør, ikke hvordan det er implementeret
-- Spec bør være en sandfærdig kontrakt for hvad API'et returnerer
-- `$ref` i components er DRY-princippet anvendt på API dokumentation
+- CI kører i et rent miljø – intet er implicit
+- Environment variables skal eksplicit sættes
+- Gemfile.lock er kritisk for stabile builds
+- SHA pinning kan give kompatibilitetsudfordringer
+
+---
+
+## Integration af RuboCop som quality gate
+
+### Context
+Koden havde inkonsistent formatting og ingen style enforcement.
+Projektet er i migreringsfase, hvilket øger risiko for teknisk gæld.
+
+### Challenge
+- 100+ initial offenses
+- Windows line endings (CRLF)
+- Strenge default regler
+- Placeholder-metoder under migration
+
+### Choice
+**Beslutning:** Vi integrerede RuboCop med projekt-tilpasset .rubocop.yml.
+
+**Rationale:**
+- RuboCop er standard i Ruby-økosystemet
+- Let integration i CI
+- Understøtter safe og unsafe autocorrect
+- Giver ensartet code style
+
+**Fordele (forudset):**
+- Konsistent kodebase
+- Reducerer style-diskussioner i PR
+- Automatisk enforcement via CI
+- Etablerer clean baseline (0 offenses)
+
+**Ulemper (forudset):**
+- Kan virke rigidt 
+- Kræver initial oprydning
+- Regler skal tilpasses projektets fase
+
+**Retrospektiv:**
+
+
+**Læring:**
+- Safe vs Unsafe autocorrect er vigtigt at forstå
+- Lint bør tunes – ikke blindt accepteres
+- Empty methods kan være legitime under migration
+
+---
