@@ -1,0 +1,15 @@
+AllCops:
+  TargetRubyVersion: 3.2.3 # Matches our runtime Ruby version
+  NewCops: enable
+  Exclude:
+    - 'db/schema.rb'
+    - 'vendor/**/*'
+
+Layout/LineLength:
+  Max: 120
+
+Metrics/ClassLength:
+  Max: 200
+
+Style/Documentation:
+  Enabled: false
