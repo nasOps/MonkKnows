@@ -26,8 +26,11 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@09a7688d3b55cf0e976497ff046b70949eeaccfd
         with:
-          ruby-version: ruby-sinatra/.ruby-version
+          ruby-version: '3.2.3'
           bundler-cache: true  # cacher gems automatically for faster builds
+
+      - name: Run RuboCop
+        run: bundle exec rubocop
 
       # Run  tests
       - name: Run tests
