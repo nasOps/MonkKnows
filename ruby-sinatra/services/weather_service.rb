@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Integration layer for weather API
 
 require 'net/http' # To make HTTP requests to the weather API
