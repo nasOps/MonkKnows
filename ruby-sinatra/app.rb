@@ -59,12 +59,12 @@ class WhoknowsApp < Sinatra::Base
     @q = params[:q]
     @language = params[:language] || 'en'
 
-    if @q && !@q.strip.empty?
-      @results = Page.where(language: @language)
-                     .where("content LIKE ?", "%#{@q}%")
-    else
-      @results = []
-    end
+    @results = if @q && !@q.strip.empty?
+                 Page.where(language: @language)
+                     .where('content LIKE ?', "%#{@q}%")
+               else
+                 []
+               end
 
     erb :index
   end
@@ -133,14 +133,14 @@ class WhoknowsApp < Sinatra::Base
       { data: weather_data }.to_json
 
       # Error handling below is not defined in the OpenAPI Spec
-    rescue => e
+    rescue StandardError => e
       status 500
       {
         detail: [
           {
-            loc: ["server"],
+            loc: ['server'],
             msg: e.message,
-            type: "external_service_error"
+            type: 'external_service_error'
           }
         ]
       }.to_json
