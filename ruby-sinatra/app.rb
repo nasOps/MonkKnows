@@ -7,7 +7,7 @@ require_relative 'config/environment'
 require_relative 'models/page' 
 require_relative 'models/user'       
 
-
+# TODO Change class name to MonkKnowsApp
 class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular style
   register Sinatra::ActiveRecordExtension
 
