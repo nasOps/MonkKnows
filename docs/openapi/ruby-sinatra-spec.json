@@ -36,7 +36,24 @@
         }
       }
     },
-    "/weather": {},
+    "/weather": {
+      "get": {
+        "summary": "Serve Weather Page",
+        "operationId": "serve_weather_page_weather_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/register": {
       "get": {
         "summary": "Serve Register Page",
