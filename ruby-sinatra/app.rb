@@ -5,7 +5,8 @@ require 'sinatra/activerecord'
 require 'json'
 require_relative 'config/environment'
 require_relative 'models/page' 
-require_relative 'models/user'       
+require_relative 'models/user'
+require_relative 'services/weather_service'
 
 
 class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular style
@@ -67,6 +68,10 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
   # GET /weather - Weather page
   # OpenAPI: operationId "serve_weather_page_weather_get"
   get '/weather' do
+    content_type :html
+    status 200
+    @weather = WeatherService.fetch # @weather makes it accessible in weather.erb
+    erb :weather
   end
 
   # GET /register - Registration page
@@ -110,12 +115,32 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
       data: search_results
     }.to_json
     end
-    end
+  end
 
   # GET /api/weather - Weather API endpoint
   # OpenAPI: operationId "weather_api_weather_get"
   get '/api/weather' do
     content_type :json
+
+    begin
+      weather_data = WeatherService.fetch
+
+      status 200
+      { data: weather_data }.to_json
+
+      # Error handling below is not defined in the OpenAPI Spec
+    rescue => e
+      status 500
+      {
+        detail: [
+          {
+            loc: ["server"],
+            msg: e.message,
+            type: "external_service_error"
+          }
+        ]
+      }.to_json
+    end
   end
 
   # POST /api/register - User registration
