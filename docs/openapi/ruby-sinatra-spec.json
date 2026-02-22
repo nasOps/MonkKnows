@@ -53,7 +53,24 @@
         }
       }
     },
-    "/login": {},
+    "/login": {
+      "get": {
+        "summary": "Login",
+        "operationId": "serve_login_page_login_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              } 
+            }
+          }
+        } 
+      }
+    },
     "/api/search": {
       "get": {
         "summary": "Search",
