@@ -1,12 +1,22 @@
 # frozen_string_literal: true
 
-source "https://rubygems.org"
+source 'https://rubygems.org'
 
-gem "sinatra", "~> 3.0"
-gem "sinatra-activerecord"
-gem "activerecord", "~> 7.0"
-gem "sqlite3", "~> 1.6"
-gem "ostruct" # We avoid this warning: warning: ostruct was loaded from the standard library, but will no longer be part of the default gems starting from Ruby 4.0.0.
-gem "rackup"
-gem "puma"
-gem "dotenv"
+gem 'activerecord', '~> 7.0'
+# ostruct is no longer part of default gems from Ruby 4.0
+# so we include it explicitly to avoid warnings
+gem 'ostruct'
+gem 'rackup'
+gem 'sinatra', '~> 3.0'
+gem 'sinatra-activerecord'
+gem 'sqlite3', '~> 1.6'
+
+group :test do
+  gem 'rack-test' # Simulates HTTP requests in tests
+  gem 'rspec'
+end
+
+group :development, :test do
+  gem 'dotenv'
+  gem 'rubocop', '~> 1.60', require: false # When app is running, don't load RuboCop. We load it through CLI
+end

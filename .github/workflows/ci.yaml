@@ -1,0 +1,38 @@
+name: Ruby CI (Build & Test)
+
+# Workflow triggers
+on:
+  pull_request:
+    branches: [ main, development ]
+  push:
+    branches: [ main, development ]
+
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ruby-sinatra # Because ci.yaml is in the root
+
+    steps:
+      # Checkout repository
+      - name: Checkout source code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      # Install Ruby
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@09a7688d3b55cf0e976497ff046b70949eeaccfd
+        with:
+          ruby-version: '3.2.3'
+          bundler-cache: true  # cacher gems automatically for faster builds
+          working-directory: ruby-sinatra
+
+      - name: Run RuboCop
+        run: bundle exec rubocop
+
+      # Run  tests
+      - name: Run tests
+        run: bundle exec rspec # RSpec = test framework for Ruby

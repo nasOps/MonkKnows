@@ -1,41 +1,45 @@
+# frozen_string_literal: true
+
+# = (Less memory usage by freezing string literals)
+
 # Main application file - Routes + Controllers (combined)
 require 'dotenv/load'
 require 'sinatra'
 require 'sinatra/activerecord'
 require 'json'
 require_relative 'config/environment'
-require_relative 'models/page' 
+require_relative 'models/page'
 require_relative 'models/user'
 require_relative 'services/weather_service'
 
-
-class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular style
+# App is defined as modular Sinatra class
+class WhoknowsApp < Sinatra::Base
   register Sinatra::ActiveRecordExtension
 
   # Sinatra configuration
-  set :public_folder, File.expand_path('../public', __FILE__)
-  set :views, File.expand_path('../views', __FILE__)
+  set :public_folder, File.expand_path('public', __dir__)
+  set :views, File.expand_path('views', __dir__)
 
   # Session configuration (nødvendig for login/logout)
-   enable :sessions
-   set :session_secret, ENV.fetch('SESSION_SECRET') { 'development_secret_key' }
+  enable :sessions
+  set :session_secret,
+      ENV.fetch('SESSION_SECRET') { 'x' * 64 }
 
-   # Test - no DB needed - http://localhost:4567/hello
-  get "/hello" do
-    "Sinatra says Hello World!"
+  # Test - no DB needed - http://localhost:4567/hello
+  get '/hello' do
+    'Sinatra says Hello World!'
   end
 
-  get "/health" do
+  get '/health' do
     status 200
-    "ok"
+    'ok'
   end
-
 
   ################################################################################
   # Before/After Request Handlers
   ################################################################################
 
-   before do
+  before do
     # Tilsvarende Flask's before_request
     # Tjek om bruger er logged in, load user fra session, etc.
   end
@@ -76,7 +80,7 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
 
   # GET /register - Registration page
   # OpenAPI: operationId "serve_register_page_register_get"
- # GET /register - viser registrerings-formularen
+  # GET /register - viser registrerings-formularen
   get '/register' do
     erb :register, locals: { error: nil }
   end
@@ -106,14 +110,14 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
       }.to_json
 
     else
-    search_results = Page.where(language: language)
-                         .where("content LIKE ?", "%#{q}%")
-                         .as_json
+      search_results = Page.where(language: language)
+                           .where('content LIKE ?', "%#{q}%")
+                           .as_json
 
-    status 200
-    {
-      data: search_results
-    }.to_json
+      status 200
+      {
+        data: search_results
+      }.to_json
     end
   end
 
@@ -158,25 +162,25 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
     if password != password2
       status 422
       return {
-        detail: [{ loc: ["body", "password2"], msg: "The two passwords do not match", type: "value_error" }]
+        detail: [{ loc: %w[body password2], msg: 'The two passwords do not match', type: 'value_error' }]
       }.to_json
     end
 
     user = User.new(
       username: params[:username],
-      email:    params[:email],
-      password: User.hash_password(password || "")
+      email: params[:email],
+      password: User.hash_password(password || '')
     )
 
     if user.save
       # Svarer til Flask's "You were successfully registered..."
       status 200
-      { statusCode: 200, message: "You were successfully registered and can login now" }.to_json
+      { statusCode: 200, message: 'You were successfully registered and can login now' }.to_json
     else
       # .errors.full_messages.first giver foerste validation-fejl
       # f.eks. "You have to enter a username"
       status 422
-      { detail: [{ loc: ["body"], msg: user.errors.full_messages.first, type: "value_error" }] }.to_json
+      { detail: [{ loc: ['body'], msg: user.errors.full_messages.first, type: 'value_error' }] }.to_json
     end
   end
 
@@ -190,14 +194,14 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
     if user.nil?
       status 422
       return {
-        detail: [{ loc: ["body", "username"], msg: "Invalid username", type: "value_error" }]
+        detail: [{ loc: %w[body username], msg: 'Invalid username', type: 'value_error' }]
       }.to_json
     end
 
     unless user.verify_password(params[:password])
       status 422
       return {
-        detail: [{ loc: ["body", "password"], msg: "Invalid password", type: "value_error" }]
+        detail: [{ loc: %w[body password], msg: 'Invalid password', type: 'value_error' }]
       }.to_json
     end
 
@@ -205,7 +209,7 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
     session[:user_id] = user.id
 
     status 200
-    { statusCode: 200, message: "You were logged in" }.to_json
+    { statusCode: 200, message: 'You were logged in' }.to_json
   end
 
   # GET /api/logout - User logout
@@ -214,7 +218,7 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
     content_type :json
     session.clear
     status 200
-    { statusCode: 200, message: "You were logged out" }.to_json
+    { statusCode: 200, message: 'You were logged out' }.to_json
   end
 
   ################################################################################
@@ -222,17 +226,13 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
   ################################################################################
 
   helpers do
-    def current_user
-    end
+    def current_user; end
 
-    def logged_in?
-    end
+    def logged_in?; end
 
-    def hash_password(password)
-    end
+    def hash_password(password); end
 
-    def verify_password(stored_hash, password)
-    end
+    def verify_password(stored_hash, password); end
   end
 
   ################################################################################
@@ -249,5 +249,5 @@ class WhoknowsApp < Sinatra::Base # App is defined as a Ruby-class = modular sty
     status 500
   end
 
-  run! if app_file == $0
-  end
+  run! if app_file == $PROGRAM_NAME
+end
