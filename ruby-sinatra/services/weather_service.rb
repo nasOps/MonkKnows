@@ -6,7 +6,7 @@ require 'net/http' # To make HTTP requests to the weather API
 require 'json' # To parse JSON responses from the weather API
 
 class WeatherService
-  BASE_URL = 'https://api.openweathermap.org/data/2.5/weather'.freeze
+  BASE_URL = 'https://api.openweathermap.org/data/2.5/weather'
 
   # ---- Caching mechanism to reduce API calls and improve performance ----
   CACHE_DURATION = 600 # 10 minutter

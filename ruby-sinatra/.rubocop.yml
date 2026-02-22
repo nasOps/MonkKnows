@@ -11,6 +11,13 @@ Layout/LineLength:
 Metrics/ClassLength:
   Max: 200
 
+Metrics/MethodLength:
+  Max: 25
+
+# Code complexity, a bit high but pragmatical
+Metrics/AbcSize:
+  Max: 30
+
 Style/Documentation:
   Enabled: false
 
