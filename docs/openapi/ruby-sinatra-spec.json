@@ -113,7 +113,24 @@
         }
       }
     },
-    "/api/weather": {},
+    "/api/weather": {
+      "get": {
+        "summary": "Weather",
+        "operationId": "weather_api_weather_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/register": {
       "post": {
         "summary": "Register",
