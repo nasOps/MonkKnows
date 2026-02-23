@@ -1,7 +1,9 @@
 # Whoknows – Flask → Sinatra Migration
 
-![<CI Pipeline Main>](https://github.com/<nasops>/<monkknows>/actions/workflows/<ci.yml>/badge.svg?branch=main)
-![<CI Pipeline Developement>](https://github.com/<nasops>/<monkknows>/actions/workflows/<ci.yml>/badge.svg?branch=development)
+![<CI Pipeline Main>](https://github.com/nasops/monkknows/actions/workflows/ci.yml/badge.svg?branch=main)
+![<CI Pipeline Developement>](https://github.com/nasops/monkknows/actions/workflows/ci.yml/badge.svg?branch=development)
+
+https://github.com/nasOps/MonkKnows/blob/development/.github/workflows/ci.yaml
 
 Dette repository indeholder et legacy **Flask (Python)** projekt, som migreres gradvist til **Sinatra (Ruby)** som en del af et DevOps-/datamatikerprojekt.
 
