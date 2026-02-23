@@ -1,27 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>WhoKnows</title>
+  <title>MonkKnows</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div class="page">
   <div class="navigation">
     <nav>
-      <h1><a id="nav-logo" href="/">WhoKnows</a></h1>
-      <% if logged_in? %>
-        <a id="nav-logout" href="#" onclick="logoutUser(); return false;">
-          Log out [<%= current_user.username %>]
-        </a>
-      <% else %>
-        <a id="nav-login" href="/login">Log in</a>
-        <a id="nav-register" href="/register">Register</a>
-      <% end %>
-      <a href="/weather">Weather</a>
+      <h1><a id="nav-logo" href="/">MonkKnows</a></h1>
+      <div class="nav-right">
+        <% if logged_in? %>
+          <a id="nav-logout" href="#" onclick="logoutUser(); return false;">
+            Log out [<%= current_user.username %>]
+          </a>
+        <% else %>
+          <a id="nav-login" href="/login">Log in</a>
+          <a id="nav-register" href="/register">Register</a>
+        <% end %>
+        <a href="/weather">Weather</a>
+      </div>
     </nav>
   </div>
 
   <div class="body">
+    <div id="toast" class="toast" style="display:none"></div>
     <%= yield %>
   </div>
 
@@ -31,11 +34,25 @@
 </div>
 
 <script>
+  // Show toast if a message was stored before a redirect
+  const toastMsg = sessionStorage.getItem('flash');
+  if (toastMsg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = toastMsg;
+    toast.style.display = 'block';
+    sessionStorage.removeItem('flash');
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.style.display = 'none', 800);
+    }, 3000);
+  }
+
   function logoutUser() {
     fetch('/api/logout')
       .then(response => response.json())
       .then(data => {
         if (data.statusCode === 200) {
+          sessionStorage.setItem('flash', 'You were logged out successfully.');
           window.location.href = '/';
         }
       });
