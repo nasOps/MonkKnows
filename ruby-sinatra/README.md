@@ -4,7 +4,6 @@ Dette repository indeholder et legacy **Flask (Python)** projekt, som migreres g
 
 Målet er at omskrive applikationen **inkrementelt**, uden at bryde eksisterende funktionalitet.
 
----
 
 ## Repository struktur
 
@@ -218,8 +217,6 @@ Configuration is in `.rubocop.yml`. RuboCop runs automatically in CI on push and
 - Klar adskillelse mellem legacy og ny kode
 - Inkrementel migration (ingen big-bang rewrite)
 - Dokumenterede teknologivalg
-
----
 
 ## Videre arbejde
 
