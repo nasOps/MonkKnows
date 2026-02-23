@@ -42,8 +42,9 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   before do
-    # Tilsvarende Flask's before_request
-    # Tjek om bruger er logged in, load user fra session, etc.
+    # Flask-ækvivalent: g.user = query_db("SELECT * FROM users WHERE id = ...", one=True)
+    @current_user = nil
+    @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
   end
 
   after do
@@ -232,13 +233,13 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   helpers do
-    def current_user; end
+    def current_user
+      @current_user
+    end
 
-    def logged_in?; end
-
-    def hash_password(password); end
-
-    def verify_password(stored_hash, password); end
+    def logged_in?
+      !@current_user.nil?
+    end
   end
 
   ################################################################################
