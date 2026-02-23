@@ -61,7 +61,7 @@ RSpec.configure do |config|
         t.string :url,          null: false
         t.string :language,     null: false, default: 'en'
         t.datetime :last_updated
-        t.text :content,        null: false
+        t.text :content, null: false
       end
     end
   end
