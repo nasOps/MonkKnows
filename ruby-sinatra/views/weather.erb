@@ -1,7 +1,33 @@
-<h1>Weather</h1>
+<div class="wx-card">
+  <div class="wx-header">
+    <div class="wx-city-block">
+      <h1 class="wx-city"><%= @weather[:city] %></h1>
+      <p class="wx-datetime"><%= Time.now.strftime('%A, %H:%M') %></p>
+    </div>
+  </div>
 
-<p><strong>City:</strong> <%= @weather[:city] %></p>
-<p><strong>Temperature:</strong> <%= @weather[:temperature] %> °C</p>
-<p><strong>Humidity:</strong> <%= @weather[:humidity] %>%</p>
-<p><strong>Condition:</strong> <%= @weather[:condition] %></p>
-<p><strong>Wind speed:</strong> <%= @weather[:wind_speed] %> m/s</p>
+  <div class="wx-main">
+    <div class="wx-temp">
+      <span class="wx-temp-value"><%= @weather[:temperature].round(1) %></span><span class="wx-temp-unit">°C</span>
+    </div>
+    <p class="wx-desc"><%= @weather[:condition].capitalize %></p>
+  </div>
+
+  <div class="wx-details">
+    <div class="wx-detail-card">
+      <svg class="wx-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/>
+        <circle cx="12" cy="9" r="2.5"/>
+      </svg>
+      <span class="wx-detail-value"><%= @weather[:humidity] %>%</span>
+      <span class="wx-detail-label">Humidity</span>
+    </div>
+    <div class="wx-detail-card">
+      <svg class="wx-detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+      </svg>
+      <span class="wx-detail-value"><%= @weather[:wind_speed] %> m/s</span>
+      <span class="wx-detail-label">Wind</span>
+    </div>
+  </div>
+</div>
