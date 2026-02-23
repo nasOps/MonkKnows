@@ -18,10 +18,9 @@ class WhoknowsApp < Sinatra::Base
   register Sinatra::ActiveRecordExtension
 
   # Sinatra configuration
-  set :database_file, File.expand_path('config/database.yml',__dir__)
+  set :database_file, File.expand_path('config/database.yml', __dir__)
   set :public_folder, File.expand_path('public', __dir__)
   set :views, File.expand_path('views', __dir__)
-  
 
   # Session configuration (nødvendig for login/logout)
   enable :sessions
@@ -215,8 +214,8 @@ class WhoknowsApp < Sinatra::Base
     # Gem bruger-id i session - svarer til Flask's session['user_id'] = user['id']
     session[:user_id] = user.id
 
-    status 200 
-      { statusCode: 200, message: "You were logged in" }.to_json
+    status 200
+    { statusCode: 200, message: 'You were logged in' }.to_json
   end
 
   # GET /api/logout - User logout
