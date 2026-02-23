@@ -183,7 +183,22 @@ Output:
 ```
 http://localhost:4567
 ```
+---
 
+## Code Quality
+
+### RuboCop (linting)
+
+The project uses [RuboCop](https://rubocop.org/) for style enforcement and static analysis.
+```bash
+# Run locally
+bundle exec rubocop
+
+# Auto-fix safe offenses
+bundle exec rubocop -a
+```
+
+Configuration is in `.rubocop.yml`. RuboCop runs automatically in CI on push and pull requests.
 ---
 
 ## Migration-strategi
