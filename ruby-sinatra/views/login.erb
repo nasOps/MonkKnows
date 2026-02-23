@@ -31,6 +31,7 @@
     .then(response => response.json())
     .then(data => {
       if (data.statusCode === 200) {
+        sessionStorage.setItem('flash', 'You were logged in successfully.');
         window.location.href = '/';
       } else {
         document.getElementById('error-text').textContent = data.detail[0].msg;
