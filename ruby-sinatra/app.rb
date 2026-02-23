@@ -42,8 +42,9 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   before do
-    # Tilsvarende Flask's before_request
-    # Tjek om bruger er logged in, load user fra session, etc.
+    # Flask-ækvivalent: g.user = query_db("SELECT * FROM users WHERE id = ...", one=True)
+    @current_user = nil
+    @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
   end
 
   after do
@@ -84,12 +85,15 @@ class WhoknowsApp < Sinatra::Base
   # OpenAPI: operationId "serve_register_page_register_get"
   # GET /register - viser registrerings-formularen
   get '/register' do
+    redirect '/' if logged_in?
+
     erb :register, locals: { error: nil }
   end
 
   # GET /login - Login page
   # OpenAPI: operationId "serve_login_page_login_get"
   get '/login' do
+    redirect '/' if logged_in?
     @error = nil
     erb :login
   end
@@ -232,13 +236,14 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   helpers do
-    def current_user; end
+    # Returns the current user from session (nil if nobody is logged in)
+    def current_user
+      @current_user ||= User.find_by(id: session[:user_id]) if session[:user_id]
+    end
 
-    def logged_in?; end
-
-    def hash_password(password); end
-
-    def verify_password(stored_hash, password); end
+    def logged_in?
+      !current_user.nil?
+    end
   end
 
   ################################################################################

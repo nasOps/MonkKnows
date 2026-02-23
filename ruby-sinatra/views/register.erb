@@ -1,12 +1,10 @@
-<!-- Registrerings-side. Sender formular til POST /api/register -->
-
 <h2>Sign Up</h2>
 
-<% if error %>
-  <div class="error"><strong>Error:</strong> <%= error %></div>
-<% end %>
+<div id="error-message" class="error" style="display:none">
+  <strong>Error:</strong> <span id="error-text"></span>
+</div>
 
-<form action="/api/register" method="POST">
+<form id="register-form">
   <dl>
     <dt>Username:</dt>
     <dd><input type="text" name="username" size="30"></dd>
@@ -21,3 +19,26 @@
     <input type="submit" value="Sign Up">
   </div>
 </form>
+
+<script>
+  document.getElementById('register-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch('/api/register', {
+      method: 'POST',
+      body: new URLSearchParams(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.statusCode === 200) {
+        window.location.href = '/login';
+      } else {
+        const msg = data.detail ? data.detail[0].msg : data.message;
+        document.getElementById('error-text').textContent = msg;
+        document.getElementById('error-message').style.display = 'block';
+      }
+    });
+  });
+</script>
