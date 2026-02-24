@@ -6,6 +6,7 @@ gem 'activerecord', '~> 7.0'
 # ostruct is no longer part of default gems from Ruby 4.0
 # so we include it explicitly to avoid warnings
 gem 'ostruct'
+gem 'puma'
 gem 'rackup'
 gem 'sinatra', '~> 3.0'
 gem 'sinatra-activerecord'

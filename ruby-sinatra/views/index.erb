@@ -1,22 +1,45 @@
 <!-- Frontpage from of GET / - Root/Search page on localhost:4567 -->
 
-<form action="/" method="get">
-  <input type="text" name="q" value="<%= @q %>" placeholder="Søg..." >
-  <select name="language">
-    <option value="en">English</option>
-  </select>
-  <button type="submit">Søg</button>
+<form class="search-form" action="/" method="get">
+  <input type="text" name="q" value="<%= @q %>" placeholder="Search...">
+  <button type="submit">Search</button>
+  <div class="custom-select">
+    <button type="button" class="custom-select-toggle" onclick="toggleDropdown()">English <span class="arrow">&#9662;</span></button>
+    <ul class="custom-select-menu" id="language-menu">
+      <li><a onclick="selectLanguage('en', 'English')">English</a></li>
+    </ul>
+    <input type="hidden" name="language" id="language-value" value="en">
+  </div>
 </form>
 
+<script>
+  function toggleDropdown() {
+    document.getElementById('language-menu').classList.toggle('open');
+  }
+
+  function selectLanguage(value, label) {
+    document.getElementById('language-value').value = value;
+    document.querySelector('.custom-select-toggle').innerHTML = label + ' <span class="arrow">&#9662;</span>';
+    document.getElementById('language-menu').classList.remove('open');
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.custom-select')) {
+      document.getElementById('language-menu').classList.remove('open');
+    }
+  });
+</script>
+
 <% if @results && @results.any? %>
-  <ul>
+  <div class="search-results">
+    <p class="results-count"><%= @results.length %> result<%= @results.length == 1 ? '' : 's' %> for "<%= @q %>"</p>
     <% @results.each do |page| %>
-      <li>
-        <h2><%= page.title %></h2>
-        <a href="<%= page.url %>"><%= page.url %></a>
-      </li>
+      <div class="result-card">
+        <h2 class="result-title"><a href="<%= page.url %>"><%= page.title %></a></h2>
+        <span class="result-url"><%= page.url %></span>
+      </div>
     <% end %>
-  </ul>
+  </div>
 <% elsif @q && !@q.strip.empty? %>
-  <p>No results found</p>
+  <p class="no-results">No results found for "<%= @q %>"</p>
 <% end %>
