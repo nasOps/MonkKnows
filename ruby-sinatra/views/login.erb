@@ -1,1 +1,42 @@
 <!-- Login page -->
+
+<h2>Log in</h2>
+
+<div id="error-message" class="error" style="display:none">
+  <strong>Error:</strong> <span id="error-text"></span>
+</div>
+
+<form id="login-form">
+  <dl>
+    <dt>Username:
+    <dd><input type="text" name="username" size="30">
+    <dt>Password:
+    <dd><input type="password" name="password" size="30">
+  </dl>
+  <div class="actions">
+    <input type="submit" id="login-button" value="Log In">
+  </div>
+</form>
+
+<script>
+  document.getElementById('login-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch('/api/login', {
+      method: 'POST',
+      body: new URLSearchParams(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.statusCode === 200) {
+        sessionStorage.setItem('flash', 'You were logged in successfully.');
+        window.location.href = '/';
+      } else {
+        document.getElementById('error-text').textContent = data.detail[0].msg;
+        document.getElementById('error-message').style.display = 'block';
+      }
+    });
+  });
+</script>

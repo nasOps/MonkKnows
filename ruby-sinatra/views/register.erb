@@ -1,1 +1,44 @@
-<!-- Register page -->
+<h2>Sign Up</h2>
+
+<div id="error-message" class="error" style="display:none">
+  <strong>Error:</strong> <span id="error-text"></span>
+</div>
+
+<form id="register-form">
+  <dl>
+    <dt>Username:</dt>
+    <dd><input type="text" name="username" size="30"></dd>
+    <dt>E-Mail:</dt>
+    <dd><input type="text" name="email" size="30"></dd>
+    <dt>Password:</dt>
+    <dd><input type="password" name="password" size="30"></dd>
+    <dt>Password <small>(repeat)</small>:</dt>
+    <dd><input type="password" name="password2" size="30"></dd>
+  </dl>
+  <div class="actions">
+    <input type="submit" value="Sign Up">
+  </div>
+</form>
+
+<script>
+  document.getElementById('register-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch('/api/register', {
+      method: 'POST',
+      body: new URLSearchParams(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.statusCode === 200) {
+        window.location.href = '/login';
+      } else {
+        const msg = data.detail ? data.detail[0].msg : data.message;
+        document.getElementById('error-text').textContent = msg;
+        document.getElementById('error-message').style.display = 'block';
+      }
+    });
+  });
+</script>

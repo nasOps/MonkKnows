@@ -4,7 +4,6 @@ Dette repository indeholder et legacy **Flask (Python)** projekt, som migreres g
 
 Målet er at omskrive applikationen **inkrementelt**, uden at bryde eksisterende funktionalitet.
 
----
 
 ## Repository struktur
 
@@ -183,7 +182,22 @@ Output:
 ```
 http://localhost:4567
 ```
+---
 
+## Code Quality
+
+### RuboCop (linting)
+
+The project uses [RuboCop](https://rubocop.org/) for style enforcement and static analysis.
+```bash
+# Run locally
+bundle exec rubocop
+
+# Auto-fix safe offenses
+bundle exec rubocop -a
+```
+
+Configuration is in `.rubocop.yml`. RuboCop runs automatically in CI on push and pull requests.
 ---
 
 ## Migration-strategi
@@ -203,8 +217,6 @@ http://localhost:4567
 - Klar adskillelse mellem legacy og ny kode
 - Inkrementel migration (ingen big-bang rewrite)
 - Dokumenterede teknologivalg
-
----
 
 ## Videre arbejde
 

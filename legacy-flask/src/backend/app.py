@@ -95,6 +95,8 @@ def after_request(response):
 # Page Routes
 ################################################################################
 
+# TODO: REMOVE - Replaced by Ruby/Sinatra implementation
+# LEGACY CODE - DELETE AFTER MIGRATION COMPLETE
 @app.route('/')
 def search():
     """Serve the root search page
@@ -147,7 +149,8 @@ def about():
     """
     return render_template('about.html')
 
-
+# TODO: REMOVE - Replaced by Ruby/Sinatra implementation
+# LEGACY CODE - DELETE AFTER MIGRATION COMPLETE
 @app.route('/login')
 def login():
     """Serve the login page
@@ -195,6 +198,8 @@ def register():
 # API Routes
 ################################################################################
 
+# TODO: REMOVE - Replaced by Ruby/Sinatra implementation
+# LEGACY CODE - DELETE AFTER MIGRATION COMPLETE
 @app.route('/api/search')
 def api_search():
     """API endpoint for search
@@ -232,7 +237,8 @@ def api_search():
 
     return jsonify(search_results=search_results)
 
-
+# TODO: REMOVE - Replaced by Ruby/Sinatra implementation
+# LEGACY CODE - DELETE AFTER MIGRATION COMPLETE
 @app.route('/api/login', methods=['POST'])
 def api_login():
     """Logs the user in
@@ -271,6 +277,8 @@ def api_login():
     return render_template('login.html', error=error)
 
 
+# TODO: REMOVE - Replaced by Ruby/Sinatra implementation
+# LEGACY CODE - DELETE AFTER MIGRATION COMPLETE
 @app.route('/api/register', methods=['POST'])
 def api_register():
     """Registers a new user
@@ -327,6 +335,8 @@ def api_register():
         return redirect(url_for('login'))
     return render_template('register.html', error=error)
 
+# TODO: REMOVE - Replaced by Ruby/Sinatra implementation
+# LEGACY CODE - DELETE AFTER MIGRATION COMPLETE
 @app.route('/api/logout')
 def logout():
     """Logs the user out

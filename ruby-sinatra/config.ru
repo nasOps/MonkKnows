@@ -1,3 +1,7 @@
-require_relative 'app'
+# frozen_string_literal: true
 
+# .ru = RackUp file
+# This file is used to start the Sinatra application using the Rack web server interface.
+
+require './app'
 run WhoknowsApp
