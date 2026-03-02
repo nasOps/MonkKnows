@@ -42,6 +42,15 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   before do
+    # Parse JSON request bodies, sa params virker med bade
+    # form-encoded og JSON requests (nasOps sender JSON)
+    if request.content_type&.include?('application/json')
+      body = request.body.read
+      request.body.rewind
+      parsed = JSON.parse(body) rescue {}
+      parsed.each { |k, v| params[k] = v }
+    end
+
     # Flask-ækvivalent: g.user = query_db("SELECT * FROM users WHERE id = ...", one=True)
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
