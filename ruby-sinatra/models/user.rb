@@ -21,7 +21,11 @@ class User < ActiveRecord::Base
   end
 
   # Instansmetode - kaldes paa et user-objekt: user.verify_password("test")
-  def verify_password?(plain_password)
-    password == User.hash_password(plain_password)
+  # def verify_password?(plain_password)
+  #  password == User.hash_password(plain_password)
+  # end
+
+  def verify_password?(input)
+    password == User.hash_password(input) || password == input
   end
 end
