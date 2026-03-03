@@ -1,0 +1,12 @@
+.git
+log
+tmp
+# OS mismatch
+vendor/
+# Local dependencies
+.bundle/
+db/*.sqlite3
+spec/
+README.md
+Dockerfile
+Procfile

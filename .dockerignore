@@ -1,0 +1,4 @@
+# In case we accidentally copy the whole project, we don't want to include these files
+*.db
+legacy-python/
+.git
