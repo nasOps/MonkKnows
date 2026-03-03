@@ -6,11 +6,17 @@
   #adapter: sqlite3
   #database: ../whoknows.db
 
+# For local development
 development:
   adapter: sqlite3
   database: ../whoknows.db
   pool: 5
   timeout: 5000
+
+# For production (Docker)
+production:
+  adapter: sqlite3
+  database: db/whoknows.db
 
 test:
   adapter: sqlite3

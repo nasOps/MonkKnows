@@ -1,15 +1,16 @@
 # ---- Stage 1: Build ----
-FROM ruby:3.2-alpine AS build
+FROM ruby:3.2-slim AS build
 
 # Install build dependencies
-RUN apk add --no-cache build-base sqlite-dev
+RUN apt-get update -qq && \
+    apt-get install -y build-essential libsqlite3-dev
 
 WORKDIR /app
 
 # Copy Gemfile first (for layer caching)
 COPY Gemfile Gemfile.lock ./
 
-# Install gems
+# Install runtime gems only
 RUN bundle config set without 'development test' \
  && bundle install
 
@@ -17,10 +18,11 @@ RUN bundle config set without 'development test' \
 COPY . .
 
 # ---- Stage 2: Runtime ----
-FROM ruby:3.2-alpine
+FROM ruby:3.2-slim
 
 # Install only runtime dependencies
-RUN apk add --no-cache sqlite-libs
+RUN apt-get update -qq && \
+    apt-get install -y libsqlite3-0
 
 WORKDIR /app
 
