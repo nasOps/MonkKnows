@@ -3,7 +3,6 @@
 # = (Less memory usage by freezing string literals)
 
 # Main application file - Routes + Controllers (combined)
-#require 'dotenv/load'
 require 'sinatra'
 # require 'sinatra/activerecord'
 require 'json'
