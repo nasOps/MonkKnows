@@ -1,0 +1,9 @@
+services:
+  ruby-sinatra:
+    build:
+      context: ./ruby-sinatra
+      dockerfile: Dockerfile
+    container_name: ruby-sinatra-app
+    ports:
+      - "4567:4567"
+    restart: unless-stopped
