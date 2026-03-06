@@ -2,7 +2,7 @@ name: Ruby CD (Build & Push to GHCR)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, continuous_delivery ]
   workflow_dispatch:
 
 env:
