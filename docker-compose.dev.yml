@@ -1,0 +1,13 @@
+services:
+  web:
+    build:
+      context: ./ruby-sinatra
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4567:4567"
+    volumes:
+      - ./ruby-sinatra:/app          # hot-reload: local code mountes to container
+    env_file:
+      - ./ruby-sinatra/.env.dev
+    environment:
+      - RACK_ENV=development
