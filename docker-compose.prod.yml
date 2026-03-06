@@ -1,9 +1,16 @@
 services:
-  ruby-sinatra:
+  web:
+    image: ghcr.io/nasops/monkknows:latest
     build:
       context: ./ruby-sinatra
-      dockerfile: Dockerfile
-    container_name: ruby-sinatra-app
+      dockerfile: Dockerfile        # Uses Stage 2: Runtime
     ports:
       - "4567:4567"
-    restart: unless-stopped
+    volumes:
+      - ./whoknows.db:/whoknows.db  # Database persistence
+    env_file:
+      - ./ruby-sinatra/.env    # Separate prod env fil
+    environment:
+      - RACK_ENV=production
+      - DATABASE_PATH=/whoknows.db
+    restart: unless-stopped         # Restarts automatically if break down
