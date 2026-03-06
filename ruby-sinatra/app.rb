@@ -21,6 +21,7 @@ class WhoknowsApp < Sinatra::Base
   set :database_file, File.expand_path('config/database.yml', __dir__)
   set :public_folder, File.expand_path('public', __dir__)
   set :views, File.expand_path('views', __dir__)
+  set :bind, '0.0.0.0'
 
   # Session configuration (nødvendig for login/logout)
   enable :sessions

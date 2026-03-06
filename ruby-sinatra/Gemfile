@@ -19,6 +19,6 @@ group :test do
 end
 
 group :development, :test do
-
+  gem 'rerun' # Automatically restarts the server when files change
   gem 'rubocop', '~> 1.60', require: false # When app is running, don't load RuboCop. We load it through CLI
 end
