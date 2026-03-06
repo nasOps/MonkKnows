@@ -6,7 +6,7 @@
   #adapter: sqlite3
   #database: ../whoknows.db
 
-# For local development
+# For local development and Docker-dev
 development:
   adapter: sqlite3
   database: <%= ENV.fetch('DATABASE_PATH', '../whoknows.db') %>
@@ -16,7 +16,9 @@ development:
 # For production (Docker)
 production:
   adapter: sqlite3
-  database: db/whoknows.db
+  database: <%= ENV.fetch('DATABASE_PATH', '../whoknows.db') %>
+  pool: 5
+  timeout: 5000
 
 test:
   adapter: sqlite3
