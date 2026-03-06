@@ -8,7 +8,8 @@ services:
     ports:
       - "4567:4567"
     volumes:
-      - ./ruby-sinatra:/app          # hot-reload: local code mountes to container
+      - ./ruby-sinatra:/app          # hot-reload: local code is mounted to container
+      - ./whoknows.db:/whoknows.db # db is mounted from root
     env_file:
       - ./ruby-sinatra/.env
     environment:
