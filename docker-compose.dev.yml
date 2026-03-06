@@ -2,12 +2,14 @@ services:
   web:
     build:
       context: ./ruby-sinatra
-      dockerfile: Dockerfile.dev
+      target: build # Use build stage from Dockerfile
     ports:
       - "4567:4567"
     volumes:
       - ./ruby-sinatra:/app          # hot-reload: local code mountes to container
     env_file:
-      - ./ruby-sinatra/.env.dev
+      - ./ruby-sinatra/.env
     environment:
       - RACK_ENV=development
+    # Overrides CMD in Dockerfile to use rerun for hot-reloading
+    command: bundle exec rerun --pattern "{app.rb,lib/**/*.rb}" -- ruby app.rb

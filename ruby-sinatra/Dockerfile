@@ -32,4 +32,5 @@ COPY --from=build /app /app
 
 EXPOSE 4567
 
+# Starts Ruby and runs app.rb when the container launches
 CMD ["ruby", "app.rb"]
