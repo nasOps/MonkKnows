@@ -3,6 +3,8 @@ services:
     build:
       context: ./ruby-sinatra
       target: build # Use build stage from Dockerfile
+      args:
+        BUNDLE_WITHOUT: ""        # overstyrer 'development test' udeladelsen
     ports:
       - "4567:4567"
     volumes:
@@ -12,4 +14,4 @@ services:
     environment:
       - RACK_ENV=development
     # Overrides CMD in Dockerfile to use rerun for hot-reloading
-    command: bundle exec rerun --pattern "{app.rb,lib/**/*.rb}" -- ruby app.rb
+    command: sh -c "ruby app.rb & bundle exec guard --no-interactions --no-bundler-warning"

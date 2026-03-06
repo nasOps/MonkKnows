@@ -1,6 +1,8 @@
 # ---- Stage 1: Build ----
 FROM ruby:3.2-slim AS build
 
+ARG BUNDLE_WITHOUT="development test"
+
 # Install build dependencies
 RUN apt-get update -qq && \
     apt-get install -y build-essential libsqlite3-dev
@@ -11,7 +13,7 @@ WORKDIR /app
 COPY Gemfile Gemfile.lock ./
 
 # Install runtime gems only
-RUN bundle config set without 'development test' \
+RUN bundle config set without "$BUNDLE_WITHOUT" \
  && bundle install
 
 # Copy application code
