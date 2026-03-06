@@ -8,6 +8,8 @@ on:
 env:
   CR_PAT: ${{ secrets.GH_PAT_sobr0002 }}
   DOCKER_GITHUB_USERNAME: ${{ secrets.DOCKER_GITHUB_USERNAME }}
+  SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+  OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
 
 jobs:
   build-push:
