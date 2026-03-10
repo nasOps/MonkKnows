@@ -1,5 +1,6 @@
 services:
   web:
+    init: true # Ensures proper signal handling and graceful shutdown
     build:
       context: ./ruby-sinatra
       target: build # Use build stage from Dockerfile

@@ -6,6 +6,7 @@ vendor/
 # Local dependencies
 .bundle/
 db/*.sqlite3
+*.db
 spec/
 README.md
 Dockerfile
