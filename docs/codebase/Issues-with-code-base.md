@@ -70,7 +70,7 @@ The only password validation is that the field is non-empty. Single-character pa
 ## Priority 3: Code Quality
 
 ### 3.1 Hardcoded Database Path
-`DATABASE_PATH = '../whoknows.db'` is hardcoded. Should be an environment variable.
+`DATABASE_PATH = '../whoknows.db'` is hardcoded. It should be configured via an environment variable.
 
 ### 3.2 Unused Import
 `from datetime import datetime` is imported in `app.py` but never used.
