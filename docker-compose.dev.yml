@@ -1,0 +1,20 @@
+services:
+  web:
+    init: true # Ensures proper signal handling and graceful shutdown
+    build:
+      context: ./ruby-sinatra
+      target: build # Use build stage from Dockerfile
+      args:
+        BUNDLE_WITHOUT: ""        # overstyrer 'development test' udeladelsen
+    ports:
+      - "4567:4567"
+    volumes:
+      - ./ruby-sinatra:/app          # hot-reload: local code is mounted to container
+      - ./whoknows.db:/whoknows.db # db is mounted from root
+    env_file:
+      - ./ruby-sinatra/.env
+    environment:
+      - RACK_ENV=development
+      - DATABASE_PATH=/whoknows.db
+    # Overrides CMD in Dockerfile to use rerun for hot-reloading
+    command: sh -c "ruby app.rb & bundle exec guard --no-interactions --no-bundler-warning"
