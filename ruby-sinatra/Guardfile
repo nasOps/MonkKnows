@@ -1,0 +1,8 @@
+# frozen_string_literal: true
+
+guard :shell do
+  # Watch for changes in app.rb and restarts the server
+  watch(/^app\.rb$/) { `kill -9 $(lsof -t -i:4567); ruby app.rb &` }
+  # Watches for changes in .rb-files in lib/ and restarts the server
+  watch(%r{^lib/.+\.rb$})       { `kill -9 $(lsof -t -i:4567); ruby app.rb &` }
+end

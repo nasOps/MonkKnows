@@ -3,7 +3,6 @@
 # = (Less memory usage by freezing string literals)
 
 # Main application file - Routes + Controllers (combined)
-require 'dotenv/load'
 require 'sinatra'
 # require 'sinatra/activerecord'
 require 'json'
@@ -11,6 +10,7 @@ require_relative 'config/environment'
 require_relative 'models/page'
 require_relative 'models/user'
 require_relative 'services/weather_service'
+require 'dotenv/load' if ENV['RACK_ENV'] != 'production'
 
 # TODO: Change class name to MonkKnowsApp
 # App is defined as modular Sinatra class# TODO Change class name to MonkKnowsApp
@@ -21,6 +21,7 @@ class WhoknowsApp < Sinatra::Base
   set :database_file, File.expand_path('config/database.yml', __dir__)
   set :public_folder, File.expand_path('public', __dir__)
   set :views, File.expand_path('views', __dir__)
+  set :bind, '0.0.0.0'
 
   # Session configuration (nødvendig for login/logout)
   enable :sessions
