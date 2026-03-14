@@ -1,16 +1,24 @@
 services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web
+    restart: unless-stopped
+
   web:
     image: ghcr.io/nasops/monkknows:latest
     build:
       context: ./ruby-sinatra
       dockerfile: Dockerfile        # Uses Stage 2: Runtime
-    ports:
-      - "4567:4567"
     volumes:
-      - ./whoknows.db:/whoknows.db  # Database persistence
+      - ./whoknows.db:/app/whoknows.db  # Database persistence
     environment:
       - RACK_ENV=production
-      - DATABASE_PATH=/whoknows.db
+      - DATABASE_PATH=/app/whoknows.db
       - SESSION_SECRET=${SESSION_SECRET}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
     restart: unless-stopped         # Restarts automatically if break down
