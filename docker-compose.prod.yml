@@ -14,8 +14,6 @@ services:
     build:
       context: ./ruby-sinatra
       dockerfile: Dockerfile        # Uses Stage 2: Runtime
-    ports:
-      - "4567:4567"
     volumes:
       - ./whoknows.db:/app/whoknows.db  # Database persistence
     environment:
