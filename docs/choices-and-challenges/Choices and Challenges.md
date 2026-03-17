@@ -660,3 +660,237 @@ In-memory SQLite er standard tilgangen til database-tests i Ruby-økosystemet. D
 
 **Læring**
 CI afslører afhængigheder til lokalt miljø som er usynlige under udvikling. Database-filer må aldrig være en forudsætning for at køre tests - test-miljøet skal være fuldt selvforsynende og reproducerbart.
+
+---
+
+## Dockerfile og Docker Compose setup
+
+### Context
+Projektet MonkKnows er et Ruby 3.2.3 Sinatra mikroservice-projekt i et
+monorepository. Der er behov for at containerisere applikationen til både lokal
+udvikling og produktion.
+
+### Challenge
+- Udvikling og produktion har forskellige behov: dev kræver development gems og hot-reload, prod skal være minimal og sikker
+- SQLite databasefilen skal være tilgængelig inde i containeren
+- Miljøvariabler skal håndteres forskelligt lokalt og i CI/CD
+
+**Overvejede patterns:**
+- To separate Dockerfiles (Dockerfile.dev + Dockerfile.prod)
+- Én Dockerfile med ARG til at styre gem-installation
+
+### Choice
+**Beslutning:** Én Dockerfile med multi-stage build og ARG BUNDLE_WITHOUT
+
+**Implementering:**
+
+```markdown
+- Stage 1 (build): Installerer gems styret af ARG BUNDLE_WITHOUT
+- Stage 2 (runtime): Kopierer kun nødvendige artefakter fra build stage
+- docker-compose.dev.yml: Bruger target: build, volume-mount af kildekode og database
+- docker-compose.prod.yml: Bygger hele Dockerfile, restart: unless-stopped
+```
+
+**Rationale:**
+- Én Dockerfile reducerer vedligeholdelse
+- ARG BUNDLE_WITHOUT="" i dev-compose inkluderer development gems uden at ændre Dockerfile
+- Volume-mount i dev betyder kodeændringer er tilgængelige uden rebuild
+
+**Fordele:**
+- Én sandhed for build-processen
+- Prod-image er minimalt – ingen development gems
+- Lokal kørsel uden Docker stadig mulig via ENV.fetch fallback i database.yml
+
+**Ulemper:**
+- ARG-mekanismen er ikke helt intuitiv ved første møde
+- SQLite volume-mount er en midlertidig løsning indtil PostgreSQL-migrering
+
+**Retrospektiv:**
+- DATABASE_PATH som miljøvariabel løste konflikten mellem lokal og Docker-sti til db
+
+**Læring:**
+- Docker Compose environment: vinder over env_file: ved konflikt
+- Absolut sti i containeren (/whoknows.db) kombineret med ENV.fetch fallback
+  giver fleksibilitet på tværs af miljøer
+
+---
+
+## Hot-reload med Guard frem for Rerun
+
+### Context
+Lokal udvikling i Docker kræver at serveren genstarter automatisk ved filændringer
+så udviklere ikke manuelt skal genstarte containeren.
+
+### Challenge
+- Docker kører uden en rigtig TTY (terminal), hvilket skaber problemer for værktøjer
+  der forventer interaktiv input
+- Rerun forsøger at sætte terminalen op via stty, hvilket fejler i Docker og skaber
+  konstant støj i loggen
+
+**Overvejede patterns:**
+- rerun gem med --no-notify og --quiet flags
+- guard gem med guard-shell plugin
+
+### Choice
+**Beslutning:** Guard med guard-shell plugin
+
+**Implementering:**
+- Gemfile: guard og guard-shell tilføjet i group :development, :test
+- Guardfile oprettet med watch på app.rb og lib/**/*.rb
+- command i docker-compose.dev.yml: bundle exec guard --no-interactions --no-bundler-warning
+
+**Rationale:**
+- --no-interactions fortæller Guard at den ikke skal lytte på tastaturinput
+- Guard er designet til baggrundskørsel uden interaktiv terminal
+
+**Fordele:**
+- Ingen støj i loggen
+- Filændringer trigger automatisk servergenstart
+- guard-shell tillader vilkårlige shell-kommandoer som reaktion på filændringer
+
+**Ulemper:**
+- Kræver både guard og guard-shell gems
+- Guardfile er et ekstra konfigurationslag at vedligeholde
+
+**Retrospektiv:**
+- Rerun virkede funktionelt men stty-fejlene gjorde det svært at læse fejlbeskeder
+  i konsollen under udvikling
+
+**Læring:**
+- Værktøjer designet til interaktiv brug fungerer dårligt i Docker uden TTY
+- --no-interactions er det afgørende flag der løser TTY-problemet
+
+---
+
+## Continuous Delivery pipeline til GitHub Container Registry
+
+### Context
+Projektet har en eksisterende CI pipeline der kører tests og linting. Der er behov
+for at udvide med Continuous Delivery så et produktionsklar Docker image automatisk
+bygges og pushes til et container registry ved merge til main.
+
+### Challenge
+- CI skal køre på både main og development, men CD må kun køre på main
+- .env filen er ikke i git, men docker-compose.prod.yml refererer til den
+- Credentials skal håndteres sikkert i CI/CD miljøet
+
+**Overvejede patterns:**
+- Extend eksisterende ci.yaml med et ekstra job
+- Separat cd.yaml workflow fil
+
+### Choice
+**Beslutning:** Separat cd.yaml med docker buildx bake
+
+**Implementering:**
+- cd.yaml trigges kun på push til main
+- docker buildx bake læser docker-compose.prod.yml og bygger image
+- Credentials håndteres som GitHub Secrets og loades som environment variabler
+- env_file: fjernet fra docker-compose.prod.yml – erstattet af ${VARIABEL} syntax
+
+**Rationale:**
+- Separat fil giver klar adskillelse af ansvar: ci.yaml tester, cd.yaml leverer
+- docker buildx bake genbruger docker-compose.prod.yml som single source of truth
+- GitHub Secrets er den sikre måde at håndtere credentials i CI/CD
+
+**Fordele:**
+- CI og CD har tydeligt adskilte ansvarsområder
+- Image pushes kun til GHCR når tests er grønne og kode er på main
+- Ingen credentials i git
+
+**Ulemper:**
+- Secrets skal oprettes manuelt i GitHub og på serveren
+- cd.yaml kører ikke tests selv – stoler på at ci.yaml har gjort sit arbejde
+
+**Retrospektiv:**
+- env_file: i docker-compose.prod.yml var en fælde i CI da .env ikke er i git
+- ${VARIABEL} syntax i compose kombineret med GitHub Secrets løste problemet elegant
+
+**Læring:**
+- env_file: er praktisk lokalt men uegnet i CI/CD
+- docker buildx bake er mere elegant end build-push-action da det genbruger
+  eksisterende compose-konfiguration
+
+---
+
+
+## CI pipeline inkonsistens ved PR til main (ift. RuboCop)
+
+### Context
+Projektet bruger GitHub Actions til CI med RuboCop og RSpec.
+Under merge fra development → main opstår der en fejl i CI, som ikke kan reproduceres lokalt.
+Den rapporterede fejl (Style/RescueModifier) findes ikke i den aktuelle kodebase.
+
+### Challenge
+- CI rapporterer fejl i kode, som ikke eksisterer i repository
+- Lokalt miljø og CI miljø er ude af sync
+- Flere forsøg på fix (lint, branches, ny PR) uden effekt
+
+**Overvejede patterns:**
+- 
+
+### Choice
+**Beslutning:** Acceptere problemet som en CI inkonsistens (forældet cache / forkert reference) og fortsætte med workaround (ny PR / manuel re-run)
+
+**Implementering:**
+
+```markdown
+- Opret ny PR fra development → main 
+- Trigger CI manuelt (Re-run jobs) 
+- Verificer kode i GitHub UI vs lokal
+```
+
+**Rationale:**
+- CI pipelines kan tilsyneladende arbejde på cached eller forældede commits, måske pga. vores branch flows og protected branches.
+
+**Fordele:**
+- Hurtig løsning ift. at bibeholde vores development flow
+- Minimal tid brugt på debugging af eventuel ekstern systemfejl
+
+**Ulemper:**
+- Underliggende problem ikke løst
+- Kan skabe usikkerhed om CI pålidelighed
+
+**Retrospektiv:** 
+- Problemet tyder på mismatch mellem CI context og repository state
+- Skal løses for at sikre tillid til CI som “source of truth” i fremtiden, hvis problem opstår ved næste merge mod main
+
+**Læring:**
+- CI er “source of truth” – men kan stadig have inkonsistenser
+- Verificer altid hvilken kode CI faktisk kører
+- Branch protection + PR flow kan introducere kompleksitet i pipelines
+
+---
+
+## 
+
+### Context
+
+### Challenge
+- 
+
+**Overvejede patterns:**
+- 
+
+### Choice
+**Beslutning:**
+
+**Implementering:**
+
+```markdown
+
+```
+
+**Rationale:**
+-
+
+**Fordele:**
+- 
+
+**Ulemper:**
+- 
+
+**Retrospektiv:** (Opdateres løbende)
+- 
+
+**Læring:**
+- 
