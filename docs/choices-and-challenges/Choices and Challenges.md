@@ -813,39 +813,51 @@ bygges og pushes til et container registry ved merge til main.
 ---
 
 
-## 
+## CI pipeline inkonsistens ved PR til main (ift. RuboCop)
 
 ### Context
+Projektet bruger GitHub Actions til CI med RuboCop og RSpec.
+Under merge fra development → main opstår der en fejl i CI, som ikke kan reproduceres lokalt.
+Den rapporterede fejl (Style/RescueModifier) findes ikke i den aktuelle kodebase.
 
 ### Challenge
-- 
+- CI rapporterer fejl i kode, som ikke eksisterer i repository
+- Lokalt miljø og CI miljø er ude af sync
+- Flere forsøg på fix (lint, branches, ny PR) uden effekt
 
 **Overvejede patterns:**
 - 
 
 ### Choice
-**Beslutning:**
+**Beslutning:** Acceptere problemet som en CI inkonsistens (forældet cache / forkert reference) og fortsætte med workaround (ny PR / manuel re-run)
 
 **Implementering:**
 
 ```markdown
-
+- Opret ny PR fra development → main 
+- Trigger CI manuelt (Re-run jobs) 
+- Verificer kode i GitHub UI vs lokal
 ```
 
 **Rationale:**
--
+- CI pipelines kan tilsyneladende arbejde på cached eller forældede commits, måske pga. vores branch flows og protected branches.
 
 **Fordele:**
-- 
+- Hurtig løsning ift. at bibeholde vores development flow
+- Minimal tid brugt på debugging af eventuel ekstern systemfejl
 
 **Ulemper:**
-- 
+- Underliggende problem ikke løst
+- Kan skabe usikkerhed om CI pålidelighed
 
-**Retrospektiv:** (Opdateres løbende)
-- 
+**Retrospektiv:** 
+- Problemet tyder på mismatch mellem CI context og repository state
+- Skal løses for at sikre tillid til CI som “source of truth” i fremtiden, hvis problem opstår ved næste merge mod main
 
 **Læring:**
-- 
+- CI er “source of truth” – men kan stadig have inkonsistenser
+- Verificer altid hvilken kode CI faktisk kører
+- Branch protection + PR flow kan introducere kompleksitet i pipelines
 
 ---
 

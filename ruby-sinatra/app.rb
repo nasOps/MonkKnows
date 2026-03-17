@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# = (Less memory usage by freezing string literals)
+# = Less memory usage by freezing string literals
 
 # Main application file - Routes + Controllers (combined)
 require 'sinatra'
