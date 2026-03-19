@@ -812,7 +812,6 @@ bygges og pushes til et container registry ved merge til main.
 
 ---
 
-
 ## CI pipeline inkonsistens ved PR til main (ift. RuboCop)
 
 ### Context
@@ -858,6 +857,77 @@ Den rapporterede fejl (Style/RescueModifier) findes ikke i den aktuelle kodebase
 - CI er “source of truth” – men kan stadig have inkonsistenser
 - Verificer altid hvilken kode CI faktisk kører
 - Branch protection + PR flow kan introducere kompleksitet i pipelines
+
+---
+
+## JSON Body Parsing i Sinatra
+
+### Context
+Anders' simulator tester vores `/api/login` og `/api/register` endpoints ved at sende requests med både JSON body og form-encoded format. Sinatra parser ikke JSON body automatisk ind i `params`, modsat Flask som håndterer dette med `request.get_json()`.
+
+### Challenge
+- Simulatoren returnerede 422 på alle login-forsøg fra dag ét
+- Fejlen var ikke en manglende bruger, men at `params[:username]` altid var `nil` ved JSON requests
+- Problemet ramte alle POST endpoints der læser fra `params`
+
+**Overvejede patterns:**
+- Parse JSON body individuelt i hver route
+- Centraliseret parsing i `before` block der merger ind i `params`
+- `Rack::JSONBodyParser` middleware
+
+### Choice
+**Beslutning:**
+Centraliseret JSON parsing i den eksisterende `before` block, begrænset til POST requests med eksplicit fejlhåndtering.
+
+**Implementering:**
+```ruby
+before do
+  @current_user = nil
+  @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
+
+  if request.post? && request.content_type&.include?('application/json')
+    request.body.rewind
+    begin
+      json_body = JSON.parse(request.body.read, symbolize_names: false)
+      json_body.each { |k, v| params[k] ||= v }
+    rescue JSON::ParserError
+      halt 400, { detail: [{ loc: ['body'], msg: 'Invalid JSON', type: 'parse_error' }] }.to_json
+    end
+  end
+end
+```
+
+**Rationale:**
+- Løser problemet ét sted frem for at duplikere logikken i hver route
+- Ændrer ikke OpenAPI spec eller eksisterende route-logik
+- `||=` sikrer at eksisterende params ikke overskrives
+- Valgt frem for `Rack::JSONBodyParser` middleware på grund af behovet for eksplicit fejlhåndtering
+
+**Fordele:**
+- Alle nuværende og fremtidige routes får automatisk JSON support
+- Routes forbliver uændrede og læsbare
+- Understøtter både form-encoded og JSON uden at vælge én standard
+- Malformed JSON returnerer 400 med en beskrivende fejlbesked
+- Begrænset til POST requests, så GET routes ikke påvirkes unødigt
+- Koden er synlig og forståelig direkte i app.rb
+
+**Ulemper:**
+- Workaround frem for en Rack-native løsning - `Rack::JSONBodyParser` middleware ville være mere idiomatisk
+- Ligger i applikationslaget frem for middleware-laget hvor request transformation hører hjemme
+
+**Alternativ overvejet - `Rack::JSONBodyParser`:**
+- Idiomatisk Rack løsning der vedligeholdes af Rack frem for os
+- Fravalgt fordi malformed JSON håndteres stille uden mulighed for at returnere en beskrivende fejlbesked
+- Fravalgt fordi middleware er mindre synlig for nye udviklere på projektet
+
+**Retrospektiv:** (Opdateres løbende)
+- Fejlen stod på fra første deployment den 26. februar uden at blive opdaget, fordi vi ikke havde monitoring på response codes
+
+**Læring:**
+- Flask og Sinatra håndterer content negotiation forskelligt - Sinatra er mere eksplicit
+- Monitoring af response codes er nødvendigt for at opdage denne type fejl tidligt
+- 422 fra simulatoren er et bedre signal end "manglende bruger" - fejlkoden pegede på valideringsfejl, ikke autentificeringsfejl
+- Rack middleware og applikationslaget løser samme problem på forskelligt abstraktionsniveau - valget afhænger af hvor meget kontrol man har brug for
 
 ---
 
