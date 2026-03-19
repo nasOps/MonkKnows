@@ -1,7 +1,7 @@
 # Choices and Challenges
 
 **Written by:** Andreas, Nima & Sofie
- **Updated:** 15th February 2026 - 09.52
+ **Updated:** 19th Marts 2026 - 10.47
 
 ------
 
@@ -812,7 +812,6 @@ bygges og pushes til et container registry ved merge til main.
 
 ---
 
-
 ## CI pipeline inkonsistens ved PR til main (ift. RuboCop)
 
 ### Context
@@ -861,15 +860,146 @@ Den rapporterede fejl (Style/RescueModifier) findes ikke i den aktuelle kodebase
 
 ---
 
-## 
+## HTML ID-kompatibilitet med legacy frontend
+
+### Context
+Underviser kører en simulation der automatisk klikker rundt på projektets frontend. Simulationen er skrevet mod legacy Flask-projektet og bruger specifikke HTML `id`-attributter til at finde og interagere med elementer på siden (søgefelt, søgeknap, resultatcontainer).
+
+### Challenge
+- Ruby/Sinatra rewritet havde ikke de samme `id`-attributter som legacy Flask-projektet på søgesiden
+- Legacy Flask brugte `id="search-input"`, `id="search-button"` og `id="results"` i `search.html`
+- Vores `index.erb` (som håndterer samme route `/`) manglede alle tre IDs
+- Simulationen ville fejle fordi den ikke kunne finde de forventede elementer
+
+**Overvejede patterns:**
+- Lade simulationen fejle og afvente feedback fra underviser
+- Tilpasse vores IDs til at matche legacy-koden
+
+### Choice
+**Beslutning:** Tilføj de tre manglende `id`-attributter til `index.erb` så de matcher legacy-koden præcist
+
+**Implementering:**
+
+```markdown
+- id="search-input"  tilføjet til <input type="text" name="q">
+- id="search-button" tilføjet til <button type="submit">
+- id="results"       tilføjet til <div class="search-results"> (class bevaret)
+```
+
+**Rationale:**
+- Simulationen er en ekstern afhængighed vi ikke kontrollerer – vi tilpasser os den
+- Ændringen er rent additiv (IDs tilføjes, intet fjernes eller omdøbes)
+- CSS påvirkes ikke: eksisterende class-selectors (`.search-results`, `input[name="q"]`) fungerer stadig
+
+**Fordele:**
+- Simulationen kan interagere korrekt med vores frontend
+- Ingen visuel eller funktionel ændring for rigtige brugere
+- CSS-styling forbliver uændret
+
+**Ulemper:**
+- Vi er bundet til legacy-projektets navngivningskonventioner for disse tre elementer
+- Hvis legacy-projektet ændrer sine IDs skal vi følge med
+
+**Retrospektiv:** (Opdateres løbende)
+-
+
+**Læring:**
+- Ekstern simulationsafhængighed kræver at frontend-kontrakter (HTML IDs, classes) behandles som en del af API-kontrakten
+- Additiv tilgang (tilføj ID, bevar class) er den mindst risikable måde at opnå kompatibilitet uden at bryde eksisterende styling
+
+---
+
+## JSON Body Parsing i Sinatra
+
+### Context
+Anders' simulator tester vores `/api/login` og `/api/register` endpoints ved at sende requests med både JSON body og form-encoded format. Sinatra parser ikke JSON body automatisk ind i `params`, modsat Flask som håndterer dette med `request.get_json()`.
+
+### Challenge
+- Simulatoren returnerede 422 på alle login-forsøg fra dag ét
+- Fejlen var ikke en manglende bruger, men at `params[:username]` altid var `nil` ved JSON requests
+- Problemet ramte alle POST endpoints der læser fra `params`
+
+**Overvejede patterns:**
+- Parse JSON body individuelt i hver route
+- Centraliseret parsing i `before` block der merger ind i `params`
+- `Rack::JSONBodyParser` middleware
+
+### Choice
+**Beslutning:**
+Centraliseret JSON parsing i den eksisterende `before` block, begrænset til POST requests med eksplicit fejlhåndtering.
+
+**Implementering:**
+```ruby
+before do
+  @current_user = nil
+  @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
+
+  if request.post? && request.content_type&.include?('application/json')
+    request.body.rewind
+    begin
+      json_body = JSON.parse(request.body.read, symbolize_names: false)
+      # ||= sikrer at eksisterende params ikke overskrives af JSON body
+      if json_body.is_a?(Hash)
+        json_body.each { |k, v| params[k] ||= v }
+      else
+        content_type :json
+        halt 400, { detail: [{ loc: ['body'], msg: 'Expected JSON object', type: 'type_error' }] }.to_json
+      end
+    rescue JSON::ParserError
+      # Returnér 400 ved malformed JSON frem for at fejle stille
+      content_type :json
+      halt 400, { detail: [{ loc: ['body'], msg: 'Invalid JSON', type: 'parse_error' }] }.to_json
+    end
+  end
+end
+```
+
+**Rationale:**
+- Løser problemet ét sted frem for at duplikere logikken i hver route
+- Ændrer ikke OpenAPI spec eller eksisterende route-logik
+- `||=` sikrer at eksisterende params ikke overskrives
+- Valgt frem for `Rack::JSONBodyParser` middleware på grund af behovet for eksplicit fejlhåndtering
+
+**Fordele:**
+- Alle nuværende og fremtidige routes får automatisk JSON support
+- Routes forbliver uændrede og læsbare
+- Understøtter både form-encoded og JSON uden at vælge én standard
+- Malformed JSON returnerer 400 med en beskrivende fejlbesked og korrekt `Content-Type` header
+- JSON arrays og primitiver afvises med 400 frem for at fejle med `NoMethodError`
+- Begrænset til POST requests, så GET routes ikke påvirkes unødigt
+- Koden er synlig og forståelig direkte i app.rb
+
+**Ulemper:**
+- Workaround frem for en Rack-native løsning - `Rack::JSONBodyParser` middleware ville være mere idiomatisk
+- Ligger i applikationslaget frem for middleware-laget hvor request transformation hører hjemme
+
+**Alternativ overvejet - `Rack::JSONBodyParser`:**
+- Idiomatisk Rack løsning der vedligeholdes af Rack frem for os
+- Fravalgt fordi malformed JSON håndteres stille uden mulighed for at returnere en beskrivende fejlbesked
+- Fravalgt fordi middleware er mindre synlig for nye udviklere på projektet
+
+**Retrospektiv:** (Opdateres løbende)
+- Fejlen stod på fra første deployment den 26. februar uden at blive opdaget, fordi vi ikke havde monitoring på response codes
+- Coderabbit identificerede to edge cases under PR review: manglende type validering og manglende `Content-Type` header på fejlresponses
+
+**Læring:**
+- Flask og Sinatra håndterer content negotiation forskelligt - Sinatra er mere eksplicit
+- Monitoring af response codes er nødvendigt for at opdage denne type fejl tidligt
+- 422 fra simulatoren er et bedre signal end "manglende bruger" - fejlkoden pegede på valideringsfejl, ikke autentificeringsfejl
+- Rack middleware og applikationslaget løser samme problem på forskelligt abstraktionsniveau - valget afhænger af hvor meget kontrol man har brug for
+- Automatisk PR review med Coderabbit fangede edge cases som ikke var åbenlyse under implementation
+
+---
+
+##
 
 ### Context
 
 ### Challenge
-- 
+-
 
 **Overvejede patterns:**
-- 
+-
 
 ### Choice
 **Beslutning:**
@@ -884,13 +1014,13 @@ Den rapporterede fejl (Style/RescueModifier) findes ikke i den aktuelle kodebase
 -
 
 **Fordele:**
-- 
+-
 
 **Ulemper:**
-- 
+-
 
 **Retrospektiv:** (Opdateres løbende)
-- 
+-
 
 **Læring:**
-- 
+-
