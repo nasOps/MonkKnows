@@ -938,8 +938,16 @@ before do
     request.body.rewind
     begin
       json_body = JSON.parse(request.body.read, symbolize_names: false)
-      json_body.each { |k, v| params[k] ||= v }
+      # ||= sikrer at eksisterende params ikke overskrives af JSON body
+      if json_body.is_a?(Hash)
+        json_body.each { |k, v| params[k] ||= v }
+      else
+        content_type :json
+        halt 400, { detail: [{ loc: ['body'], msg: 'Expected JSON object', type: 'type_error' }] }.to_json
+      end
     rescue JSON::ParserError
+      # Returnér 400 ved malformed JSON frem for at fejle stille
+      content_type :json
       halt 400, { detail: [{ loc: ['body'], msg: 'Invalid JSON', type: 'parse_error' }] }.to_json
     end
   end
@@ -956,7 +964,8 @@ end
 - Alle nuværende og fremtidige routes får automatisk JSON support
 - Routes forbliver uændrede og læsbare
 - Understøtter både form-encoded og JSON uden at vælge én standard
-- Malformed JSON returnerer 400 med en beskrivende fejlbesked
+- Malformed JSON returnerer 400 med en beskrivende fejlbesked og korrekt `Content-Type` header
+- JSON arrays og primitiver afvises med 400 frem for at fejle med `NoMethodError`
 - Begrænset til POST requests, så GET routes ikke påvirkes unødigt
 - Koden er synlig og forståelig direkte i app.rb
 
@@ -971,12 +980,14 @@ end
 
 **Retrospektiv:** (Opdateres løbende)
 - Fejlen stod på fra første deployment den 26. februar uden at blive opdaget, fordi vi ikke havde monitoring på response codes
+- Coderabbit identificerede to edge cases under PR review: manglende type validering og manglende `Content-Type` header på fejlresponses
 
 **Læring:**
 - Flask og Sinatra håndterer content negotiation forskelligt - Sinatra er mere eksplicit
 - Monitoring af response codes er nødvendigt for at opdage denne type fejl tidligt
 - 422 fra simulatoren er et bedre signal end "manglende bruger" - fejlkoden pegede på valideringsfejl, ikke autentificeringsfejl
 - Rack middleware og applikationslaget løser samme problem på forskelligt abstraktionsniveau - valget afhænger af hvor meget kontrol man har brug for
+- Automatisk PR review med Coderabbit fangede edge cases som ikke var åbenlyse under implementation
 
 ---
 
