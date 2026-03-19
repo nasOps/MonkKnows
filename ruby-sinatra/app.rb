@@ -46,6 +46,17 @@ class WhoknowsApp < Sinatra::Base
     # Flask-ækvivalent: g.user = query_db("SELECT * FROM users WHERE id = ...", one=True)
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
+
+    # Parse JSON body og merge ind i params, hvis Content-Type er application/json
+    if request.content_type&.include?('application/json')
+      request.body.rewind
+      json_body = begin
+        JSON.parse(request.body.read, symbolize_names: false)
+      rescue StandardError
+        {}
+      end
+      json_body.each { |k, v| params[k] ||= v }
+    end
   end
 
   after do
