@@ -1,7 +1,7 @@
 # Choices and Challenges
 
 **Written by:** Andreas, Nima & Sofie
- **Updated:** 15th February 2026 - 09.52
+ **Updated:** 19th Marts 2026 - 10.47
 
 ------
 
@@ -861,15 +861,63 @@ Den rapporterede fejl (Style/RescueModifier) findes ikke i den aktuelle kodebase
 
 ---
 
-## 
+## HTML ID-kompatibilitet med legacy frontend
+
+### Context
+Underviser kører en simulation der automatisk klikker rundt på projektets frontend. Simulationen er skrevet mod legacy Flask-projektet og bruger specifikke HTML `id`-attributter til at finde og interagere med elementer på siden (søgefelt, søgeknap, resultatcontainer).
+
+### Challenge
+- Ruby/Sinatra rewritet havde ikke de samme `id`-attributter som legacy Flask-projektet på søgesiden
+- Legacy Flask brugte `id="search-input"`, `id="search-button"` og `id="results"` i `search.html`
+- Vores `index.erb` (som håndterer samme route `/`) manglede alle tre IDs
+- Simulationen ville fejle fordi den ikke kunne finde de forventede elementer
+
+**Overvejede patterns:**
+- Lade simulationen fejle og afvente feedback fra underviser
+- Tilpasse vores IDs til at matche legacy-koden
+
+### Choice
+**Beslutning:** Tilføj de tre manglende `id`-attributter til `index.erb` så de matcher legacy-koden præcist
+
+**Implementering:**
+
+```markdown
+- id="search-input"  tilføjet til <input type="text" name="q">
+- id="search-button" tilføjet til <button type="submit">
+- id="results"       tilføjet til <div class="search-results"> (class bevaret)
+```
+
+**Rationale:**
+- Simulationen er en ekstern afhængighed vi ikke kontrollerer – vi tilpasser os den
+- Ændringen er rent additiv (IDs tilføjes, intet fjernes eller omdøbes)
+- CSS påvirkes ikke: eksisterende class-selectors (`.search-results`, `input[name="q"]`) fungerer stadig
+
+**Fordele:**
+- Simulationen kan interagere korrekt med vores frontend
+- Ingen visuel eller funktionel ændring for rigtige brugere
+- CSS-styling forbliver uændret
+
+**Ulemper:**
+- Vi er bundet til legacy-projektets navngivningskonventioner for disse tre elementer
+- Hvis legacy-projektet ændrer sine IDs skal vi følge med
+
+**Retrospektiv:** (Opdateres løbende)
+-
+
+**Læring:**
+- Ekstern simulationsafhængighed kræver at frontend-kontrakter (HTML IDs, classes) behandles som en del af API-kontrakten
+- Additiv tilgang (tilføj ID, bevar class) er den mindst risikable måde at opnå kompatibilitet uden at bryde eksisterende styling
+---
+
+##
 
 ### Context
 
 ### Challenge
-- 
+-
 
 **Overvejede patterns:**
-- 
+-
 
 ### Choice
 **Beslutning:**
@@ -884,13 +932,13 @@ Den rapporterede fejl (Style/RescueModifier) findes ikke i den aktuelle kodebase
 -
 
 **Fordele:**
-- 
+-
 
 **Ulemper:**
-- 
+-
 
 **Retrospektiv:** (Opdateres løbende)
-- 
+-
 
 **Læring:**
-- 
+-

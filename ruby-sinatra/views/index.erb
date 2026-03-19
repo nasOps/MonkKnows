@@ -1,8 +1,8 @@
 <!-- Frontpage from of GET / - Root/Search page on localhost:4567 -->
 
 <form class="search-form" action="/" method="get">
-  <input type="text" name="q" value="<%= @q %>" placeholder="Search...">
-  <button type="submit">Search</button>
+  <input id="search-input" type="text" name="q" value="<%= @q %>" placeholder="Search...">
+  <button id="search-button" type="submit">Search</button>
   <div class="custom-select">
     <button type="button" class="custom-select-toggle" onclick="toggleDropdown()">English <span class="arrow">&#9662;</span></button>
     <ul class="custom-select-menu" id="language-menu">
@@ -31,7 +31,7 @@
 </script>
 
 <% if @results && @results.any? %>
-  <div class="search-results">
+  <div id="results" class="search-results">
     <p class="results-count"><%= @results.length %> result<%= @results.length == 1 ? '' : 's' %> for "<%= @q %>"</p>
     <% @results.each do |page| %>
       <div class="result-card">
