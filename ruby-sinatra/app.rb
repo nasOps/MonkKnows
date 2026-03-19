@@ -47,15 +47,18 @@ class WhoknowsApp < Sinatra::Base
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
 
-    # Parse JSON body og merge ind i params, hvis Content-Type er application/json
-    if request.content_type&.include?('application/json')
+    # Parse JSON body og merge ind i params
+    # Begrænset til POST requests da GET aldrig sender JSON body
+    if request.post? && request.content_type&.include?('application/json')
       request.body.rewind
-      json_body = begin
-        JSON.parse(request.body.read, symbolize_names: false)
-      rescue StandardError
-        {}
+      begin
+        json_body = JSON.parse(request.body.read, symbolize_names: false)
+        # ||= sikrer at eksisterende params ikke overskrives af JSON body
+        json_body.each { |k, v| params[k] ||= v }
+      rescue JSON::ParserError
+        # Returnér 400 ved malformed JSON frem for at fejle stille
+        halt 400, { detail: [{ loc: ['body'], msg: 'Invalid JSON', type: 'parse_error' }] }.to_json
       end
-      json_body.each { |k, v| params[k] ||= v }
     end
   end
 
