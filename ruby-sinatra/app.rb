@@ -27,6 +27,8 @@ class WhoknowsApp < Sinatra::Base
   enable :sessions
   set :session_secret,
       ENV.fetch('SESSION_SECRET') { 'x' * 64 }
+  # To prevent CSRF attacks by not sending cookies on cross-site requests
+  set :sessions, same_site: :strict
 
   # Test - no DB needed - http://localhost:4567/hello
   get '/hello' do
@@ -43,6 +45,8 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   before do
+    # Only allow resources from the same origin, blocking external scripts and styles to prevent cross-site scripting
+    headers['Content-Security-Policy'] = "default-src 'self'"
     # Flask-ækvivalent: g.user = query_db("SELECT * FROM users WHERE id = ...", one=True)
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
