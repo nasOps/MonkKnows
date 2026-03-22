@@ -1,4 +1,38 @@
-name: brakeman.yml
+name: Brakeman (Static Security Analysis)
+
+# Static tool — analyses Ruby source code for security vulnerabilities without
+# running the application. Checks for SQL injection,
+# unsafe user input handling and insecure configurations. Fails if vulnerabilities are found.
+
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  workflow_dispatch:
 
 jobs:
+  brakeman:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ruby-sinatra
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@09a7688d3b55cf0e976497ff046b70949eeaccfd
+        with:
+          ruby-version: '3.2.3'
+          bundler-cache: true
+          working-directory: ruby-sinatra
+
+      - name: Install brakeman
+        run: gem install brakeman
+
+      - name: Run brakeman
+        run: brakeman --no-pager --force # Scans Ruby source code for vulnerabilities — fails workflow if any are found
