@@ -9,7 +9,7 @@ gem 'dotenv'
 gem 'ostruct'
 gem 'puma'
 gem 'rackup'
-gem 'sinatra', '~> 3.0'
+gem 'sinatra', '~> 4.0'
 gem 'sinatra-activerecord'
 gem 'sqlite3', '~> 1.6'
 
