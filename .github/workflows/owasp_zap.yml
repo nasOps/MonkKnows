@@ -72,7 +72,7 @@ jobs:
       # if: always() ensures upload runs even if ZAP returned a non-zero exit code.
       # Paths are relative to repo root, not working-directory.
       - name: Upload ZAP Reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: zap-security-reports
