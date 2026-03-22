@@ -10,7 +10,7 @@ class User < ActiveRecord::Base
                        uniqueness: { message: 'The username is already taken' }
 
   validates :email, presence: { message: 'You have to enter a valid email address' },
-            format: { with: /\A[^@\s]+@[^@\s]+\z/, message: 'You have to enter a valid email address' }
+                    format: { with: /\A[^@\s]+@[^@\s]+\z/, message: 'You have to enter a valid email address' }
 
   validates :password, presence: { message: 'You have to enter a password' }
 
