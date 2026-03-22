@@ -45,8 +45,6 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   before do
-    # Restrict resources to same origin; allows inline scripts required by login, logout, register and language selector
-    headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'"
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
 
