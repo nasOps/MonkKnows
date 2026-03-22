@@ -1,4 +1,39 @@
-name: bundler_audit.yml
+# Static tool
+# Scans Gemfile.lock against the RubySec Advisory Database to detect dependencies
+# with known Common Vulnerabilities and Exposures. Fails if vulnerabilities are found,
+# blocking the workflow until the affected gem is updated.
+
+name: Bundler Audit (Dependency Security Scan)
+
 on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+
+  workflow_dispatch:
 
 jobs:
+  bundler-audit:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ruby-sinatra
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@09a7688d3b55cf0e976497ff046b70949eeaccfd
+        with:
+          ruby-version: '3.2.3'
+          bundler-cache: true
+          working-directory: ruby-sinatra
+
+      - name: Install bundler-audit
+        run: gem install bundler-audit
+
+      - name: Run bundler-audit
+        run: bundle audit check --update # Updates advisory DB then scans Gemfile.lock — fails workflow if any CVEs are found
