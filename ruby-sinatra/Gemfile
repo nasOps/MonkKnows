@@ -22,4 +22,5 @@ group :development, :test do
   gem 'guard' # Watches for file changes
   gem 'guard-shell' # Allows Guard to run shell-kommands (to restart the server when files change)
   gem 'rubocop', '~> 1.60', require: false # When app is running, don't load RuboCop. We load it through CLI
+  gem 'brakeman', require: false
 end
