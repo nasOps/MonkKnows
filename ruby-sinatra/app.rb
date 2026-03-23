@@ -258,6 +258,13 @@ class WhoknowsApp < Sinatra::Base
     { statusCode: 200, message: 'You were logged out' }.to_json
   end
 
+  # GET /logout - Compatibility alias for plotserver test runner
+  # OBS: Ikke en del af OpenAPI spec - eksisterer kun for at matche plotserverens browser flow
+  get '/logout' do
+    session.clear
+    redirect '/'
+  end
+
   ################################################################################
   # Helper Methods
   ################################################################################
