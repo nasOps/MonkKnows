@@ -28,6 +28,8 @@ jobs:
         run: |
           docker buildx bake -f docker-compose.prod.yml --push
 
+  # Smoke test: Verifies that the production server is operational after deployment
+  # Checks for HTTP 200 directly on the production server
   smoke-test-cd:
     runs-on: ubuntu-latest
     needs: build-push  # Only runs if build-push succeeds
