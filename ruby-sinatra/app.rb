@@ -13,7 +13,7 @@ require_relative 'services/weather_service'
 require 'dotenv/load' if ENV['RACK_ENV'] != 'production'
 
 # TODO: Change class name to MonkKnowsApp
-# App is defined as modular Sinatra class# TODO Change class name to MonkKnowsApp
+# App is defined as modular Sinatra class
 class WhoknowsApp < Sinatra::Base
   register Sinatra::ActiveRecordExtension
 
