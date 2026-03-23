@@ -66,7 +66,7 @@ jobs:
 
       - name: Run smoke test with cURL
         run: |
-          URL="http://localhost/4567"
+          URL="http://localhost/4567/"
           HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" $URL)
           if [ $HTTP_STATUS -eq 200 ]; then
             echo "✅ CI Smoke test passed (status: $HTTP_STATUS)"
