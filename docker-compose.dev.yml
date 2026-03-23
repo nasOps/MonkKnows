@@ -5,7 +5,7 @@ services:
       context: ./ruby-sinatra
       target: build # Use build stage from Dockerfile
       args:
-        BUNDLE_WITHOUT: ""        # overstyrer 'development test' udeladelsen
+        BUNDLE_WITHOUT: ""        # overrides 'development test'
     ports:
       - "4567:4567"
     volumes:
