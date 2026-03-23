@@ -238,7 +238,7 @@ class WhoknowsApp < Sinatra::Base
       }.to_json
     end
 
-    puts params.inspect
+    # puts params.inspect
 
     # TODO: Maybe add if both username and password is wrong, msg: "Invalid username or password"
 
