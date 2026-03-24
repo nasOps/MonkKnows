@@ -3,9 +3,12 @@ FROM ruby:3.2-slim AS build
 
 ARG BUNDLE_WITHOUT="development test"
 
-# Install build dependencies
+# Install only essential build dependencies, delete list after installation to reduce image size
 RUN apt-get update -qq && \
-    apt-get install -y build-essential libsqlite3-dev
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        libsqlite3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -22,9 +25,11 @@ COPY . .
 # ---- Stage 2: Runtime ----
 FROM ruby:3.2-slim
 
-# Install only runtime dependencies
+# Install only essential runtime dependencies, delete list after installation to reduce image size
 RUN apt-get update -qq && \
-    apt-get install -y libsqlite3-0
+    apt-get install -y --no-install-recommends \
+        libsqlite3-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
