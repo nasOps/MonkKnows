@@ -204,7 +204,7 @@ def search():
 - Auto-generation tools er ikke altid tilgængelige (framework dependent)
 - 1:1 porting mellem frameworks (Python→Ruby) kan kopiere fejl
 
----
+------
 
 ## Programming Language Choice
 
@@ -249,7 +249,7 @@ Kursusbegrænsninger: Ikke Java, Python eller Node.js. Teamet skulle vælge et n
 - Framework økosystem er lige så vigtigt som sproget selv
 - Microframework flexibility kræver mere manual opsætning
 
----
+------
 
 ## Architecture Pattern Choice
 
@@ -305,7 +305,7 @@ ruby-sinatra/
 - MVC kan tilpasses selv når framework ikke enforcer det
 - Start simple, refaktorer når smertepunkter opstår
 
----
+------
 
 ## Initial Deployment Strategy - week 3
 
@@ -374,7 +374,7 @@ ruby-sinatra/
 - systemd + reverse proxy er “baseline” drift, også før CI/CD/Docker.
 - Azure NSG rules kræver unikke priorities (undgå conflicts).
 
----
+------
 
 ## OpenAPI Specification: Afvigelser fra whoknows-spec.json
 
@@ -409,7 +409,7 @@ Afvigelse 2 — `language` parameteren bruger `default: "en"` fremfor Anders' `a
 - Spec bør være en sandfærdig kontrakt for hvad API'et returnerer
 - `$ref` i components er DRY-princippet anvendt på API dokumentation
 
----
+------
 
 ## Implementering af GitHub Actions CI pipeline
 
@@ -461,7 +461,7 @@ Vi implementerede en GitHub Actions CI pipeline med:
 - Gemfile.lock er kritisk for stabile builds
 - SHA pinning kan give kompatibilitetsudfordringer
 
----
+------
 
 ## Integration af RuboCop som quality gate
 
@@ -503,7 +503,7 @@ Projektet er i migreringsfase, hvilket øger risiko for teknisk gæld.
 - Lint bør tunes – ikke blindt accepteres
 - Empty methods kan være legitime under migration
 
----
+------
 
 ## 3rd party Integration af weather API
 
@@ -560,7 +560,7 @@ Valget understøtter DevOps-principper:
 - Vigtigheden af at isolere ekstern integration i service layer
 - Caching som strategi mod rate limiting og load
 
----
+------
 
 ## API design: JSON vs HTML responses ved login
 
@@ -591,7 +591,7 @@ Spec'en definerer `POST /api/login` som et JSON-endpoint. At afvige fra det vill
 **Læring**
 Når man designer et JSON API skal man tænke på hvem der konsumerer det. En browser forventer HTML, men et API-endpoint bør ikke tage hensyn til det - det er frontend-lagets ansvar at håndtere svaret.
 
----
+------
 
 ## Database konfiguration: `set :database_file` placering
 
@@ -620,7 +620,7 @@ Fejlen blev opdaget ved at applikationen tilsyneladende virkede, men ActiveRecor
 **Læring**
 Sinatra-specifikke metoder som `set` skal altid kaldes inden for applikationsklassen når man bruger modular style. Classic style (`require 'sinatra'`) ville have tilladt `set` uden for en klasse, men modular style kræver eksplicit klassekontekst.
 
----
+------
 
 ## Test miljø: In-memory SQLite database
 
@@ -661,7 +661,7 @@ In-memory SQLite er standard tilgangen til database-tests i Ruby-økosystemet. D
 **Læring**
 CI afslører afhængigheder til lokalt miljø som er usynlige under udvikling. Database-filer må aldrig være en forudsætning for at køre tests - test-miljøet skal være fuldt selvforsynende og reproducerbart.
 
----
+------
 
 ## Dockerfile og Docker Compose setup
 
@@ -713,7 +713,7 @@ udvikling og produktion.
 - Absolut sti i containeren (/whoknows.db) kombineret med ENV.fetch fallback
   giver fleksibilitet på tværs af miljøer
 
----
+------
 
 ## Hot-reload med Guard frem for Rerun
 
@@ -760,7 +760,7 @@ så udviklere ikke manuelt skal genstarte containeren.
 - Værktøjer designet til interaktiv brug fungerer dårligt i Docker uden TTY
 - --no-interactions er det afgørende flag der løser TTY-problemet
 
----
+------
 
 ## Continuous Delivery pipeline til GitHub Container Registry
 
@@ -810,7 +810,7 @@ bygges og pushes til et container registry ved merge til main.
 - docker buildx bake er mere elegant end build-push-action da det genbruger
   eksisterende compose-konfiguration
 
----
+------
 
 ## CI pipeline inkonsistens ved PR til main (ift. RuboCop)
 
@@ -858,7 +858,7 @@ Den rapporterede fejl (Style/RescueModifier) findes ikke i den aktuelle kodebase
 - Verificer altid hvilken kode CI faktisk kører
 - Branch protection + PR flow kan introducere kompleksitet i pipelines
 
----
+------
 
 ## HTML ID-kompatibilitet med legacy frontend
 
@@ -907,7 +907,7 @@ Underviser kører en simulation der automatisk klikker rundt på projektets fron
 - Ekstern simulationsafhængighed kræver at frontend-kontrakter (HTML IDs, classes) behandles som en del af API-kontrakten
 - Additiv tilgang (tilføj ID, bevar class) er den mindst risikable måde at opnå kompatibilitet uden at bryde eksisterende styling
 
----
+------
 
 ## JSON Body Parsing i Sinatra
 
@@ -989,7 +989,7 @@ end
 - Rack middleware og applikationslaget løser samme problem på forskelligt abstraktionsniveau - valget afhænger af hvor meget kontrol man har brug for
 - Automatisk PR review med Coderabbit fangede edge cases som ikke var åbenlyse under implementation
 
----
+------
 
 ## Continuous Deployment Pipeline med GitHub Actions
 
@@ -1030,36 +1030,47 @@ jobs:
             -t ghcr.io/${{ env.DOCKER_GITHUB_USERNAME }}/monkknows:latest \
             -f ruby-sinatra/Dockerfile \
             ruby-sinatra/
-
+        
   deploy:
-    needs: build-push
-    steps:
-      - name: Add SSH key to runner
-        run: |
-          mkdir -p ~/.ssh/
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
-          chmod 600 ~/.ssh/ssh_key
-          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+  needs: build-push
+  steps:
+    - name: Add SSH key to runner
+      run: |
+        mkdir -p ~/.ssh/
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
+        chmod 600 ~/.ssh/ssh_key
+        printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+        chmod 644 ~/.ssh/known_hosts
 
-      - name: Create .env file
-        run: |
-          cat > .env <<'EOF'
-          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-          OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
-          EOF
+    - name: Create .env file
+      run: |
+        cat > .env <<'EOF'
+        SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+        OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+        EOF
 
-      - name: Deploy on server
-        run: |
-          ssh -i ~/.ssh/ssh_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << "EOF"
-            set -euo pipefail
-            docker compose pull
-            docker compose up -d --remove-orphans
-          EOF
+    - name: Copy runtime files to server
+      run: |
+        scp -i ~/.ssh/ssh_key \
+          .env ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:.env
+        scp -i ~/.ssh/ssh_key \
+          docker-compose.prod.yml \
+          ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:docker-compose.yml
+        scp -i ~/.ssh/ssh_key \
+          nginx.conf \
+          ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:nginx.conf
 
-  smoke-test-cd:
-    needs: deploy
+    - name: Deploy on server
+      run: |
+        ssh -i ~/.ssh/ssh_key \
+          ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << "EOF"
+          set -euo pipefail
+          docker compose pull
+          docker compose up -d --remove-orphans
+        EOF
+
+smoke-test-cd:
+  needs: deploy
 ```
 
 **Rationale:**
@@ -1094,7 +1105,7 @@ jobs:
 - `set -euo pipefail` er essentielt i remote SSH-blokke for at undgå silent failures hvor
   pipelinen rapporterer success med et forældet image
 
----
+------
 
 ##
 
@@ -1129,3 +1140,5 @@ jobs:
 
 **Læring:**
 -
+
+------
