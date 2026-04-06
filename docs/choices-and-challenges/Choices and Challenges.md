@@ -991,6 +991,111 @@ end
 
 ---
 
+## Continuous Deployment Pipeline med GitHub Actions
+
+### Context
+Projektet whoknows_variations er en Ruby 3.2.3 Sinatra mikroservice der kører i Docker på en Azure VM.
+Vi havde allerede en CI pipeline (ci.yaml) der kørte tests, men ingen automatisk deployment.
+Målet var at implementere en fully automatic CD pipeline så ethvert push til main automatisk
+resulterer i et nyt Docker image der deployes til produktionsserveren uden manuel intervention.
+
+### Challenge
+Den eksisterende cd.yaml byggede og pushede et Docker image til GHCR med `docker buildx bake`,
+men stoppede der. Serveren blev aldrig opdateret automatisk. Derudover var secrets bagt ind i
+Docker imaget og synlige i klartekst via `docker inspect`.
+
+**Overvejede patterns:**
+- `docker buildx bake` med docker-compose.prod.yml som build-definition
+- `docker buildx build` med eksplicit Dockerfile og build-kontekst
+- Tredjeparts GitHub Marketplace actions (appleboy/ssh-action) til SSH og SCP
+- Native `ssh` og `scp` kommandoer direkte i workflow
+
+### Choice
+
+**Beslutning:**
+Vi valgte `docker buildx build` med eksplicit Dockerfile frem for `docker buildx bake`, og native
+`ssh`/`scp` frem for tredjeparts actions. Secrets håndteres via en `.env`-fil der genereres
+dynamisk af GitHub Actions fra GitHub Secrets og overføres til serveren ved hver deployment.
+
+**Implementering:**
+```yaml
+jobs:
+  build-push:
+    steps:
+      - name: Build and Push Docker image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            -t ghcr.io/${{ env.DOCKER_GITHUB_USERNAME }}/monkknows:latest \
+            -f ruby-sinatra/Dockerfile \
+            ruby-sinatra/
+
+  deploy:
+    needs: build-push
+    steps:
+      - name: Add SSH key to runner
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
+          chmod 600 ~/.ssh/ssh_key
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Create .env file
+        run: |
+          cat > .env <<'EOF'
+          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+          EOF
+
+      - name: Deploy on server
+        run: |
+          ssh -i ~/.ssh/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << "EOF"
+            set -euo pipefail
+            docker compose pull
+            docker compose up -d --remove-orphans
+          EOF
+
+  smoke-test-cd:
+    needs: deploy
+```
+
+**Rationale:**
+- `docker buildx bake` kræver en `build:`-blok i docker-compose.prod.yml, hvilket ville betyde
+  at secrets risikerer at blive bagt ind i imaget under byggeprocessen
+- Native `ssh`/`scp` er sikrere end tredjeparts actions da credentials ikke overdrages til
+  en ekstern action der potentielt kan være kompromitteret
+- `.env`-filen genereres dynamisk fra GitHub Secrets og eksisterer aldrig i repository
+
+**Fordele:**
+- Fuldt automatisk deployment ved push til main – ingen manuel SSH intervention
+- Secrets injiceres runtime via `.env` og bages aldrig ind i Docker imaget
+- Serveren verificeres mod kendte fingerprints via SSH_KNOWN_HOSTS – beskytter mod MITM-angreb
+- `set -euo pipefail` sikrer at pipelinen fejler hurtigt ved fejl frem for at deploye et forældet image
+- Smoke test verificerer at produktionsserveren svarer med HTTP 200 efter deployment
+- Native SSH/SCP uden tredjeparts actions følger lærers sikkerhedsanbefaling
+
+**Ulemper:**
+- `SSH_KNOWN_HOSTS` skal opdateres manuelt hvis serveren skifter IP eller geninstalleres
+- `.env`-filen overskrives ved hver deployment – eventuelle manuelle ændringer på serveren mistes
+- Ingen automatisk rollback hvis smoke test fejler efter deployment
+
+**Retrospektiv:** (Opdateres løbende)
+- Secrets var initialt bagt ind i Docker imaget og synlige via `docker inspect` – opdaget ved
+  gennemgang af sikkerhed og rettet ved at fjerne `build:`-blokken fra docker-compose.prod.yml
+
+**Læring:**
+- `docker-compose.prod.yml` må ikke indeholde en `build:`-blok når den bruges til deployment –
+  den skal udelukkende referere til et færdigt image fra GHCR
+- GitHub Actions substituerer `${{ secrets.X }}` før shell'en eksekverer scriptet – derfor skal
+  heredoc bruges med single-quoted `<<'EOF'` for at undgå utilsigtet shell-ekspansion af secrets
+- `set -euo pipefail` er essentielt i remote SSH-blokke for at undgå silent failures hvor
+  pipelinen rapporterer success med et forældet image
+
+---
+
 ##
 
 ### Context
