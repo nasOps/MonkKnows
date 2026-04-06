@@ -44,44 +44,50 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      # Write the private key to disk and restrict its permissions
+      # Save the private key and known hosts so SSH can authenticate with the server
       - name: Add SSH key to runner
         run: |
           mkdir -p ~/.ssh/
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
           chmod 600 ~/.ssh/ssh_key
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts    
 
       # Build .env from GitHub Secrets - never stored in the repository
       - name: Create .env file
         run: |
-          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" >> .env
-          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" >> .env
+          cat > .env <<'EOF'
+          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+          EOF
 
       # Copy .env to server so docker compose can inject secrets at runtime
       - name: Transfer .env to server
         run: |
-          scp -i ~/.ssh/ssh_key -o StrictHostKeyChecking=no \
+          scp -i ~/.ssh/ssh_key \
             .env ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:.env
 
       # Copy compose file so the server always has the latest version with correct image tag (latest)
       - name: Transfer docker-compose.prod.yml to server
         run: |
-          scp -i ~/.ssh/ssh_key -o StrictHostKeyChecking=no \
+          scp -i ~/.ssh/ssh_key \
             docker-compose.prod.yml \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:docker-compose.yml
 
       # Copy nginx config so the server always has the latest version
       - name: Transfer nginx.conf to server
         run: |
-          scp -i ~/.ssh/ssh_key -o StrictHostKeyChecking=no \
+          scp -i ~/.ssh/ssh_key \
             nginx.conf \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:nginx.conf
 
       # Pull the latest image from GHCR and restart containers
+      # set -euo pipefail = fail fast if any command fails, prevents silent errors
       - name: Deploy on server
         run: |
-          ssh -i ~/.ssh/ssh_key -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/ssh_key \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << "EOF"
+            set -euo pipefail 
             docker compose pull
             docker compose up -d --remove-orphans
           EOF
