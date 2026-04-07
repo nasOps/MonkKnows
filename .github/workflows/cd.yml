@@ -60,15 +60,12 @@ jobs:
           exit-code: '1'
           severity: CRITICAL,HIGH
 
-      # Push only if Trivy scan passed
+      # Push the same scanned image — no rebuild
       - name: Push Docker image to GHCR
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
-        with:
-          context: ruby-sinatra/
-          file: ruby-sinatra/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" | while IFS= read -r tag; do
+            [ -n "$tag" ] && docker push "$tag"
+          done
 
   # --- Continuous Deployment: deploy to production server ---
 
