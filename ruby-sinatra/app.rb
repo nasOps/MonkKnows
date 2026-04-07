@@ -13,7 +13,7 @@ require_relative 'services/weather_service'
 require 'dotenv/load' if ENV['RACK_ENV'] != 'production'
 
 # TODO: Change class name to MonkKnowsApp
-# App is defined as modular Sinatra class# TODO Change class name to MonkKnowsApp
+# App is defined as modular Sinatra class
 class WhoknowsApp < Sinatra::Base
   register Sinatra::ActiveRecordExtension
 
@@ -27,6 +27,8 @@ class WhoknowsApp < Sinatra::Base
   enable :sessions
   set :session_secret,
       ENV.fetch('SESSION_SECRET') { 'x' * 64 }
+  # To prevent CSRF attacks by not sending cookies on cross-site requests
+  set :sessions, same_site: :strict
 
   # Test - no DB needed - http://localhost:4567/hello
   get '/hello' do
@@ -43,7 +45,6 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   before do
-    # Flask-ækvivalent: g.user = query_db("SELECT * FROM users WHERE id = ...", one=True)
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
 
@@ -216,6 +217,9 @@ class WhoknowsApp < Sinatra::Base
   post '/api/login' do
     content_type :json
 
+    # TODO: Fjern debug logging efter fejlfinding
+    warn("LOGIN ATTEMPT: content_type=#{request.content_type} username_present=#{!params[:username].to_s.empty?}")
+
     user = User.find_by(username: params[:username])
 
     if user.nil?
@@ -232,7 +236,7 @@ class WhoknowsApp < Sinatra::Base
       }.to_json
     end
 
-    puts params.inspect
+    # puts params.inspect
 
     # TODO: Maybe add if both username and password is wrong, msg: "Invalid username or password"
 
@@ -250,6 +254,13 @@ class WhoknowsApp < Sinatra::Base
     session.clear
     status 200
     { statusCode: 200, message: 'You were logged out' }.to_json
+  end
+
+  # GET /logout - Compatibility alias for plotserver test runner
+  # OBS: Ikke en del af OpenAPI spec - eksisterer kun for at matche plotserverens browser flow
+  get '/logout' do
+    session.clear
+    redirect '/'
   end
 
   ################################################################################

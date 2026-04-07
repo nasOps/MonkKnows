@@ -11,9 +11,7 @@ services:
 
   web:
     image: ghcr.io/nasops/monkknows:latest
-    build:
-      context: ./ruby-sinatra
-      dockerfile: Dockerfile        # Uses Stage 2: Runtime
+
     volumes:
       - ./whoknows.db:/app/whoknows.db  # Database persistence
     environment:

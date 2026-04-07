@@ -9,7 +9,7 @@ gem 'dotenv'
 gem 'ostruct'
 gem 'puma'
 gem 'rackup'
-gem 'sinatra', '~> 3.0'
+gem 'sinatra', '~> 4.0'
 gem 'sinatra-activerecord'
 gem 'sqlite3', '~> 1.6'
 
@@ -19,6 +19,7 @@ group :test do
 end
 
 group :development, :test do
+  gem 'brakeman', require: false
   gem 'guard' # Watches for file changes
   gem 'guard-shell' # Allows Guard to run shell-kommands (to restart the server when files change)
   gem 'rubocop', '~> 1.60', require: false # When app is running, don't load RuboCop. We load it through CLI

@@ -204,7 +204,7 @@ def search():
 - Auto-generation tools er ikke altid tilgængelige (framework dependent)
 - 1:1 porting mellem frameworks (Python→Ruby) kan kopiere fejl
 
----
+------
 
 ## Programming Language Choice
 
@@ -249,7 +249,7 @@ Kursusbegrænsninger: Ikke Java, Python eller Node.js. Teamet skulle vælge et n
 - Framework økosystem er lige så vigtigt som sproget selv
 - Microframework flexibility kræver mere manual opsætning
 
----
+------
 
 ## Architecture Pattern Choice
 
@@ -305,7 +305,7 @@ ruby-sinatra/
 - MVC kan tilpasses selv når framework ikke enforcer det
 - Start simple, refaktorer når smertepunkter opstår
 
----
+------
 
 ## Initial Deployment Strategy - week 3
 
@@ -374,7 +374,7 @@ ruby-sinatra/
 - systemd + reverse proxy er “baseline” drift, også før CI/CD/Docker.
 - Azure NSG rules kræver unikke priorities (undgå conflicts).
 
----
+------
 
 ## OpenAPI Specification: Afvigelser fra whoknows-spec.json
 
@@ -409,7 +409,7 @@ Afvigelse 2 — `language` parameteren bruger `default: "en"` fremfor Anders' `a
 - Spec bør være en sandfærdig kontrakt for hvad API'et returnerer
 - `$ref` i components er DRY-princippet anvendt på API dokumentation
 
----
+------
 
 ## Implementering af GitHub Actions CI pipeline
 
@@ -461,7 +461,7 @@ Vi implementerede en GitHub Actions CI pipeline med:
 - Gemfile.lock er kritisk for stabile builds
 - SHA pinning kan give kompatibilitetsudfordringer
 
----
+------
 
 ## Integration af RuboCop som quality gate
 
@@ -503,7 +503,7 @@ Projektet er i migreringsfase, hvilket øger risiko for teknisk gæld.
 - Lint bør tunes – ikke blindt accepteres
 - Empty methods kan være legitime under migration
 
----
+------
 
 ## 3rd party Integration af weather API
 
@@ -560,7 +560,7 @@ Valget understøtter DevOps-principper:
 - Vigtigheden af at isolere ekstern integration i service layer
 - Caching som strategi mod rate limiting og load
 
----
+------
 
 ## API design: JSON vs HTML responses ved login
 
@@ -591,7 +591,7 @@ Spec'en definerer `POST /api/login` som et JSON-endpoint. At afvige fra det vill
 **Læring**
 Når man designer et JSON API skal man tænke på hvem der konsumerer det. En browser forventer HTML, men et API-endpoint bør ikke tage hensyn til det - det er frontend-lagets ansvar at håndtere svaret.
 
----
+------
 
 ## Database konfiguration: `set :database_file` placering
 
@@ -620,7 +620,7 @@ Fejlen blev opdaget ved at applikationen tilsyneladende virkede, men ActiveRecor
 **Læring**
 Sinatra-specifikke metoder som `set` skal altid kaldes inden for applikationsklassen når man bruger modular style. Classic style (`require 'sinatra'`) ville have tilladt `set` uden for en klasse, men modular style kræver eksplicit klassekontekst.
 
----
+------
 
 ## Test miljø: In-memory SQLite database
 
@@ -661,7 +661,7 @@ In-memory SQLite er standard tilgangen til database-tests i Ruby-økosystemet. D
 **Læring**
 CI afslører afhængigheder til lokalt miljø som er usynlige under udvikling. Database-filer må aldrig være en forudsætning for at køre tests - test-miljøet skal være fuldt selvforsynende og reproducerbart.
 
----
+------
 
 ## Dockerfile og Docker Compose setup
 
@@ -713,7 +713,7 @@ udvikling og produktion.
 - Absolut sti i containeren (/whoknows.db) kombineret med ENV.fetch fallback
   giver fleksibilitet på tværs af miljøer
 
----
+------
 
 ## Hot-reload med Guard frem for Rerun
 
@@ -760,7 +760,7 @@ så udviklere ikke manuelt skal genstarte containeren.
 - Værktøjer designet til interaktiv brug fungerer dårligt i Docker uden TTY
 - --no-interactions er det afgørende flag der løser TTY-problemet
 
----
+------
 
 ## Continuous Delivery pipeline til GitHub Container Registry
 
@@ -810,7 +810,7 @@ bygges og pushes til et container registry ved merge til main.
 - docker buildx bake er mere elegant end build-push-action da det genbruger
   eksisterende compose-konfiguration
 
----
+------
 
 ## CI pipeline inkonsistens ved PR til main (ift. RuboCop)
 
@@ -858,7 +858,7 @@ Den rapporterede fejl (Style/RescueModifier) findes ikke i den aktuelle kodebase
 - Verificer altid hvilken kode CI faktisk kører
 - Branch protection + PR flow kan introducere kompleksitet i pipelines
 
----
+------
 
 ## HTML ID-kompatibilitet med legacy frontend
 
@@ -907,7 +907,7 @@ Underviser kører en simulation der automatisk klikker rundt på projektets fron
 - Ekstern simulationsafhængighed kræver at frontend-kontrakter (HTML IDs, classes) behandles som en del af API-kontrakten
 - Additiv tilgang (tilføj ID, bevar class) er den mindst risikable måde at opnå kompatibilitet uden at bryde eksisterende styling
 
----
+------
 
 ## JSON Body Parsing i Sinatra
 
@@ -989,7 +989,123 @@ end
 - Rack middleware og applikationslaget løser samme problem på forskelligt abstraktionsniveau - valget afhænger af hvor meget kontrol man har brug for
 - Automatisk PR review med Coderabbit fangede edge cases som ikke var åbenlyse under implementation
 
----
+------
+
+## Continuous Deployment Pipeline med GitHub Actions
+
+### Context
+Projektet whoknows_variations er en Ruby 3.2.3 Sinatra mikroservice der kører i Docker på en Azure VM.
+Vi havde allerede en CI pipeline (ci.yaml) der kørte tests, men ingen automatisk deployment.
+Målet var at implementere en fully automatic CD pipeline så ethvert push til main automatisk
+resulterer i et nyt Docker image der deployes til produktionsserveren uden manuel intervention.
+
+### Challenge
+Den eksisterende cd.yaml byggede og pushede et Docker image til GHCR med `docker buildx bake`,
+men stoppede der. Serveren blev aldrig opdateret automatisk. Derudover var secrets bagt ind i
+Docker imaget og synlige i klartekst via `docker inspect`.
+
+**Overvejede patterns:**
+- `docker buildx bake` med docker-compose.prod.yml som build-definition
+- `docker buildx build` med eksplicit Dockerfile og build-kontekst
+- Tredjeparts GitHub Marketplace actions (appleboy/ssh-action) til SSH og SCP
+- Native `ssh` og `scp` kommandoer direkte i workflow
+
+### Choice
+
+**Beslutning:**
+Vi valgte `docker buildx build` med eksplicit Dockerfile frem for `docker buildx bake`, og native
+`ssh`/`scp` frem for tredjeparts actions. Secrets håndteres via en `.env`-fil der genereres
+dynamisk af GitHub Actions fra GitHub Secrets og overføres til serveren ved hver deployment.
+
+**Implementering:**
+```yaml
+jobs:
+  build-push:
+    steps:
+      - name: Build and Push Docker image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            -t ghcr.io/${{ env.DOCKER_GITHUB_USERNAME }}/monkknows:latest \
+            -f ruby-sinatra/Dockerfile \
+            ruby-sinatra/
+        
+  deploy:
+  needs: build-push
+  steps:
+    - name: Add SSH key to runner
+      run: |
+        mkdir -p ~/.ssh/
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
+        chmod 600 ~/.ssh/ssh_key
+        printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+        chmod 644 ~/.ssh/known_hosts
+
+    - name: Create .env file
+      run: |
+        cat > .env <<'EOF'
+        SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+        OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+        EOF
+
+    - name: Copy runtime files to server
+      run: |
+        scp -i ~/.ssh/ssh_key \
+          .env ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:.env
+        scp -i ~/.ssh/ssh_key \
+          docker-compose.prod.yml \
+          ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:docker-compose.yml
+        scp -i ~/.ssh/ssh_key \
+          nginx.conf \
+          ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:nginx.conf
+
+    - name: Deploy on server
+      run: |
+        ssh -i ~/.ssh/ssh_key \
+          ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << "EOF"
+          set -euo pipefail
+          docker compose pull
+          docker compose up -d --remove-orphans
+        EOF
+
+smoke-test-cd:
+  needs: deploy
+```
+
+**Rationale:**
+- `docker buildx bake` kræver en `build:`-blok i docker-compose.prod.yml, hvilket ville betyde
+  at secrets risikerer at blive bagt ind i imaget under byggeprocessen
+- Native `ssh`/`scp` er sikrere end tredjeparts actions da credentials ikke overdrages til
+  en ekstern action der potentielt kan være kompromitteret
+- `.env`-filen genereres dynamisk fra GitHub Secrets og eksisterer aldrig i repository
+
+**Fordele:**
+- Fuldt automatisk deployment ved push til main – ingen manuel SSH intervention
+- Secrets injiceres runtime via `.env` og bages aldrig ind i Docker imaget
+- Serveren verificeres mod kendte fingerprints via SSH_KNOWN_HOSTS – beskytter mod MITM-angreb
+- `set -euo pipefail` sikrer at pipelinen fejler hurtigt ved fejl frem for at deploye et forældet image
+- Smoke test verificerer at produktionsserveren svarer med HTTP 200 efter deployment
+- Native SSH/SCP uden tredjeparts actions følger lærers sikkerhedsanbefaling
+
+**Ulemper:**
+- `SSH_KNOWN_HOSTS` skal opdateres manuelt hvis serveren skifter IP eller geninstalleres
+- `.env`-filen overskrives ved hver deployment – eventuelle manuelle ændringer på serveren mistes
+- Ingen automatisk rollback hvis smoke test fejler efter deployment
+
+**Retrospektiv:** (Opdateres løbende)
+- Secrets var initialt bagt ind i Docker imaget og synlige via `docker inspect` – opdaget ved
+  gennemgang af sikkerhed og rettet ved at fjerne `build:`-blokken fra docker-compose.prod.yml
+
+**Læring:**
+- `docker-compose.prod.yml` må ikke indeholde en `build:`-blok når den bruges til deployment –
+  den skal udelukkende referere til et færdigt image fra GHCR
+- GitHub Actions substituerer `${{ secrets.X }}` før shell'en eksekverer scriptet – derfor skal
+  heredoc bruges med single-quoted `<<'EOF'` for at undgå utilsigtet shell-ekspansion af secrets
+- `set -euo pipefail` er essentielt i remote SSH-blokke for at undgå silent failures hvor
+  pipelinen rapporterer success med et forældet image
+
+------
 
 ##
 
@@ -1024,3 +1140,5 @@ end
 
 **Læring:**
 -
+
+------

@@ -1,0 +1,3 @@
+# Apt-package versions is not pinned because Debian is updated regularly
+ignored:
+  - DL3008
