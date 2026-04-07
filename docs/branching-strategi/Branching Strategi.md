@@ -1,7 +1,7 @@
 # Branching Strategy
 
 **Written by:** Andreas, Nima & Sofie
-**Updated:** February 23, 2026
+**Updated:** April 7, 2026
 
 ---
 
@@ -13,9 +13,80 @@
 
 ---
 
-## What version control strategy did you choose and how did you actually do it / enforce it?
+## Current strategy: Trunk-based development (adopted April 7, 2026)
 
-We use a customized GitHub Flow with a `development` layer:
+We transitioned from our customized GitHub Flow (documented below) to trunk-based development. The reasons are documented in the "What we would do differently" section of the previous strategy — specifically, the growing gap between development and main became a real problem.
+
+### Branch hierarchy
+
+```
+main (production, always deployable)
+  └── feature branches (short-lived, created from main)
+```
+
+There is no `development` branch. All feature branches are created directly from `main` and merged back into `main` via PR.
+
+### What changed
+
+| | Before (GitHub Flow + development) | After (trunk-based) |
+|---|---|---|
+| **Long-lived branches** | `main` + `development` | `main` only |
+| **Feature branches from** | `development` | `main` |
+| **PRs target** | `development`, then `development` → `main` | `main` directly |
+| **Default branch** | `development` | `main` |
+| **Merge strategy** | Squash merge | Squash merge (unchanged) |
+| **Approval on main** | 1 required | 1 required (unchanged) |
+| **CI required** | Yes | Yes (unchanged) |
+
+### Why we switched
+
+- The gap between `development` and `main` grew over time, making merges to main large and risky — exactly the disadvantage we documented below
+- With three people and a mature CI/CD pipeline, the `development` layer added overhead without catching issues that CI didn't already catch
+- Trunk-based is simpler: one less branch to manage, one less merge to coordinate
+- The course material identifies trunk-based as the ideal model for fast CI/CD
+
+### Additional changes made during transition
+
+- **Commit convention:** Conventional Commits in English (`feat:`, `fix:`, `chore:`, `docs:`, `ci:`), lowercase, imperative form. With squash merge, only the PR title appears in main history.
+- **Auto-delete branches:** `deleteBranchOnMerge` enabled — feature branches are cleaned up automatically after merge.
+- **Dismiss stale reviews:** Enabled on main — pushing new commits invalidates previous approvals.
+- **Required thread resolution:** All review threads must be resolved before merge.
+- **Stale branches:** Archived as `archive/*` tags and deleted. Tags preserve the history if needed.
+- **Duplicate rulesets:** Cleaned up from 4 to 2 (one per protected branch).
+
+### Branch protection rules (updated)
+
+**`main`:** Require PR, 1 required approval, dismiss stale reviews on push, require resolved threads, CI status check (`build-test`) required, only squash merge allowed, force pushes blocked, deletion not allowed.
+
+**`development`:** Kept as read-only archive during transition period. Same rules as before but no longer used for active development.
+
+### Workflow (step by step)
+
+1. Create issue on GitHub with relevant template and labels
+2. Create branch from `main` (via GitHub's "Create a branch" or locally)
+3. Work on the branch, commit regularly using Conventional Commits
+4. Create PR to `main` when ready
+5. CI runs automatically (Bundler Audit, Brakeman, Hadolint, RuboCop, RSpec, Smoke Test)
+6. 1 approval + CI green + threads resolved → squash merge to main
+7. Feature branch is auto-deleted after merge
+
+### Advantages experienced so far
+
+- Simpler mental model — no more "should this go to development or main?"
+- Every merge to main triggers CD, so features reach production faster
+- Squash merge + Conventional Commits give a clean, searchable history
+- No more large development → main sync merges
+
+### Disadvantages experienced so far
+
+- Requires discipline: PRs must be small and self-contained since they go directly to production
+- No staging environment to test multiple features together before production (but CI smoke test partially compensates)
+
+---
+
+## Previous strategy: Customized GitHub Flow (February–April 2026)
+
+We used a customized GitHub Flow with a `development` layer:
 
 ```
 main (production, always deployable)
