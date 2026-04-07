@@ -7,9 +7,9 @@ name: Bundler Audit (Dependency Security Scan)
 
 on:
   push:
-    branches: [main, development]
+    branches: [main]
   pull_request:
-    branches: [main, development]
+    branches: [main]
 
   workflow_dispatch:
 
