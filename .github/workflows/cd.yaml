@@ -24,7 +24,11 @@ jobs:
 
       # Authenticate with GitHub Container Registry
       - name: Log in to GHCR
-        run: echo ${{ env.CR_PAT }} | docker login ghcr.io -u ${{ env.DOCKER_GITHUB_USERNAME }} --password-stdin
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7519a1c44
+        with:
+          registry: ghcr.io
+          username: ${{ env.DOCKER_GITHUB_USERNAME }}
+          password: ${{ env.CR_PAT }}
 
       # Build the production image and push it to GHCR
       - name: Build and Push Docker image
