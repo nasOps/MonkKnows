@@ -3,9 +3,9 @@ name: Ruby CI (Build & Test)
 # Workflow triggers
 on:
   pull_request:
-    branches: [ main, development ]
+    branches: [ main ]
   push:
-    branches: [ main, development ]
+    branches: [ main ]
 
   workflow_dispatch:
 
