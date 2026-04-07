@@ -13,7 +13,7 @@ services:
     image: ghcr.io/nasops/monkknows:latest
 
     volumes:
-      - ./whoknows.db:/app/whoknows.db  # Database persistence
+      - /opt/whoknows/data/whoknows.db:/app/whoknows.db  # Database persistence
     environment:
       - RACK_ENV=production
       - DATABASE_PATH=/app/whoknows.db
