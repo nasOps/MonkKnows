@@ -1,5 +1,9 @@
 name: CD — Continuous Delivery & Deployment
 
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ main ]
