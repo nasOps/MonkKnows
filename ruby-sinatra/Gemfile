@@ -11,6 +11,7 @@ gem 'puma'
 gem 'rackup'
 gem 'sinatra', '~> 4.0'
 gem 'sinatra-activerecord'
+gem 'bcrypt', '~> 3.1'
 gem 'sqlite3', '~> 1.6'
 
 group :test do
