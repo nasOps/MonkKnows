@@ -50,22 +50,20 @@ class WhoknowsApp < Sinatra::Base
 
     # Parse JSON body og merge ind i params
     # Begrænset til POST requests da GET aldrig sender JSON body
-    if request.post? && request.content_type&.include?('application/json')
-      request.body.rewind
-      begin
-        json_body = JSON.parse(request.body.read, symbolize_names: false)
-        # ||= sikrer at eksisterende params ikke overskrives af JSON body
-        if json_body.is_a?(Hash)
-          json_body.each { |k, v| params[k] ||= v }
-        else
-          content_type :json
-          halt 400, { detail: [{ loc: ['body'], msg: 'Expected JSON object', type: 'type_error' }] }.to_json
-        end
-      rescue JSON::ParserError
-        # Returnér 400 ved malformed JSON frem for at fejle stille
+    next unless request.post? && request.content_type&.include?('application/json')
+
+    request.body.rewind
+    begin
+      json_body = JSON.parse(request.body.read, symbolize_names: false)
+      if json_body.is_a?(Hash)
+        json_body.each { |k, v| params[k] ||= v }
+      else
         content_type :json
-        halt 400, { detail: [{ loc: ['body'], msg: 'Invalid JSON', type: 'parse_error' }] }.to_json
+        halt 400, { detail: [{ loc: ['body'], msg: 'Expected JSON object', type: 'type_error' }] }.to_json
       end
+    rescue JSON::ParserError
+      content_type :json
+      halt 400, { detail: [{ loc: ['body'], msg: 'Invalid JSON', type: 'parse_error' }] }.to_json
     end
   end
 
