@@ -217,9 +217,6 @@ class WhoknowsApp < Sinatra::Base
   post '/api/login' do
     content_type :json
 
-    # TODO: Fjern debug logging efter fejlfinding
-    warn("LOGIN ATTEMPT: content_type=#{request.content_type} username_present=#{!params[:username].to_s.empty?}")
-
     user = User.find_by(username: params[:username])
 
     if user.nil?
