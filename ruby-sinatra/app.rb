@@ -201,7 +201,8 @@ class WhoknowsApp < Sinatra::Base
     user = User.new(
       username: params[:username],
       email: params[:email],
-      password: User.hash_password(password || '')
+      password: password || '',
+      password_digest: User.hash_password(password || '')
     )
 
     if user.save
