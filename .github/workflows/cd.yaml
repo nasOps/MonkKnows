@@ -65,21 +65,21 @@ jobs:
       - name: Transfer .env to server
         run: |
           scp -i ~/.ssh/ssh_key \
-            .env ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:.env
+            .env ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/whoknows/app/.env
 
       # Copy compose file so the server always has the latest version with correct image tag (latest)
       - name: Transfer docker-compose.prod.yml to server
         run: |
           scp -i ~/.ssh/ssh_key \
             docker-compose.prod.yml \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:docker-compose.yml
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/whoknows/app/docker-compose.prod.yml
 
       # Copy nginx config so the server always has the latest version
       - name: Transfer nginx.conf to server
         run: |
           scp -i ~/.ssh/ssh_key \
             nginx.conf \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:nginx.conf
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/whoknows/app/nginx.conf
 
       # Pull the latest image from GHCR and restart containers
       # set -euo pipefail = fail fast if any command fails, prevents silent errors
@@ -87,9 +87,10 @@ jobs:
         run: |
           ssh -i ~/.ssh/ssh_key \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << "EOF"
-            set -euo pipefail 
-            docker compose pull
-            docker compose up -d --remove-orphans
+            set -euo pipefail
+            cd /opt/whoknows/app
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
           EOF
 
   # Smoke test: Verifies that the production server is operational after deployment
