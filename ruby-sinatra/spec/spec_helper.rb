@@ -53,7 +53,8 @@ RSpec.configure do |config|
       create_table :users, force: true do |t|
         t.string :username, null: false
         t.string :email,    null: false
-        t.string :password, null: false
+        t.string :password
+        t.string :password_digest
       end
 
       create_table :pages, force: true do |t|

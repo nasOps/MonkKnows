@@ -26,7 +26,11 @@ class WhoknowsApp < Sinatra::Base
   # Session configuration (nødvendig for login/logout)
   enable :sessions
   set :session_secret,
-      ENV.fetch('SESSION_SECRET') { 'x' * 64 }
+      if ENV['RACK_ENV'] == 'production'
+        ENV.fetch('SESSION_SECRET') { raise 'SESSION_SECRET must be set in production' }
+      else
+        ENV.fetch('SESSION_SECRET') { 'x' * 64 }
+      end
   # To prevent CSRF attacks by not sending cookies on cross-site requests
   set :sessions, same_site: :strict
 
@@ -197,7 +201,8 @@ class WhoknowsApp < Sinatra::Base
     user = User.new(
       username: params[:username],
       email: params[:email],
-      password: User.hash_password(password || '')
+      password: password || '',
+      password_digest: User.hash_password(password || '')
     )
 
     if user.save
@@ -217,9 +222,6 @@ class WhoknowsApp < Sinatra::Base
   post '/api/login' do
     content_type :json
 
-    # TODO: Fjern debug logging efter fejlfinding
-    warn("LOGIN ATTEMPT: content_type=#{request.content_type} username_present=#{!params[:username].to_s.empty?}")
-
     user = User.find_by(username: params[:username])
 
     if user.nil?
@@ -235,10 +237,6 @@ class WhoknowsApp < Sinatra::Base
         detail: [{ loc: %w[body password], msg: 'Invalid password', type: 'value_error' }]
       }.to_json
     end
-
-    # puts params.inspect
-
-    # TODO: Maybe add if both username and password is wrong, msg: "Invalid username or password"
 
     # Gem bruger-id i session - svarer til Flask's session['user_id'] = user['id']
     session[:user_id] = user.id

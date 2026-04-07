@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'bcrypt'
 require 'digest'
 
 # User-model - mapper til 'users'-tabellen via ActiveRecord.
@@ -12,20 +13,34 @@ class User < ActiveRecord::Base
   validates :email, presence: { message: 'You have to enter a valid email address' },
                     format: { with: /\A[^@\s]+@[^@\s]+\z/, message: 'You have to enter a valid email address' }
 
-  validates :password, presence: { message: 'You have to enter a password' }
+  validates :password, presence: { message: 'You have to enter a password' }, if: :needs_password?
 
-  # MD5-hashing - samme som Flask's hashlib.md5()
-  # Klassemetode (self.) - kaldes med User.hash_password("test")
+  # Hash password med bcrypt for nye brugere
   def self.hash_password(password)
-    Digest::MD5.hexdigest(password)
+    BCrypt::Password.create(password)
   end
 
-  # Instansmetode - kaldes paa et user-objekt: user.verify_password("test")
-  # def verify_password?(plain_password)
-  #  password == User.hash_password(plain_password)
-  # end
-
+  # Gradvis migration: verificer mod bcrypt eller MD5, re-hash hvis MD5
   def verify_password?(input)
-    password == User.hash_password(input) || password == input
+    if password_digest
+      BCrypt::Password.new(password_digest) == input
+    elsif password == Digest::MD5.hexdigest(input)
+      migrate_to_bcrypt!(input)
+      true
+    else
+      false
+    end
+  end
+
+  private
+
+  # Re-hash MD5 password til bcrypt ved succesfuldt login
+  def migrate_to_bcrypt!(plain_password)
+    update_columns(password_digest: BCrypt::Password.create(plain_password), password: nil)
+  end
+
+  # Kun kræv password ved oprettelse (ikke ved bcrypt migration)
+  def needs_password?
+    password_digest.nil? && new_record?
   end
 end

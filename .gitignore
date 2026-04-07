@@ -7,9 +7,14 @@
 .DS_Store
 Thumbs.db
 
+# ---- Personal notes ----
+package.json
+tingeling.md
+
 # ---- IDE / Editor ----
 .idea/
 .vscode/
+.claude/
 
 # ---- Database ----
 *.db
