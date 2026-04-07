@@ -233,10 +233,6 @@ class WhoknowsApp < Sinatra::Base
       }.to_json
     end
 
-    # puts params.inspect
-
-    # TODO: Maybe add if both username and password is wrong, msg: "Invalid username or password"
-
     # Gem bruger-id i session - svarer til Flask's session['user_id'] = user['id']
     session[:user_id] = user.id
 
