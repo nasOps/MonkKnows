@@ -10,10 +10,10 @@ env:
   DOCKER_GITHUB_USERNAME: ${{ secrets.DOCKER_GITHUB_USERNAME }}
 
 jobs:
-  # --- Continuous Delivery: build, tag, push artifact to GHCR ---
+  # --- Continuous Delivery: build, scan, push artifact to GHCR ---
 
   deliver:
-    name: Build & Push to GHCR
+    name: Build, Scan & Push to GHCR
     runs-on: ubuntu-latest
 
     steps:
@@ -41,23 +41,17 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
-      - name: Build and Push Docker image
+      # Build locally without pushing — image stays on runner for scanning
+      - name: Build Docker image
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
         with:
           context: ruby-sinatra/
           file: ruby-sinatra/Dockerfile
           platforms: linux/amd64
-          push: true
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
 
-  # --- Artifact scanning: Trivy checks image before deploy ---
-
-  trivy-scan:
-    name: Trivy Image Scan
-    runs-on: ubuntu-latest
-    needs: deliver
-
-    steps:
+      # Scan the local image before pushing — blocks vulnerable images from reaching GHCR
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@18f2510ee396bbf400402947e0f18c8ea63fd80e
         with:
@@ -66,12 +60,22 @@ jobs:
           exit-code: '1'
           severity: CRITICAL,HIGH
 
+      # Push only if Trivy scan passed
+      - name: Push Docker image to GHCR
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
+        with:
+          context: ruby-sinatra/
+          file: ruby-sinatra/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
   # --- Continuous Deployment: deploy to production server ---
 
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [deliver, trivy-scan]
+    needs: deliver
 
     steps:
       - name: Checkout source code
