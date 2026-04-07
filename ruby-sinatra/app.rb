@@ -26,7 +26,11 @@ class WhoknowsApp < Sinatra::Base
   # Session configuration (nødvendig for login/logout)
   enable :sessions
   set :session_secret,
-      ENV.fetch('SESSION_SECRET') { 'x' * 64 }
+      if ENV['RACK_ENV'] == 'production'
+        ENV.fetch('SESSION_SECRET') { raise 'SESSION_SECRET must be set in production' }
+      else
+        ENV.fetch('SESSION_SECRET') { 'x' * 64 }
+      end
   # To prevent CSRF attacks by not sending cookies on cross-site requests
   set :sessions, same_site: :strict
 
