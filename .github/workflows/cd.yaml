@@ -103,8 +103,8 @@ jobs:
       # Hit the production server and verify it responds with HTTP 200
       - name: Run smoke test on production
         run: |
-          URL="http://4.225.161.111/"
-          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" $URL)
+          URL="https://monkknows.dk"
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" -L $URL)
           if [ $HTTP_STATUS -eq 200 ]; then
             echo "✅ CD Smoke test passed (status: $HTTP_STATUS)"
           else
