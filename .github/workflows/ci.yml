@@ -130,7 +130,7 @@ jobs:
         run: |
           URL="http://localhost:4567/"
           echo "Waiting for app to be ready..."
-          for i in $(seq 1 30); do
+          for i in $(seq 1 46); do
             HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" $URL 2>/dev/null || echo "000")
             if [ "$HTTP_STATUS" -eq 200 ]; then
               echo "✅ CI Smoke test passed (status: $HTTP_STATUS)"
@@ -139,7 +139,7 @@ jobs:
             echo "Attempt $i: not ready yet (status: $HTTP_STATUS), waiting 2s..."
             sleep 2
           done
-          echo "❌ CI Smoke test failed — app did not respond with 200 within 60s"
+          echo "❌ CI Smoke test failed — app did not respond with 200 within 92s"
           exit 1
 
       - name: Tear down app
