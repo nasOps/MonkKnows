@@ -1030,47 +1030,48 @@ jobs:
             -t ghcr.io/${{ env.DOCKER_GITHUB_USERNAME }}/monkknows:latest \
             -f ruby-sinatra/Dockerfile \
             ruby-sinatra/
-        
+
   deploy:
-  needs: build-push
-  steps:
-    - name: Add SSH key to runner
-      run: |
-        mkdir -p ~/.ssh/
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
-        chmod 600 ~/.ssh/ssh_key
-        printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-        chmod 644 ~/.ssh/known_hosts
+    needs: build-push
+    steps:
+      - name: Add SSH key to runner
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
+          chmod 600 ~/.ssh/ssh_key
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
-    - name: Create .env file
-      run: |
-        cat > .env <<'EOF'
-        SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-        OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
-        EOF
+      - name: Create .env file
+        run: |
+          cat > .env <<'EOF'
+          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+          EOF
 
-    - name: Copy runtime files to server
-      run: |
-        scp -i ~/.ssh/ssh_key \
-          .env ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:.env
-        scp -i ~/.ssh/ssh_key \
-          docker-compose.prod.yml \
-          ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:docker-compose.yml
-        scp -i ~/.ssh/ssh_key \
-          nginx.conf \
-          ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:nginx.conf
+      - name: Copy runtime files to server
+        run: |
+          scp -i ~/.ssh/ssh_key \
+            .env ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/whoknows/app/.env
+          scp -i ~/.ssh/ssh_key \
+            docker-compose.prod.yml \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/whoknows/app/docker-compose.prod.yml
+          scp -i ~/.ssh/ssh_key \
+            nginx.conf \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/whoknows/app/nginx.conf
 
-    - name: Deploy on server
-      run: |
-        ssh -i ~/.ssh/ssh_key \
-          ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << "EOF"
-          set -euo pipefail
-          docker compose pull
-          docker compose up -d --remove-orphans
-        EOF
+      - name: Deploy on server
+        run: |
+          ssh -i ~/.ssh/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << "EOF"
+            set -euo pipefail
+            cd /opt/whoknows/app
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+          EOF
 
-smoke-test-cd:
-  needs: deploy
+  smoke-test-cd:
+    needs: deploy
 ```
 
 **Rationale:**
