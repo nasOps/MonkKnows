@@ -26,6 +26,6 @@ class User < ActiveRecord::Base
   # end
 
   def verify_password?(input)
-    password == User.hash_password(input) || password == input
+    password == User.hash_password(input)
   end
 end
