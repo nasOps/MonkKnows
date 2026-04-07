@@ -51,9 +51,22 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-  deploy:
+  trivy-scan:
     runs-on: ubuntu-latest
     needs: build-push
+
+    steps:
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947e0f18c8ea63fd80e
+        with:
+          image-ref: ghcr.io/${{ env.DOCKER_GITHUB_USERNAME }}/monkknows:latest
+          format: table
+          exit-code: '1'
+          severity: CRITICAL,HIGH
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-push, trivy-scan]
 
     steps:
       # Fetch the repository code to access compose and config files
