@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Ruby gems
+  - package-ecosystem: bundler
+    directory: /ruby-sinatra
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Docker base images
+  - package-ecosystem: docker
+    directory: /ruby-sinatra
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

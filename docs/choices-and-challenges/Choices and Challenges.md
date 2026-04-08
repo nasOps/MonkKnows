@@ -1,7 +1,7 @@
 # Choices and Challenges
 
 **Written by:** Andreas, Nima & Sofie
- **Updated:** 19th Marts 2026 - 10.47
+ **Updated:** 7th April 2026
 
 ------
 
@@ -1105,6 +1105,199 @@ jobs:
   heredoc bruges med single-quoted `<<'EOF'` for at undgå utilsigtet shell-ekspansion af secrets
 - `set -euo pipefail` er essentielt i remote SSH-blokke for at undgå silent failures hvor
   pipelinen rapporterer success med et forældet image
+
+------
+
+## Kritiske sikkerhedsfixes: MD5 → bcrypt migration
+
+### Context
+En sikkerhedsaudit afslørede fire kritiske sårbarheder i authentication-koden: MD5 password hashing uden salt, en password verification bypass, credential leak til logs, og forudsigelig session secret i production.
+
+### Challenge
+- MD5 er kryptografisk brudt og bruges uden salt
+- `verify_password?` accepterede rå MD5-hashen som gyldigt password input
+- `warn()` og `puts params.inspect` lækkede credentials til stdout/logs
+- Session secret faldt tilbage til `'x' * 64` hvis env var manglede
+- Eksisterende brugere i databasen har MD5-hashede passwords der skal migreres uden nedetid
+
+**Overvejede patterns:**
+- Big bang migration: tving alle brugere til password reset
+- Gradvis migration: re-hash ved næste login
+
+### Choice
+**Beslutning:** Gradvis migration fra MD5 til bcrypt med dual-hash verificering
+
+**Implementering:**
+```markdown
+1) Tilføjet bcrypt gem
+2) Ny kolonne password_digest tilføjet via migration script
+3) User model omskrevet: verify_password? tjekker bcrypt først, falder tilbage til MD5, re-hasher til bcrypt ved succesfuldt MD5 login
+4) Nye brugere oprettes kun med bcrypt (password_digest)
+5) Password bypass (|| password == input) fjernet
+6) Debug logging fjernet fra login route
+7) Session secret raiser error i production hvis ikke sat
+8) Migration script kørt manuelt på produktionsserver inden deploy
+```
+
+**Rationale:**
+- Gradvis migration undgår tvunget password reset for alle brugere
+- Dual-hash approach sikrer bagudkompatibilitet under overgangsperiode
+- Migration ved login betyder at aktive brugere migreres automatisk
+- `User.where.not(password: nil).count` kan monitoreres — når 0, fjernes MD5 kolonnen
+
+**Fordele:**
+- Ingen nedetid eller tvunget password reset
+- Aktive brugere migreres automatisk ved login
+- Inaktive brugere med MD5 kan tvinges til reset senere
+- Alle fire sikkerhedshuller lukket i én samlet PR
+
+**Ulemper:**
+- To kolonner (password + password_digest) skal sameksistere midlertidigt
+- Kode-kompleksitet i verify_password? indtil MD5 kolonnen fjernes
+- Migration script skal køres manuelt på serveren inden deploy
+
+**Retrospektiv:**
+- CI fejlede første gang pga. RuboCop gem ordering — bcrypt skulle sorteres alfabetisk i Gemfile
+- Migration script blev kørt på serveren via SSH inden PR merge for at undgå nedetid
+
+**Læring:**
+- Database migrations skal koordineres med deploys — koden og databasen skal matche
+- Gradvis migration er sikrere end big bang for authentication-kritisk kode
+- Sikkerhedsaudit bør være en fast del af code review processen
+
+------
+
+## Transition til trunk-based development
+
+### Context
+Projektet brugte Git Flow med development og main branches. Med stigende CI/CD modenhed var den ekstra branch-kompleksitet unødvendig og bremsede delivery.
+
+### Challenge
+- development og main var ude af sync (begge havde unikke commits)
+- Duplikerede branch protection rulesets (4 rulesets, 2 per branch)
+- Stale feature branches levede efter merge
+- Inkonsistente commit messages (mix af dansk/engelsk, med/uden prefix)
+- Alle merge-strategier var tilladt (merge commit, rebase, squash)
+
+**Overvejede patterns:**
+- Behold Git Flow med strengere regler
+- Trunk-based development med feature branches direkte fra main
+
+### Choice
+**Beslutning:** Trunk-based development med main som eneste langlivede branch
+
+**Implementering:**
+```markdown
+1) Synkroniseret main og development via PR
+2) Default branch skiftet til main
+3) Duplikerede rulesets slettet (4 → 2)
+4) Branch protection opdateret: dismiss stale reviews + required thread resolution
+5) Kun squash merge tilladt
+6) deleteBranchOnMerge slået til
+7) Stale branches arkiveret som tags (archive/*) og slettet
+8) Commit konvention aftalt: Conventional Commits (feat/fix/chore/docs/ci), engelsk, lowercase
+9) development arkiveret efter final sync til main
+```
+
+**Rationale:**
+- Trunk-based passer bedre til teamets størrelse (3 personer) og CI/CD modenhed
+- Squash merge giver ren main-historik hvor hver commit = én feature/fix
+- Conventional Commits gør historikken søgbar og muliggør automatisk changelog
+- Med squash merge er det kun PR-titlen der tæller i main
+
+**Fordele:**
+- Simplere branching model — færre merge conflicts
+- Hurtigere feedback loop — PRs går direkte mod main
+- Renere git historik med squash merge
+- Automatisk branch cleanup efter merge
+
+**Ulemper:**
+- Kræver at PRs er små og selvstændige (kan ikke samle store features over tid)
+- Alle på teamet skal være enige om konventionen
+- Mister detaljeret commit-historik inden for en PR (squash)
+
+**Retrospektiv:**
+- development branch var beskyttet og krævede PR — synkronisering kunne ikke pushes direkte
+- Arkivering af branches som tags gav en sikkerhedsnet der gjorde teamet mere komfortable med sletning
+
+**Læring:**
+- Branch-strategi bør matche teamets modenhed og CI/CD setup
+- Trunk-based kræver tillid til CI — alle tests skal være grønne før merge
+- Squash merge og Conventional Commits komplementerer hinanden
+
+------
+
+## CI/CD/CF pipeline omstrukturering
+
+### Context
+Projektet havde 5 separate GitHub Actions workflow-filer (ci.yaml, cd.yaml, brakeman.yml, bundler_audit.yml, owasp_zap.yml). Kursusmaterialet definerer fire DevOps-stadier: CI, Continuous Delivery, Continuous Deployment og Continuous Feedback.
+
+### Challenge
+- 5 workflow-filer var svære at overskue og mapppede ikke til DevOps-stadierne
+- Alle security scanning workflows triggede på både main og development
+- CD brugte usikker shell-baseret `docker login` der kunne lække credentials i logs
+- Docker images blev kun tagget med `:latest` — ingen sporbarhed til specifikke commits
+- Ingen container image scanning (Trivy) inden deploy
+- Ingen Dependabot konfiguration
+
+**Overvejede patterns:**
+- Én stor workflow-fil med alle jobs
+- Workflows grupperet efter DevOps-stadie (CI/CD/CF)
+
+### Choice
+**Beslutning:** 3 workflow-filer mappet til CI/CD/CF med optimeret job-rækkefølge
+
+**Implementering:**
+```markdown
+ci.yml — Continuous Integration:
+  1) Bundler Audit + Brakeman + Hadolint (parallel, ~10s hver)
+  2) RuboCop + RSpec (afhænger af quality gates)
+  3) Smoke test (afhænger af build-test)
+
+cd.yml — Continuous Delivery & Deployment:
+  1) Build Docker image lokalt (uden push)
+  2) Trivy scan af lokalt image (CRITICAL/HIGH fejler pipeline)
+  3) Push til GHCR kun hvis scan bestod
+  4) Deploy til produktion via SSH
+  5) Production smoke test
+
+cf.yml — Continuous Feedback:
+  1) OWASP ZAP dynamisk sikkerhedsscanning mod kørende app
+
+Desuden:
+- docker/login-action erstatter shell docker login
+- docker/metadata-action + docker/build-push-action giver SHA og semver tagging
+- dependabot.yml konfigureret for bundler, docker og github-actions
+```
+
+**Rationale:**
+- CI (statisk analyse af kode/dependencies) → CD (artifact build/scan/deploy) → CF (dynamisk test af kørende app) følger kursets DevOps-model
+- Hurtigste jobs kører først og parallelt — fejler Bundler Audit på 9 sekunder, sparer vi de resterende 2+ minutter
+- Trivy scanner det buildede image *inden* push til GHCR — sårbare images når aldrig registryet
+- Samme image pushes som scannes (ingen rebuild) efter CodeRabbit review feedback
+
+**Fordele:**
+- Klar mapping mellem workflow-filer og DevOps-stadier
+- Parallelle quality gates reducerer CI-tid
+- Sårbare images blokeres inden de når GHCR
+- Docker images er sporbare via git SHA tag
+- Dependabot holder dependencies opdateret automatisk
+
+**Ulemper:**
+- Konsolidering gør individuelle workflow-filer længere
+- Trivy scan-before-push kræver lokal build + push som separate steps
+- CodeRabbit konfiguration (`.github/cr`) ligger stadig som separat fil uden `.yml` extension
+
+**Retrospektiv:**
+- Første iteration pushede image til GHCR før Trivy scan — CodeRabbit fangede at sårbare images kunne nå registryet
+- Anden iteration brugte to separate docker/build-push-action invocations — CodeRabbit fangede at det andet build producerede et nyt artifact
+- Tredje iteration bruger `docker push` direkte på det scannede image
+
+**Læring:**
+- Pipeline-design er iterativt — code review (menneskelig og automatisk) fanger arkitekturfejl
+- "Scan before push" kræver bevidst design: build med `load: true`, scan, derefter `docker push`
+- Job-rækkefølge og parallelitet har reel indflydelse på developer experience og feedback-tid
+- Workflow-filer bør organiseres efter formål (CI/CD/CF), ikke efter tool (brakeman/trivy/zap)
 
 ------
 
