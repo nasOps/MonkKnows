@@ -48,7 +48,7 @@ jobs:
 
       # Build locally without pushing — image stays on runner for scanning
       - name: Build Docker image
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294
         with:
           context: ruby-sinatra/
           file: ruby-sinatra/Dockerfile
