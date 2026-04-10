@@ -1341,6 +1341,57 @@ Desuden:
 
 ------
 
+## Observatory resultater 
+
+### Context
+Projektet kører som en Ruby Sinatra-mikroservice bag Nginx på monkknows.dk. Mozilla Observatory blev kørt som del af 
+sikkerhedsreviewet: observatory.mozilla.org
+
+### Challenge
+Observatory-scanningen afslørede tre kritiske sikkerhedsproblemer der tilsammen kostede −85 point:
+- Ingen CSP-header (XSS-angreb muligt)
+- Session-cookie uden Secure-flag (session hijacking muligt)
+- Ingen HSTS (bruger kan ramme HTTP første besøg)
+
+### Choice
+**Beslutning:** Adressér alle tre kritiske fund via nginx.conf og sikr at cookies sættes korrekt i Sinatra-appen.
+
+**Implementering:**
+
+```markdown
+Rettelser foretaget:
+1. CSP-header tilføjet i nginx.conf
+2. HSTS-header tilføjet i nginx.conf
+3. Referrer-Policy tilføjet i nginx.conf
+4. Secure-flag på session-cookie i Sinatra-app
+
+Eksisterende og velfungerende:
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: SAMEORIGIN
+- HTTPS-redirect
+- CORS ikke eksponeret
+```
+
+**Rationale:**
+- HSTS og CSP er de to mest impactfulde headers for en offentlig webapp
+- Secure-flag på cookies er lav indsats, høj sikkerhedsgevinst
+- Rettelserne foretages i Nginx så de gælder uafhængigt af applikationslaget
+
+**Fordele:**
+- Eliminerer de tre kritiske fund og forbedrer Observatory-score markant
+- Nginx-niveau rettelser kræver ingen kodeændringer i Sinatra
+- HSTS sikrer at fremtidige besøg altid bruger HTTPS
+
+**Ulemper:**
+- CSP kan bryde ekstern CSS/JS hvis den sættes for restriktivt
+- HSTS er svær at rulle tilbage når den først er sat (browsere husker den)
+
+**Retrospektiv:** (Opdateres løbende)
+- Sikkerheds-headers er en hurtig gevinst men kræver test — især CSP kan have utilsigtede konsekvenser for applikationens 
+funktionalitet
+
+------
+
 ## 
 
 ### Context
