@@ -33,7 +33,7 @@ class WhoknowsApp < Sinatra::Base
   # To prevent CSRF attacks by not sending cookies on cross-site requests
   set :sessions,
       same_site: :strict,
-      secure: ENV['RACK_ENV'] == 'production',
+      secure: ENV['RACK_ENV'] == 'production', # Only send cookies over HTTPS in production
       httponly: true # JS cannot read the cookie. Protects from XSS attacks stealing the session cookie
 
   # Test - no DB needed - http://localhost:4567/hello
