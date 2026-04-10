@@ -1301,7 +1301,47 @@ Desuden:
 
 ------
 
-##
+## Sikr systemet
+
+### Context
+
+### Challenge
+-
+
+**Overvejede patterns:**
+- snyk fravalgt pga. flg.: 
+  - gratis version har begrænsninger og kræver ekstern konto
+  - bundler-audit og brakeman er allerede integreret og dækker hhv. dependency og code security
+  - snyk ville tilføje et dashboard, alerts og PR-kommentarer, hvor bundler-audit rapporterer i terminal og lader 
+    pipeline fejle ved sårbarheder
+
+### Choice
+**Beslutning:**
+
+**Implementering:**
+
+```markdown
+
+```
+
+**Rationale:**
+-
+
+**Fordele:**
+-
+
+**Ulemper:**
+-
+
+**Retrospektiv:** (Opdateres løbende)
+-
+
+**Læring:**
+-
+
+------
+
+## 
 
 ### Context
 

@@ -65,6 +65,18 @@ jobs:
           exit-code: '1'
           severity: CRITICAL,HIGH
 
+      # Docker Scout — informational scan (reports findings, does not block pipeline)
+      - name: Docker Scout CVE scan
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: ghcr.io/sobr0002/monkknows:latest
+          only-severities: critical,high
+          exit-code: false
+          write-comment: false
+          summary: true
+
+
       # Push the same scanned image — no rebuild
       - name: Push Docker image to GHCR
         run: |
