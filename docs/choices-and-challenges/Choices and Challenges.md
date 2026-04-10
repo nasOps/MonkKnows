@@ -1301,41 +1301,30 @@ Desuden:
 
 ------
 
-## Sikr systemet med snyk
+## Sikr systemet med snyk og Docker Scout
 
 ### Context
+Snyk og Docker Scout blev evalueret som supplement til eksisterende sikkerhedsværktøjer i CI/CD-pipeline.
 
 ### Challenge
--
+- Vurdere om Snyk og Docker Scout tilbyder merværdi oven på eksisterende sikkerhedsværktøjer.
 
 ### Choice
 **Beslutning:**
-- snyk fravalgt pga. flg.:
-    - gratis version har begrænsninger og kræver ekstern konto
-    - bundler-audit og brakeman er allerede integreret og dækker hhv. dependency og code security
-    - snyk ville tilføje et dashboard, alerts og PR-kommentarer, hvor bundler-audit rapporterer i terminal og lader
-      pipeline fejle ved sårbarheder
-  
-**Implementering:**
+Snyk fravalgt — bundler-audit og brakeman dækker samme behov uden ekstern afhængighed.
+Docker Scout valgt som supplement til Trivy i CD-pipeline.
 
-```markdown
-
-```
+- Bundler-audit scanner dependencies mod Ruby Advisory Database
+- Brakeman udfører statisk kodeanalyse for sikkerhedssårbarheder
+- Snyk kræver ekstern konto og har begrænsninger på gratis tier
+- Snyk ville primært tilføje dashboard og alerts — ikke øget sikkerhedsdækning for et Ruby Sinatra-projekt
+- Trivy blokerer allerede pipeline ved CRITICAL/HIGH fund
+- Docker Scout tilføjes som informativ scanning med anden database end Trivy — ingen ekstra secrets da GHCR-login 
+genbruges
 
 **Rationale:**
--
-
-**Fordele:**
--
-
-**Ulemper:**
--
-
-**Retrospektiv:** (Opdateres løbende)
--
-
-**Læring:**
--
+- To specialiserede Ruby-værktøjer foretrækkes frem for Snyk
+  Docker Scout og Trivy supplerer hinanden da de slår op i forskellige CVE-databaser
 
 ------
 
