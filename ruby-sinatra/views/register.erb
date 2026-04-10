@@ -33,7 +33,7 @@
     .then(response => response.json())
     .then(data => {
       if (data.statusCode === 200) {
-        window.location.href = '/login';
+        window.location.href = '/';
       } else {
         const msg = data.detail ? data.detail[0].msg : data.message;
         document.getElementById('error-text').textContent = msg;
