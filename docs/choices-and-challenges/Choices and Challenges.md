@@ -1301,23 +1301,21 @@ Desuden:
 
 ------
 
-## Sikr systemet
+## Sikr systemet med snyk
 
 ### Context
 
 ### Challenge
 -
 
-**Overvejede patterns:**
-- snyk fravalgt pga. flg.: 
-  - gratis version har begrænsninger og kræver ekstern konto
-  - bundler-audit og brakeman er allerede integreret og dækker hhv. dependency og code security
-  - snyk ville tilføje et dashboard, alerts og PR-kommentarer, hvor bundler-audit rapporterer i terminal og lader 
-    pipeline fejle ved sårbarheder
-
 ### Choice
 **Beslutning:**
-
+- snyk fravalgt pga. flg.:
+    - gratis version har begrænsninger og kræver ekstern konto
+    - bundler-audit og brakeman er allerede integreret og dækker hhv. dependency og code security
+    - snyk ville tilføje et dashboard, alerts og PR-kommentarer, hvor bundler-audit rapporterer i terminal og lader
+      pipeline fejle ved sårbarheder
+  
 **Implementering:**
 
 ```markdown
@@ -1389,6 +1387,56 @@ Eksisterende og velfungerende:
 **Retrospektiv:** (Opdateres løbende)
 - Sikkerheds-headers er en hurtig gevinst men kræver test — især CSP kan have utilsigtede konsekvenser for applikationens 
 funktionalitet
+
+------
+
+## Sikr serveren med Lynis
+
+### Context
+Produktionsserveren (whoknows-vm, Ubuntu 22.04 LTS på Azure) blev auditeret med Lynis som del af sikkerhedsreviewet.
+Hardening Index: 64/100.
+
+### Challenge
+- Lynis identificerede én kritisk warning og flere SSH-relaterede sårbarheder med standardindstillinger der er for løse 
+til en produktionsserver.
+
+### Choice
+**Beslutning:** Adressér den kritiske warning og SSH-hardening. Acceptér øvrige suggestions som kendte begrænsninger 
+på en cloud-VM.
+
+**Implementering:**
+
+```markdown
+Kritisk warning:
+- KRNL-5830: Serveren genstartet efter ventende kernel-opdatering
+
+SSH-hardening (/etc/ssh/sshd_config):
+- LogLevel: INFO → VERBOSE
+- MaxAuthTries: 6 → 3
+- MaxSessions: 10 → 2
+- AllowAgentForwarding: yes → no
+- AllowTcpForwarding: yes → no
+- X11Forwarding: yes → no
+- Compression: yes → no
+- ClientAliveCountMax: 3 → 2
+
+Fail2ban:
+- DEB-0880: jail.conf kopieret til jail.local
+
+Accepteret risiko:
+- BOOT-5122: GRUB password — ikke relevant på cloud-VM (ingen fysisk adgang)
+- FILE-6310: Separate partitioner — kræver VM-opsætning
+- USB-1000: USB-drivere — ikke relevant på cloud-VM
+- HTTP-6710: Lynis detekterer ikke vores HTTPS korrekt
+```
+
+**Rationale:**
+- SSH er den primære adgangsvej til serveren — hardening her har størst sikkerhedsgevinst
+- Accepteret risiko dokumenteres eksplicit frem for at ignoreres
+
+**Læring:**
+- Lynis skelner ikke mellem cloud-VM og fysisk server — mange suggestions er irrelevante i cloud-kontekst og kræver 
+aktiv stillingtagen frem for blind implementering
 
 ------
 
