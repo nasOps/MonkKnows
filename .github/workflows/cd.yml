@@ -70,7 +70,7 @@ jobs:
         uses: docker/scout-action@v1
         with:
           command: cves
-          image: ghcr.io/sobr0002/monkknows:latest
+          image: ghcr.io/${{ env.DOCKER_GITHUB_USERNAME }}/monkknows:latest
           only-severities: critical,high
           exit-code: false
           write-comment: false
