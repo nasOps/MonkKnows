@@ -65,6 +65,18 @@ jobs:
           exit-code: '1'
           severity: CRITICAL,HIGH
 
+      # Docker Scout — informational scan (reports findings, does not block pipeline)
+      - name: Docker Scout CVE scan
+        uses: docker/scout-action@f8c776824083494ab0d56b8105ba2ca85c86e4de
+        with:
+          command: cves
+          image: ghcr.io/${{ env.DOCKER_GITHUB_USERNAME }}/monkknows:latest
+          only-severities: critical,high
+          exit-code: false
+          write-comment: false
+          summary: true
+
+
       # Push the same scanned image — no rebuild
       - name: Push Docker image to GHCR
         run: |
@@ -115,6 +127,7 @@ jobs:
             nginx.conf \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/whoknows/app/nginx.conf
 
+      # CD-CD
       - name: Deploy on server
         run: |
           ssh -i ~/.ssh/ssh_key \

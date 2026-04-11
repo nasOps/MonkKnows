@@ -1301,7 +1301,135 @@ Desuden:
 
 ------
 
-##
+## Sikr systemet med snyk og Docker Scout
+
+### Context
+Snyk og Docker Scout blev evalueret som supplement til eksisterende sikkerhedsværktøjer i CI/CD-pipeline.
+
+### Challenge
+- Vurdere om Snyk og Docker Scout tilbyder merværdi oven på eksisterende sikkerhedsværktøjer.
+
+### Choice
+**Beslutning:**
+Snyk fravalgt — bundler-audit og brakeman dækker samme behov uden ekstern afhængighed.
+Docker Scout valgt som supplement til Trivy i CD-pipeline.
+
+- Bundler-audit scanner dependencies mod Ruby Advisory Database
+- Brakeman udfører statisk kodeanalyse for sikkerhedssårbarheder
+- Snyk kræver ekstern konto og har begrænsninger på gratis tier
+- Snyk ville primært tilføje dashboard og alerts — ikke øget sikkerhedsdækning for et Ruby Sinatra-projekt
+- Trivy blokerer allerede pipeline ved CRITICAL/HIGH fund
+- Docker Scout tilføjes som informativ scanning med anden database end Trivy — ingen ekstra secrets da GHCR-login 
+genbruges
+
+**Rationale:**
+- To specialiserede Ruby-værktøjer foretrækkes frem for Snyk
+  Docker Scout og Trivy supplerer hinanden da de slår op i forskellige CVE-databaser
+
+------
+
+## Observatory resultater 
+
+### Context
+Projektet kører som en Ruby Sinatra-mikroservice bag Nginx på monkknows.dk. Mozilla Observatory blev kørt som del af 
+sikkerhedsreviewet: observatory.mozilla.org
+
+### Challenge
+Observatory-scanningen afslørede tre kritiske sikkerhedsproblemer der tilsammen kostede −85 point:
+- Ingen CSP-header (XSS-angreb muligt)
+- Session-cookie uden Secure-flag (session hijacking muligt)
+- Ingen HSTS (bruger kan ramme HTTP første besøg)
+
+### Choice
+**Beslutning:** Adressér alle tre kritiske fund via nginx.conf og sikr at cookies sættes korrekt i Sinatra-appen.
+
+**Implementering:**
+
+```markdown
+Rettelser foretaget:
+1. CSP-header tilføjet i nginx.conf
+2. HSTS-header tilføjet i nginx.conf
+3. Referrer-Policy tilføjet i nginx.conf
+4. Secure-flag på session-cookie i Sinatra-app
+
+Eksisterende og velfungerende:
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: SAMEORIGIN
+- HTTPS-redirect
+- CORS ikke eksponeret
+```
+
+**Rationale:**
+- HSTS og CSP er de to mest impactfulde headers for en offentlig webapp
+- Secure-flag på cookies er lav indsats, høj sikkerhedsgevinst
+- Rettelserne foretages i Nginx så de gælder uafhængigt af applikationslaget
+
+**Fordele:**
+- Eliminerer de tre kritiske fund og forbedrer Observatory-score markant
+- Nginx-niveau rettelser kræver ingen kodeændringer i Sinatra
+- HSTS sikrer at fremtidige besøg altid bruger HTTPS
+
+**Ulemper:**
+- CSP kan bryde ekstern CSS/JS hvis den sættes for restriktivt
+- HSTS er svær at rulle tilbage når den først er sat (browsere husker den)
+
+**Retrospektiv:** (Opdateres løbende)
+- Sikkerheds-headers er en hurtig gevinst men kræver test — især CSP kan have utilsigtede konsekvenser for applikationens 
+funktionalitet
+
+------
+
+## Sikr serveren med Lynis
+
+### Context
+Produktionsserveren (whoknows-vm, Ubuntu 22.04 LTS på Azure) blev auditeret med Lynis som del af sikkerhedsreviewet.
+Hardening Index: 64/100.
+
+### Challenge
+- Lynis identificerede én kritisk warning og flere SSH-relaterede sårbarheder med standardindstillinger der er for løse 
+til en produktionsserver.
+
+### Choice
+**Beslutning:** Adressér den kritiske warning og SSH-hardening. Acceptér øvrige suggestions som kendte begrænsninger 
+på en cloud-VM.
+
+**Implementering:**
+
+```markdown
+Kritisk warning:
+- KRNL-5830: Serveren genstartet efter ventende kernel-opdatering
+
+SSH-hardening (/etc/ssh/sshd_config):
+- LogLevel: INFO → VERBOSE
+- MaxAuthTries: 6 → 3
+- MaxSessions: 10 → 2
+- AllowAgentForwarding: yes → no
+- AllowTcpForwarding: yes → no
+- X11Forwarding: yes → no
+- Compression: yes → no
+- ClientAliveCountMax: 3 → 2
+
+Fail2ban:
+- DEB-0880: jail.conf kopieret til jail.local
+
+Accepteret risiko:
+- BOOT-5122: GRUB password — ikke relevant på cloud-VM (ingen fysisk adgang)
+- FILE-6310: Separate partitioner — kræver VM-opsætning
+- USB-1000: USB-drivere — ikke relevant på cloud-VM
+- HTTP-6710: Lynis detekterer ikke vores HTTPS korrekt
+```
+
+**Rationale:**
+- SSH er den primære adgangsvej til serveren — hardening her har størst sikkerhedsgevinst
+- Accepteret risiko dokumenteres eksplicit frem for at ignoreres
+
+**Læring:**
+- Lynis skelner ikke mellem cloud-VM og fysisk server — mange suggestions er irrelevante i cloud-kontekst og kræver 
+aktiv stillingtagen frem for blind implementering
+
+------
+
+## 
 
 ### Context
 

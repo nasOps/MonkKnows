@@ -23,8 +23,7 @@ class WhoknowsApp < Sinatra::Base
   set :views, File.expand_path('views', __dir__)
   set :bind, '0.0.0.0'
 
-  # Session configuration (nødvendig for login/logout)
-  enable :sessions
+  # Session configuration (needed for login/logout)
   set :session_secret,
       if ENV['RACK_ENV'] == 'production'
         ENV.fetch('SESSION_SECRET') { raise 'SESSION_SECRET must be set in production' }
@@ -32,7 +31,10 @@ class WhoknowsApp < Sinatra::Base
         ENV.fetch('SESSION_SECRET') { 'x' * 64 }
       end
   # To prevent CSRF attacks by not sending cookies on cross-site requests
-  set :sessions, same_site: :strict
+  set :sessions,
+      same_site: :strict,
+      secure: ENV['RACK_ENV'] == 'production', # Only send cookies over HTTPS in production
+      httponly: true # JS cannot read the cookie. Protects from XSS attacks stealing the session cookie
 
   # Test - no DB needed - http://localhost:4567/hello
   get '/hello' do
