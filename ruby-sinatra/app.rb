@@ -208,9 +208,10 @@ class WhoknowsApp < Sinatra::Base
     )
 
     if user.save
+      session[:user_id] = user.id
       # Svarer til Flask's "You were successfully registered..."
       status 200
-      { statusCode: 200, message: 'You were successfully registered and can login now' }.to_json
+      { statusCode: 200, message: 'You were successfully registered' }.to_json
     else
       # .errors.full_messages.first giver foerste validation-fejl
       # f.eks. "You have to enter a username"
