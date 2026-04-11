@@ -1,5 +1,5 @@
 # ---- Stage 1: Build ----
-FROM ruby:3.2-slim AS build
+FROM ruby:4.0-slim AS build
 
 ARG BUNDLE_WITHOUT="development test"
 
@@ -23,7 +23,7 @@ RUN bundle config set without "$BUNDLE_WITHOUT" \
 COPY . .
 
 # ---- Stage 2: Runtime ----
-FROM ruby:3.2-slim
+FROM ruby:4.0-slim
 
 # Install only essential runtime dependencies, delete list after installation to reduce image size
 RUN apt-get update -qq && \
