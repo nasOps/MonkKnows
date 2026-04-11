@@ -58,7 +58,7 @@ jobs:
 
       # Scan the local image before pushing — blocks vulnerable images from reaching GHCR
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947e0f18c8ea63fd80e
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
         with:
           image-ref: ghcr.io/${{ env.DOCKER_GITHUB_USERNAME }}/monkknows:latest
           format: table
