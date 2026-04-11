@@ -27,6 +27,7 @@ FROM ruby:3.2-slim
 
 # Install only essential runtime dependencies, delete list after installation to reduce image size
 RUN apt-get update -qq && \
+    apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
         libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/*
