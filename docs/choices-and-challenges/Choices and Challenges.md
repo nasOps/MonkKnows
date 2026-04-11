@@ -1326,6 +1326,10 @@ genbruges
 - To specialiserede Ruby-værktøjer foretrækkes frem for Snyk
   Docker Scout og Trivy supplerer hinanden da de slår op i forskellige CVE-databaser
 
+### Læring
+- Docker Scout kunne ikke integreres med GitHub Actions uden brugerkonto hos Docker Hub, derfor
+blev det fravalgt i CI, da Trivy dækker samme behov uden ekstern afhængighed
+
 ------
 
 ## Observatory resultater 
