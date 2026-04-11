@@ -127,6 +127,7 @@ jobs:
             nginx.conf \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/whoknows/app/nginx.conf
 
+      # CD-CD
       - name: Deploy on server
         run: |
           ssh -i ~/.ssh/ssh_key \
