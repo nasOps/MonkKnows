@@ -24,6 +24,13 @@ jobs:
           RACK_ENV=test
           EOF   
 
+      - name: Debug environment
+        run: |
+          echo "=== .env fil ==="
+          cat ruby-sinatra/.env
+          echo "=== Container environment ==="
+          docker compose -f docker-compose.dev.yml exec -T web env | grep -E 'SESSION|RACK|DATABASE'
+
       - name: Create dummy database
         run: touch whoknows.db
 

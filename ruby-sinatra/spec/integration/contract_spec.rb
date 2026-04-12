@@ -36,6 +36,7 @@ RSpec.describe 'OpenAPI Contract' do
 
   describe 'GET /weather' do
     it 'returns 200' do
+      skip 'OPENWEATHER_API_KEY not set' unless ENV['OPENWEATHER_API_KEY']
       get '/weather'
       expect(last_response.status).to eq(200)
       expect(last_response.content_type).to include('text/html')
