@@ -32,7 +32,7 @@ RSpec.describe 'OpenAPI Contract' do
 
   def validate_response!(status)
     expect(last_response.status).to eq(status)
-    router = Committee::SchemaValidator::OpenAPI3::OperationWrapper
+    Committee::SchemaValidator::OpenAPI3::OperationWrapper
   end
 
   # HTML endpoints — spec requires 200 text/html

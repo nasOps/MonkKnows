@@ -15,9 +15,9 @@ gem 'sinatra-activerecord'
 gem 'sqlite3', '~> 1.6'
 
 group :test do
+  gem 'committee' # For testing API responses against OpenAPI specs
   gem 'rack-test' # Simulates HTTP requests in tests
   gem 'rspec'
-  gem 'committee' # For testing API responses against OpenAPI specs
 end
 
 group :development, :test do
