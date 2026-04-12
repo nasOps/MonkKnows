@@ -47,6 +47,7 @@ RSpec.describe User do
         # Stub migrate_to_bcrypt! to avoid hitting the database in a unit test
         allow(user).to receive(:migrate_to_bcrypt!)
         expect(user.verify_password?('oldpass')).to be true
+        expect(user).to have_received(:migrate_to_bcrypt!)
       end
     end
   end
