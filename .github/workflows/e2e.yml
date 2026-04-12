@@ -68,6 +68,12 @@ jobs:
             -e DATABASE_PATH=/whoknows.db \
             web bundle exec rake db:migrate
 
+      - name: Check database file
+        run: |
+          ls -la whoknows.db
+          docker compose -f docker-compose.dev.yml exec -T web ls -la /whoknows.db
+          docker compose -f docker-compose.dev.yml exec -T web sqlite3 /whoknows.db ".tables"    
+
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
         with:
