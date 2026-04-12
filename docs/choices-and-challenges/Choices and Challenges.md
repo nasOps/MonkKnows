@@ -1473,7 +1473,6 @@ HTTP-endpoint-opførsel (integration)
 - Rack::Test blev valgt til integrationstests fordi den kører in-process uden en rigtig server, hvilket gør tests 
 hurtige og pålidelige i CI uden portkonflikter eller opstartstid (fordi mange jobs i CI kører parallelt)
 
-
 **Fordele:**
 - Unit tests kører uden database eller HTTP-stack — hurtig feedback på under 2 sekunder lokalt
 - Integrationstests dækker reel route-opførsel inklusiv session-håndtering og JSON-responses
