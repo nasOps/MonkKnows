@@ -1499,6 +1499,59 @@ tættere på virkeligheden end rene unit tests
 
 ------
 
+## Implementering af contract tests
+
+### Context
+Læreren har defineret en OpenAPI-spec som appens API-endpoints skal leve op til. Contract tests verificerer automatisk at vores responses matcher denne kontrakt — både statuskoder, content-types og JSON-strukturer.
+
+### Challenge
+- Committee gem understøtter ikke OpenAPI 3.1 (lærerens spec-version)
+- Committee::Test::Methods er designet til Rails/minitest — ikke RSpec med Rack::Test
+- Løsning: downgrade spe c til 3.0.0 i lokal kopi + manuel schema-validering for JSON-endpoints
+
+**Overvejede patterns:**
+- Committee gem med `assert_response_schema_confirm` — fejlede pga. OpenAPI 3.1 og Rack::Test inkompatibilitet
+- Schemathesis (Python) — fravalgt da det er et Python-værktøj i et Ruby-projekt
+
+### Choice
+**Beslutning:**
+- Committee gem bruges til at loade og parse OpenAPI-spec
+- `Committee::Test::Methods` er inkluderet men `assert_response_schema_confirm` erstattes med manuelle RSpec-assertions da metoden forudsætter Rails-miljø
+- HTML-endpoints valideres med content-type og statuskode
+- JSON-endpoints valideres mod OpenAPI-specens schema-nøgler (AuthResponse, SearchResponse, HTTPValidationError)
+- Lokal kopi af spec downgradet fra `3.1.0` til `3.0.0` for Committee-kompatibilitet
+
+**Implementering:**
+
+```bash
+bundle exec rspec spec/integration/contract_spec.rb
+```
+
+**Rationale:**
+- Contract tests sikrer at appen lever op til den fælles API-kontrakt defineret af læreren
+- Manuel validering mod spec-nøgler giver samme sikkerhed som Committee's automatiske validering for denne specs kompleksitet
+- OpenAPI 3.0 er bagudkompatibel med 3.1 for alle felter brugt i lærerens spec
+
+**Fordele:**
+- Ingen ekstern afhængighed udover Committee gem som allerede er installeret
+- Tests kører in-process via Rack::Test — ingen kørende server nødvendig
+- Fanger regressionsfejl hvis JSON-strukturen ændres i app.rb
+
+**Ulemper:**
+- Committee::Test::Methods bruges ikke fuldt ud — `assert_response_schema_confirm` virker ikke med Rack::Test uden Rails
+- Lokal spec-kopi afviger fra lærerens originale 3.1-version
+- Manuel validering af nøgler er ikke fuldt automatisk — nye felter i spec opdages ikke automatisk
+
+**Retrospektiv:** *(Opdateres løbende)*
+- Committee viste sig at have flere begrænsninger end forventet — OpenAPI 3.1 support og Rails-afhængighed
+
+**Læring:**
+- Committee gem understøtter kun OpenAPI op til 3.0 — tjek altid gem-kompatibilitet mod spec-versionen før implementering
+- `include Rack::Test::Methods` skal eksplicit tilføjes i RSpec — det loades ikke automatisk via spec_helper i isolerede filer
+- OpenAPI 3.1 vs 3.0 er en minor version-forskel men kan bryde tooling der ikke er opdateret
+
+------
+
 ## 
 
 ### Context
