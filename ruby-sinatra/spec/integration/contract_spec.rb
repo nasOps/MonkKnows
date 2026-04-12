@@ -18,21 +18,11 @@ RSpec.describe 'OpenAPI Contract' do
     WhoknowsApp
   end
 
-  let(:schema) do
-    Committee::Drivers.load_from_file(
-      File.expand_path('../../../docs/openapi/whoknows-spec.json', __dir__)
-    ).driver.parse(
-      JSON.parse(
-        File.read(
-          File.expand_path('../../../docs/openapi/whoknows-spec.json', __dir__)
-        )
-      )
-    )
-  end
-
-  def validate_response!(status)
-    expect(last_response.status).to eq(status)
-    Committee::SchemaValidator::OpenAPI3::OperationWrapper
+  # Points Committee to the OpenAPI spec file using schema_path (Committee 5.x syntax)
+  def committee_options
+    @committee_options ||= {
+      schema_path: File.expand_path('../../../docs/openapi/whoknows-spec.json', __dir__)
+    }
   end
 
   # HTML endpoints — spec requires 200 text/html
@@ -68,7 +58,7 @@ RSpec.describe 'OpenAPI Contract' do
     end
   end
 
-  # JSON endpoints — validates schema manually
+  # JSON endpoints — Committee validates response body against OpenAPI schema
   describe 'GET /api/logout' do
     it 'returns AuthResponse schema' do
       get '/api/logout'
