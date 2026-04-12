@@ -10,5 +10,5 @@ test('frontpage loads with status 200', async ({ page }) => {
 
 test('login page is accessible', async ({ page }) => {
     await page.goto('/login');
-    await expect(page).toHaveTitle(/whoknows/i);
+    await expect(page).toHaveTitle(/monkknows/i);
 });

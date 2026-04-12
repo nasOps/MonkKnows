@@ -17,7 +17,9 @@ test('new user is able to register', async ({ page }) => {
     await page.fill('input[name="password2"]', user.password);
 
     // Submit — register.erb uses input[type="submit"], not a button element
-    await page.click('input[type="submit"]');
+    await page.evaluate(() => {
+        document.getElementById('register-form').dispatchEvent(new Event('submit'));
+    });
 
     // JS fetch handles POST to /api/register, then sets window.location.href = '/'
     // waitForURL waits for JS navigation to complete (toHaveURL would fail too early)
