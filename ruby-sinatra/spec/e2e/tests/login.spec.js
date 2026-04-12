@@ -12,6 +12,8 @@ test('existing user can login', async ({ page }) => {
     await ctx.post('/api/register', {
         data: { ...user, password2: user.password }
     });
+    // Fail fast if setup fails — otherwise login test fails for the wrong reason
+    expect(setupResponse.ok()).toBeTruthy();
 
     // Go to the login page
     await page.goto('/login');
