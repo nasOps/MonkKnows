@@ -16,31 +16,17 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - name: Create .env file
-        run: |
-          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" > ruby-sinatra/.env
-          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" >> ruby-sinatra/.env
-          echo "RACK_ENV=e2e" >> ruby-sinatra/.env
-
-      - name: Start app
-        run: docker compose -f docker-compose.dev.yml up -d
-
-      - name: Show Docker logs if startup failed
-        if: always()
-        run: docker compose -f docker-compose.dev.yml logs
-
-      - name: Debug environment
-        run: |
-          echo "=== .env fil ==="
-          cat ruby-sinatra/.env
-          echo "=== Container environment ==="
-          docker compose -f docker-compose.dev.yml exec -T web env | grep -E 'SESSION|RACK|DATABASE'
-
       - name: Create dummy database
         run: |
           rm -rf whoknows.db
           touch whoknows.db
           chmod 666 whoknows.db
+
+      - name: Create .env file
+        run: |
+          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" > ruby-sinatra/.env
+          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" >> ruby-sinatra/.env
+          echo "RACK_ENV=e2e" >> ruby-sinatra/.env
 
       - name: Start app
         run: docker compose -f docker-compose.dev.yml up -d
@@ -61,18 +47,12 @@ jobs:
             exit 1
           fi
 
-      - name: Run database migrations
+      - name: Load database schema
         run: |
           docker compose -f docker-compose.dev.yml exec -T \
             -e RACK_ENV=e2e \
             -e DATABASE_PATH=/whoknows.db \
-            web bundle exec rake db:migrate
-
-      - name: Check database file
-        run: |
-          ls -la whoknows.db
-          docker compose -f docker-compose.dev.yml exec -T web ls -la /whoknows.db
-          docker compose -f docker-compose.dev.yml exec -T web sqlite3 /whoknows.db ".tables"    
+            web bundle exec rake db:schema:load
 
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
@@ -82,15 +62,11 @@ jobs:
       - name: Install Playwright
         run: |
           cd ruby-sinatra/spec/e2e
-          npm ci
+          npm install
           npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
         run: cd ruby-sinatra/spec/e2e && npx playwright test
-
-      - name: Show Docker logs
-        if: always()
-        run: docker compose -f docker-compose.dev.yml logs web
 
       - name: Upload Playwright report
         if: always()
