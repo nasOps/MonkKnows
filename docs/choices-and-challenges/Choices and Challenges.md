@@ -1446,13 +1446,15 @@ kvalitet og muliggøre fremtidige ændringer uden frygt for regressionsfejl.
 - Dokumentér testvalg
 
 **Overvejede patterns:**
-| Type         | Status       | Begrundelse |
-|--------------|--------------|-------------|
-| Unit tests   | ✅ Implemented | Tester isolerede model-metoder (User.hash_password) uden DB eller HTTP |
-| Integration  | ✅ Implemented | Rack::Test spinner appen op in-process og tester HTTP-endpoints med DB |
-| E2E          | ✅ Implemented | Playwright tester brugerflows mod live app i Docker |
-| Performance  | ❌ Not relevant | Mikroservice med lavt load — ingen SLA-krav i kurset |
-| Contract     | ❌ Not relevant | Ingen ekstern API-consumer i dette projekt |
+**Overvejede patterns:**
+
+| Type | Status | Begrundelse |
+|------|--------|-------------|
+| Unit tests | ✅ Implemented | Tester isolerede model-metoder (User.hash_password) uden DB eller HTTP |
+| Integration | ✅ Implemented | Rack::Test spinner appen op in-process og tester HTTP-endpoints med DB |
+| E2E | ✅ Implemented | Playwright tester brugerflows mod live app i Docker |
+| Performance | ❌ Not relevant | Mikroservice med lavt load — ingen SLA-krav i kurset |
+| Contract | ✅ Implemented | Appen skal leve op til en OpenAPI-spec defineret af læreren. Contract tests verificerer at JSON-responses matcher de definerede schemas (AuthResponse, SearchResponse, StandardResponse). Implementeret i RSpec uden ekstern afhængighed da spec er lille og stabil |
 
 ### Choice
 **Beslutning:**
