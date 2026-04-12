@@ -19,7 +19,7 @@ RSpec.describe 'OpenAPI Contract' do
   def committee_options
     @committee_options ||= {
       schema: Committee::Drivers.load_from_file(
-        File.expand_path('../../openapi.json', __dir__)
+        File.expand_path('../../../docs/openapi/whoknows-spec.json', __dir__)
       ),
       raise_schema_errors: true
     }
