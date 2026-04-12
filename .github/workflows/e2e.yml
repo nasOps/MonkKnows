@@ -21,6 +21,7 @@ jobs:
           echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" > ruby-sinatra/.env
           echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" >> ruby-sinatra/.env
           echo "RACK_ENV=test" >> ruby-sinatra/.env
+
       - name: Start app
         run: docker compose -f docker-compose.dev.yml up -d
 
@@ -36,7 +37,10 @@ jobs:
           docker compose -f docker-compose.dev.yml exec -T web env | grep -E 'SESSION|RACK|DATABASE'
 
       - name: Create dummy database
-        run: touch whoknows.db
+        run: |
+          rm -f whoknows.db
+          touch whoknows.db
+          chmod 666 whoknows.db
 
       - name: Start app
         run: docker compose -f docker-compose.dev.yml up -d
