@@ -75,6 +75,10 @@ jobs:
       - name: Run Playwright tests
         run: cd ruby-sinatra/spec/e2e && npx playwright test
 
+      - name: Show Docker logs
+        if: always()
+        run: docker compose -f docker-compose.dev.yml logs web
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
