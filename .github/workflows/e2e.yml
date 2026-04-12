@@ -63,9 +63,10 @@ jobs:
 
       - name: Run database migrations
         run: |
-          docker compose -f docker-compose.dev.yml exec -T web bundle exec rake db:migrate
-          echo "Exit code: $?"
-          docker compose -f docker-compose.dev.yml exec -T web bundle exec rake db:schema:dump || true
+          docker compose -f docker-compose.dev.yml exec -T \
+            -e RACK_ENV=e2e \
+            -e DATABASE_PATH=/whoknows.db \
+            web bundle exec rake db:migrate
 
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
