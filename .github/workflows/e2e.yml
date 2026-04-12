@@ -18,11 +18,15 @@ jobs:
 
       - name: Create .env file
         run: |
-          cat > ruby-sinatra/.env << EOF
-          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-          OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
-          RACK_ENV=test
-          EOF   
+          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" > ruby-sinatra/.env
+          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" >> ruby-sinatra/.env
+          echo "RACK_ENV=test" >> ruby-sinatra/.env
+      - name: Start app
+        run: docker compose -f docker-compose.dev.yml up -d
+
+      - name: Show Docker logs if startup failed
+        if: always()
+        run: docker compose -f docker-compose.dev.yml logs
 
       - name: Debug environment
         run: |
