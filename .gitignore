@@ -90,4 +90,3 @@ ruby-sinatra/.bundle/
 node_modules/
 test-results/
 playwright-report/
-package-lock.json
