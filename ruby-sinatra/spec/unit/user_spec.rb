@@ -5,8 +5,6 @@
 require_relative '../../config/environment'
 require_relative '../../models/user'
 
-
-
 RSpec.describe User do
   # Tests the class method that hashes a plain-text password using BCrypt
   describe '.hash_password' do
