@@ -10,6 +10,7 @@ gem 'dotenv'
 gem 'ostruct'
 gem 'puma'
 gem 'rackup'
+gem 'rake' # Runs the db:migrate command
 gem 'sinatra', '~> 4.0'
 gem 'sinatra-activerecord'
 gem 'sqlite3', '~> 1.6'
