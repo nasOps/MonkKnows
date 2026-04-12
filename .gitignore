@@ -86,3 +86,9 @@ cython_debug/
 # ---- Ruby / Sinatra ----
 ruby-sinatra/vendor/
 ruby-sinatra/.bundle/
+
+# ---- Node / Playwright ----
+node_modules/
+test-results/
+playwright-report/
+package-lock.json
