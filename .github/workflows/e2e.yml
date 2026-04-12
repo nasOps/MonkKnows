@@ -20,7 +20,7 @@ jobs:
         run: |
           echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" > ruby-sinatra/.env
           echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" >> ruby-sinatra/.env
-          echo "RACK_ENV=test" >> ruby-sinatra/.env
+          echo "RACK_ENV=e2e" >> ruby-sinatra/.env
 
       - name: Start app
         run: docker compose -f docker-compose.dev.yml up -d
