@@ -12,8 +12,8 @@ test('search returns page with no errors', async ({ page }) => {
     await expect(page).toHaveURL(/\?q=test/);
 
     // Page must show results for "test" or "No results found" - not an error
-    const hasResults = await page.locator('#results').isVisible();
-    const hasNoResults = await page.locator('.no-results').isVisible();
-    expect(hasResults || hasNoResults).toBeTruthy();
+    const results = page.locator('#results');
+    const noResults = page.locator('.no-results');
+    await results.or(noResults).waitFor();
 });
 
