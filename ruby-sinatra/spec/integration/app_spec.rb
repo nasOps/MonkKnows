@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../app'
+require_relative '../../app'
 require 'rack/test'
 
 ## This module provides methods like `get`, `post`, etc.
