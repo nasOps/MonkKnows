@@ -33,12 +33,19 @@ jobs:
 
       - name: Wait for app
         run: |
+          healthy=0
           for i in $(seq 1 30); do
             if curl -s http://localhost:4567/health | grep -q ok; then
-              echo "✅ App ready"; break
+              echo "✅ App ready"
+              healthy=1
+              break
             fi
             sleep 2
           done
+          if [ "$healthy" -ne 1 ]; then
+            echo "❌ App did not become ready in time"
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
