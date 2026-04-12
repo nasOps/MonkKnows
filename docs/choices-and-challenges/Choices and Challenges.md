@@ -1433,6 +1433,71 @@ aktiv stillingtagen frem for blind implementering
 
 ------
 
+## Implementering af tests
+
+### Context
+Under migrering fra Flask til Sinatra blev der ikke implementeret tests, da fokus var på at få en funktionel MVP op at 
+køre. Nu hvor projektet er stabilt og CI/CD pipelines er på plads, er det tid til at implementere tests for at sikre 
+kvalitet og muliggøre fremtidige ændringer uden frygt for regressionsfejl.
+
+### Challenge
+- Strukturering af eksisterende tests
+- Tilføj em Playwright end-to-end test for søgefunktionen
+- Dokumentér testvalg
+
+**Overvejede patterns:**
+| Type         | Status       | Begrundelse |
+|--------------|--------------|-------------|
+| Unit tests   | ✅ Implemented | Tester isolerede model-metoder (User.hash_password) uden DB eller HTTP |
+| Integration  | ✅ Implemented | Rack::Test spinner appen op in-process og tester HTTP-endpoints med DB |
+| E2E          | ✅ Implemented | Playwright tester brugerflows mod live app i Docker |
+| Performance  | ❌ Not relevant | Mikroservice med lavt load — ingen SLA-krav i kurset |
+| Contract     | ❌ Not relevant | Ingen ekstern API-consumer i dette projekt |
+
+### Choice
+**Beslutning:**
+- ´bundle exec rspec´ kører unit- og integrationstests i ci.yml (spec/unit & spec/integration)
+- E2E-workflow er separat (e2e.yml) for at isolere langsommere e2e-tests fra resten af CI-workflowet og dermed bibeholde
+hurtigere feedback på unit/integration tests ved hver push
+
+**Implementering:**
+
+```bash
+bundle exec rspec                       # unit + integration
+cd spec/e2e && npx playwright test      # e2e (kræver app kørende lokalt)
+```
+**Rationale:**
+- Tests blev introduceret efter en stabil MVP, med fokus på de mest kritiske dele: autentificeringslogik (unit) og 
+HTTP-endpoint-opførsel (integration)
+- Testpyramiden er overholdt — mange hurtige unit tests i bunden, færre langsommere E2E-tests i toppen
+- Rack::Test blev valgt til integrationstests fordi den kører in-process uden en rigtig server, hvilket gør tests 
+hurtige og pålidelige i CI uden portkonflikter eller opstartstid (fordi mange jobs i CI kører parallelt)
+
+
+**Fordele:**
+- Unit tests kører uden database eller HTTP-stack — hurtig feedback på under 2 sekunder lokalt
+- Integrationstests dækker reel route-opførsel inklusiv session-håndtering og JSON-responses
+- E2E-tests fanger regressioner der kun opstår i et fuldt kørende Docker-miljø
+- Adskillelse af E2E i et separat workflow forhindrer langsomme browsertests i at blokere hurtig unit/integration-feedback
+
+**Ulemper:**
+- Lokal test af E2E kræver at appen kører, hvorefter Playwright skal køres i en separat terminal > friktion
+
+**Retrospektiv:** (Opdateres løbende)
+- Tests blev skrevet efter implementering frem for sideløbende — TDD ville have gjort det nemmere at designe testbare
+metoder fra starten
+
+**Læring:**
+- ActiveRecord skal loades eksplicit når en enkelt spec-fil køres isoleret med ´bundle exec rspec spec/unit/user_spec.rb´ 
+— hele suiten loader det automatisk via ´spec_helper.rb´
+- BCrypt salter automatisk hver hash, hvilket betyder at samme password aldrig producerer samme hash to gange — unit 
+testen beviser dette eksplicit
+- Rack::Test simulerer HTTP in-process, hvilket gør integrationstests hurtigere end rigtige netværkskald men stadig 
+tættere på virkeligheden end rene unit tests
+
+
+------
+
 ## 
 
 ### Context

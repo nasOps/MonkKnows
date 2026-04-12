@@ -1,0 +1,62 @@
+name: E2E — Playwright
+
+# Browser robot > opens browser > clicks around > checks if things work
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    needs: []   # Run parallel with CI or use needs: [build-test]
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Create .env file
+        run: |
+          cat > ruby-sinatra/.env << EOF
+          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+          RACK_ENV=test
+          EOF
+
+      - name: Create dummy database
+        run: touch whoknows.db
+
+      - name: Start app
+        run: docker compose -f docker-compose.dev.yml up -d
+
+      - name: Wait for app
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:4567/health | grep -q ok; then
+              echo "✅ App ready"; break
+            fi
+            sleep 2
+          done
+
+      - name: Set up Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          cd ruby-sinatra/spec/e2e
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: cd ruby-sinatra/spec/e2e && npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: playwright-report
+          path: ruby-sinatra/spec/e2e/playwright-report/
