@@ -1442,7 +1442,7 @@ kvalitet og muliggøre fremtidige ændringer uden frygt for regressionsfejl.
 
 ### Challenge
 - Strukturering af eksisterende tests
-- Tilføj em Playwright end-to-end test for søgefunktionen
+- Tilføj en Playwright end-to-end test for søgefunktionen
 - Dokumentér testvalg
 
 **Overvejede patterns:**
