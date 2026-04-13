@@ -9,22 +9,16 @@ services:
       # Mount certificates symlinks (live/) and actual cert files (archive/) so nginx can read certificates
       - /etc/letsencrypt/live/monkknows.dk:/etc/letsencrypt/live/monkknows.dk
       - /etc/letsencrypt/archive/monkknows.dk:/etc/letsencrypt/archive/monkknows.dk
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.25'
+    mem_limit: 128m
+    cpus: 0.25
     depends_on:
       - web
     restart: unless-stopped
 
   web:
     image: ghcr.io/nasops/monkknows:latest
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.50'
+    mem_limit: 256m
+    cpus: 0.50
     volumes:
       - /opt/whoknows/data/whoknows.db:/app/whoknows.db  # Database persistence
     environment:

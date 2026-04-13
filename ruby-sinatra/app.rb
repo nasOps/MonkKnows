@@ -96,7 +96,7 @@ class WhoknowsApp < Sinatra::Base
       path: request.path_info,
       status: response.status,
       ip: request.ip,
-      user_id: session[:user_id],
+      user: session[:user_id] ? Digest::SHA256.hexdigest(session[:user_id].to_s)[0..7] : nil,
       duration_ms: ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
     }.compact
     logger.info(log_data.to_json)
