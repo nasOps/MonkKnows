@@ -89,8 +89,10 @@ class WhoknowsApp < Sinatra::Base
     @language = params[:language] || 'en'
 
     @results = if @q && !@q.strip.empty?
-                 Page.where(language: @language)
-                     .where('content LIKE ?', "%#{@q}%")
+                 Page.joins('INNER JOIN pages_fts ON pages.rowid = pages_fts.rowid')
+                     .where(language: @language)
+                     .where('pages_fts MATCH ?', @q)
+                     .order(Arel.sql('pages_fts.rank'))
                else
                  []
                end
@@ -144,8 +146,10 @@ class WhoknowsApp < Sinatra::Base
       }.to_json
 
     else
-      search_results = Page.where(language: language)
-                           .where('content LIKE ?', "%#{q}%")
+      search_results = Page.joins('INNER JOIN pages_fts ON pages.rowid = pages_fts.rowid')
+                           .where(language: language)
+                           .where('pages_fts MATCH ?', q)
+                           .order(Arel.sql('pages_fts.rank'))
                            .as_json
 
       status 200
