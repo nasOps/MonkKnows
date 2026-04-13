@@ -192,6 +192,10 @@ jobs:
             -e DATABASE_PATH=/whoknows.db \
             web bundle exec rake db:schema:load
 
+      - name: Create FTS5 table
+        run: |
+          docker compose -f docker-compose.dev.yml exec -T web ruby db/migrate_to_fts5.rb
+
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
         with:
