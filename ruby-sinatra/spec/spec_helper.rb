@@ -65,6 +65,13 @@ RSpec.configure do |config|
         t.text :content, null: false
       end
     end
+
+    # Create FTS5 virtual table for full-text search
+    ActiveRecord::Base.connection.execute(<<-SQL)
+      CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(
+        title, content, content='pages', content_rowid='rowid'
+      );
+    SQL
   end
 
   # The settings below are suggested to provide a good initial experience
