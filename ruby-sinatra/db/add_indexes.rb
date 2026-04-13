@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Migration script: adds database indexes for improved query performance
-# Run once: ruby db/add_indexes.rb
+# Safe to re-run (idempotent): ruby db/add_indexes.rb
 
 require_relative '../config/environment'
 
@@ -22,9 +22,13 @@ connection.execute(<<-SQL)
   CREATE INDEX IF NOT EXISTS idx_pages_last_updated ON pages(last_updated);
 SQL
 
-puts 'Migration complete: added indexes to pages table'
-puts ''
-puts 'Indexes created:'
-connection.execute("SELECT name, tbl_name FROM sqlite_master WHERE type='index' ORDER BY tbl_name").each do |row|
-  puts "  #{row['name']} on #{row['tbl_name']}"
-end
+expected = %w[idx_pages_language idx_pages_url idx_pages_last_updated]
+existing = connection.execute(
+  "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='pages'"
+).map { |r| r['name'] }
+
+missing = expected - existing
+raise "Index verification failed — missing: #{missing.join(', ')}" unless missing.empty?
+
+puts 'Migration complete: added and verified indexes on pages table'
+expected.each { |name| puts "  ✓ #{name}" }
