@@ -22,6 +22,7 @@ class WhoknowsApp < Sinatra::Base
   set :public_folder, File.expand_path('public', __dir__)
   set :views, File.expand_path('views', __dir__)
   set :bind, '0.0.0.0'
+  set :logging, true
 
   # Session configuration (needed for login/logout)
   set :session_secret,
@@ -51,6 +52,7 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   before do
+    request.env['sinatra.route_start_time'] = Time.now
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
 
@@ -88,8 +90,16 @@ class WhoknowsApp < Sinatra::Base
   end
 
   after do
-    # Tilsvarende Flask's after_request
-    # Cleanup, logging, etc.
+    log_data = {
+      timestamp: Time.now.utc.iso8601,
+      method: request.request_method,
+      path: request.path_info,
+      status: response.status,
+      ip: request.ip,
+      user: session[:user_id] ? Digest::SHA256.hexdigest(session[:user_id].to_s)[0..7] : nil,
+      duration_ms: ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
+    }.compact
+    logger.info(log_data.to_json)
   end
 
   ################################################################################
