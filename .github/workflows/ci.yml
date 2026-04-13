@@ -117,11 +117,9 @@ jobs:
 
       - name: Create .env file for CI
         run: |
-          cat > ruby-sinatra/.env << EOF
-          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-          OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
-          RACK_ENV=test
-          EOF
+          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET || 'ci_test_secret_key_not_for_production_use_1234567890' }}" > ruby-sinatra/.env
+          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY || 'dummy_key_for_ci' }}" >> ruby-sinatra/.env
+          echo "RACK_ENV=test" >> ruby-sinatra/.env
 
       - name: Start app with Docker Compose
         run: docker compose -f docker-compose.dev.yml up -d
@@ -164,8 +162,8 @@ jobs:
 
       - name: Create .env file
         run: |
-          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" > ruby-sinatra/.env
-          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" >> ruby-sinatra/.env
+          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET || 'ci_test_secret_key_not_for_production_use_1234567890' }}" > ruby-sinatra/.env
+          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY || 'dummy_key_for_ci' }}" >> ruby-sinatra/.env
           echo "RACK_ENV=e2e" >> ruby-sinatra/.env
 
       - name: Start app
