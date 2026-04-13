@@ -55,7 +55,7 @@ class WhoknowsApp < Sinatra::Base
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
 
     # Force password reset guard — redirect flagged users
-    if @current_user&.respond_to?(:force_password_reset) &&
+    if @current_user.respond_to?(:force_password_reset) &&
        @current_user&.force_password_reset == 1 &&
        request.path_info != '/reset-password' &&
        request.path_info != '/api/reset-password' &&
@@ -284,7 +284,9 @@ class WhoknowsApp < Sinatra::Base
 
     if password != password2
       status 422
-      return { detail: [{ loc: %w[body password2], msg: 'The two passwords do not match', type: 'value_error' }] }.to_json
+      return {
+        detail: [{ loc: %w[body password2], msg: 'The two passwords do not match', type: 'value_error' }]
+      }.to_json
     end
 
     @current_user.update_columns(

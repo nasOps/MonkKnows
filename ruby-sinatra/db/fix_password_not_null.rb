@@ -12,7 +12,7 @@ require_relative '../config/environment'
 connection = ActiveRecord::Base.connection
 
 # Detect if password_digest column exists
-columns = connection.execute("PRAGMA table_info(users)").map { |c| c['name'] }
+columns = connection.execute('PRAGMA table_info(users)').map { |c| c['name'] }
 has_digest = columns.include?('password_digest')
 
 connection.transaction do
