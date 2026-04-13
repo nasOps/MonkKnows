@@ -54,6 +54,19 @@ class WhoknowsApp < Sinatra::Base
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
 
+    # Force password reset guard — redirect flagged users
+    if @current_user&.force_password_reset == 1 &&
+       request.path_info != '/reset-password' &&
+       request.path_info != '/api/reset-password' &&
+       request.path_info != '/api/logout'
+      if request.path_info.start_with?('/api/')
+        content_type :json
+        halt 403, { detail: [{ loc: ['auth'], msg: 'Password reset required', type: 'security' }] }.to_json
+      else
+        redirect '/reset-password'
+      end
+    end
+
     # Parse JSON body og merge ind i params
     # Begrænset til POST requests da GET aldrig sender JSON body
     next unless request.post? && request.content_type&.include?('application/json')
@@ -122,6 +135,12 @@ class WhoknowsApp < Sinatra::Base
     redirect '/' if logged_in?
     @error = nil
     erb :login
+  end
+
+  # GET /reset-password - Forced password reset page
+  get '/reset-password' do
+    redirect '/login' unless logged_in?
+    erb :reset_password
   end
 
   ################################################################################
@@ -246,6 +265,35 @@ class WhoknowsApp < Sinatra::Base
 
     status 200
     { statusCode: 200, message: 'You were logged in' }.to_json
+  end
+
+  # POST /api/reset-password - Forced password reset
+  post '/api/reset-password' do
+    content_type :json
+
+    redirect '/login' unless logged_in?
+
+    password  = params[:password]
+    password2 = params[:password2]
+
+    if password.nil? || password.strip.empty?
+      status 422
+      return { detail: [{ loc: %w[body password], msg: 'You have to enter a password', type: 'value_error' }] }.to_json
+    end
+
+    if password != password2
+      status 422
+      return { detail: [{ loc: %w[body password2], msg: 'The two passwords do not match', type: 'value_error' }] }.to_json
+    end
+
+    @current_user.update_columns(
+      password_digest: User.hash_password(password),
+      password: nil,
+      force_password_reset: 0
+    )
+
+    status 200
+    { statusCode: 200, message: 'Your password has been changed successfully' }.to_json
   end
 
   # GET /api/logout - User logout
