@@ -1699,3 +1699,91 @@ Søgefunktionen brugte `LIKE '%query%'` til at finde pages. Dette er langsomt (f
 - `content=` parameter i FTS5 undgår data-duplikering — FTS5 refererer direkte til kilde-tabellen
 
 ------
+
+## Server Telemetri
+
+### Context
+Indsamling af serverens tilstand via terminal-kommandoer for at forstå nuværende performance og identificere potentielle problemer før de bliver kritiske.
+
+### Challenge
+- Ingen swap konfigureret — OOMKiller kan dræbe processer uden advarsel
+- Memory usage på 57% (479MB af 847MB) med kun 78MB fri
+- `dmesg` kræver root-rettigheder — OOMKiller events kan ikke tjekkes som almindelig bruger
+
+### Choice
+**Beslutning:**
+Telemetri indsamlet manuelt via terminal. Ingen kritiske fejl fundet — men memory og manglende swap er værd at holde øje med.
+
+**Implementering:**
+- [ ] Tilføj swap på serveren: `sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`
+- [ ] Giv adminuser adgang til dmesg: `sudo sysctl kernel.dmesg_restrict=0`
+
+**Kommandoer kørt:**
+```bash
+top                                    # CPU og processer
+uptime                                 # Load average
+free -m                                # Memory forbrug
+dmesg | grep -i 'killed process'       # OOMKiller events (kræver root)
+df -h                                  # Disk forbrug per partition
+du -h                                  # Disk forbrug per mappe
+sudo iftop                             # Netværkstrafik per forbindelse
+sudo nethogs                           # Netværkstrafik per proces
+```
+
+**Rationale:**
+- Swap forhindrer OOMKiller i at crashe processer når memory løber tør
+- Serveren er relativt lille (847MB RAM) med Docker og Ruby kørende simultaneously
+
+**Fordele:**
+- Swap giver buffer ved memory-spikes
+- Billigere end at opgradere VM-størrelse
+
+**Ulemper:**
+- Swap på disk er langsommere end RAM — performance forringes ved swap-brug
+- Løser ikke grundproblemet hvis memory-forbruget fortsætter med at stige
+
+**Retrospektiv:** *(Opdateres løbende)*
+-
+
+**Læring:**
+- Ingen swap på en lille VM med Docker er en risiko — OOMKiller kan dræbe containere uden advarsel
+- `containerd` + `dockerd` bruger tilsammen ~12% memory konstant
+- Azure VMs kommunikerer løbende med `168.63.129.16` (Azures interne health check) — normalt og forventet
+
+------
+
+## 
+
+### Context
+
+### Challenge
+-
+
+**Overvejede patterns:**
+-
+
+### Choice
+**Beslutning:**
+
+**Implementering:**
+
+```markdown
+
+```
+
+**Rationale:**
+-
+
+**Fordele:**
+-
+
+**Ulemper:**
+-
+
+**Retrospektiv:** (Opdateres løbende)
+-
+
+**Læring:**
+-
+
+------
