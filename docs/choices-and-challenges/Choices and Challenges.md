@@ -1752,6 +1752,67 @@ sudo nethogs                           # Netværkstrafik per proces
 
 ------
 
+## KPI (Key Performance Indicators)
+
+### Context
+A venture capital fund is considering investing in our project and has requested key performance indicators (KPIs) to evaluate the project's health and growth potential.
+
+### Choice
+**Beslutning:**
+Undersøg:
+- CPU load på server
+- Antal brugere
+- Pris på infrastruktur: mdr. eller total pris på Azure VM
+
+**Implementering:**
+
+```markdown
+ssh ind på server
+
+CPU load på server:
+Kommando htop 
+- CPU load:     0.7% (measured via htop)
+- Load average: 0.00 / 0.00 / 0.00 (1, 5, 15 min)
+- RAM usage:    460MB / 848MB (54%)
+- Uptime:       4 days
+
+Antal brugere:
+sqlite3 /opt/whoknows/data/whoknows.db "SELECT COUNT(*) FROM users;"
+- 1770 brugere
+
+Antal aktive brugere:
+- /opt/whoknows/data$ sqlite3 whoknows.db ".schema users" viser at vi har følgende kolonner i users-tabellen:
+id INTEGER, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, password TEXT NOT NULL , password_digest TEXT);
+- Dvs. ingen time stamp eller last_login kolonne, så vi kan ikke definere "aktive brugere" ud fra databasen alene. 
+  
+- Derfor brugte vi nginx' access log via Dockers stdout – docker logs henter hvad containeren har printet til skærmen ´docker logs app-nginx-1´:
+  Active users (unique IPs):     112
+  Average searches per day:      179 requests over [antal dage siden deploy]
+  Login attempts:                195
+  
+- Note: trafik inkluderer simulator-requests fra kursus-infrastrukturen (python-requests/2.32.3). Rå tal er ikke filtreret.
+  
+- Bash kommandoer: 
+    Unikke IP-adresser: ´docker logs app-nginx-1 | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u | wc -l´
+    Antal søgninger: ´docker logs app-nginx-1 | grep "GET /?q=" | wc -l´
+    Antal login-forsøg: ´docker logs app-nginx-1 | grep "/login" | wc -l´
+    
+Pris på infrastruktur:
+- Azure VM: pris i alt 119,-
+- Forudsigelse for et helt år: 620,-
+- Månedlige priser: februar 32,-, marts 61,-, april 27,-
+```
+
+**Læring:**
+- Efter at have kørt disse kommandoer på serveren:
+´docker logs app-nginx-1 | grep "GET /?q=" | wc -l´, 
+´docker logs app-nginx-1 | grep "/login" | wc -l´,
+´docker logs app-nginx-1 | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u | wc -l´ (unikke IP-adresser)
+blev vi opmærksomme på denne gentagne besked (tyder på en angriber):
+client intended to send too large body: 10485761 bytes POST / HTTP/1.1
+
+------
+
 ## 
 
 ### Context
@@ -1764,6 +1825,7 @@ sudo nethogs                           # Netværkstrafik per proces
 
 ### Choice
 **Beslutning:**
+
 
 **Implementering:**
 
@@ -1784,6 +1846,6 @@ sudo nethogs                           # Netværkstrafik per proces
 -
 
 **Læring:**
--
+
 
 ------
