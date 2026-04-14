@@ -1752,38 +1752,146 @@ sudo nethogs                           # Netværkstrafik per proces
 
 ------
 
-## 
+## Database Placement: Separat VM vs. Co-located vs. Managed Service
 
 ### Context
 
-### Challenge
--
+Som del af migreringen fra SQLite til PostgreSQL (issue #203) skulle vi beslutte hvor databasen skulle køre. Opgaven anbefaler eksplicit at databasen ikke bør ligge på samme VM som applikationen medmindre det kan begrundes.
 
-**Overvejede patterns:**
--
+### Challenge
+
+- VM1 (app-serveren) kører allerede nginx + Sinatra med begrænsede ressourcer (256MB til web, 128MB til nginx)
+- PostgreSQL kræver dedikeret memory til shared_buffers, work_mem og connections
+- Co-located database ville konkurrere med appen om CPU og memory
+- Managed services (Supabase, Neon) tilbyder gratis tiers men introducerer ekstern afhængighed og vendor lock-in
 
 ### Choice
-**Beslutning:**
+
+**Beslutning:** Dedikeret Azure VM (VM2) til PostgreSQL
 
 **Implementering:**
 
-```markdown
-
-```
+- VM2 (Standard_B2ats_v2) provisioneret på Azure free tier med statisk IP (20.91.203.235)
+- PostgreSQL 16 kører som Docker container med persistent volume
+- Firewall: Azure NSG tillader kun port 5432 fra VM1's IP (4.225.161.111)
+- Database-level sikkerhed: `pg_hba.conf` begrænser adgang til app-brugeren fra VM1
+- Password håndteret via Docker secrets, ikke environment variables
 
 **Rationale:**
--
+
+- Ressourceisolering: databasen påvirker ikke app-performance og omvendt
+- Cost: Azure free tier dækker en ekstra VM uden ekstra omkostninger
+- Kontrol: fuld kontrol over PostgreSQL konfiguration, backup og adgang
+- Ingen vendor lock-in sammenlignet med managed services
+- Matcher opgavens anbefaling om at separere database fra applikation
 
 **Fordele:**
--
+
+- Uafhængig skalering af database og applikation
+- Mindre attack surface — database port kun åben for app-serveren
+- Lettere at migrere til managed service senere hvis nødvendigt
 
 **Ulemper:**
--
 
-**Retrospektiv:** (Opdateres løbende)
--
+- Mere ops-overhead: vi skal selv håndtere backup, opdateringer og monitoring
+- Netværkslatency mellem VM1 og VM2 (minimal i praksis, begge i swedencentral)
+- En ekstra server at vedligeholde
 
 **Læring:**
--
+
+- Infrastruktur-som-kode bør overvejes — VM2 blev sat op manuelt, men bør dokumenteres reproducerbart
+- Statisk IP er vigtigt for firewall-regler mellem servere
+
+------
+
+## Database Engine: PostgreSQL vs. MySQL vs. NoSQL
+
+### Context
+
+SQLite understøtter ikke concurrent writes, hvilket er problematisk for en webapplikation med multiple samtidige brugere. Valget af ny database blev diskuteret i GitHub Discussion #226.
+
+### Challenge
+
+- Applikationen har et simpelt datamodel (to uafhængige tabeller: `users` og `pages`)
+- Full-text search er en kernefunktion der kræver god FTS-understøttelse
+- Concurrent writes fra simulatoren og rigtige brugere crasher SQLite
+- NoSQL ville kræve ny datamodel og miste ACID-garantier for authentication
+
+### Choice
+
+**Beslutning:** PostgreSQL
+
+**Rationale (fra Discussion #226):**
+
+- Allerede en SQL-database — minimal migration fra SQLite
+- ACID-garantier for password-håndtering og bruger-unikhed
+- Bedre concurrent write-håndtering end MySQL's default locking
+- Built-in full-text search via `tsvector` erstatter SQLite FTS5
+- ActiveRecord understøtter PostgreSQL med én linje ændring i `database.yml`
+
+**Overvejet men fravalgt:**
+
+- **MySQL:** Svagere FTS, Oracle-ejerskab giver open source-bekymringer
+- **NoSQL (MongoDB):** Overkill for to simple tabeller, ingen ACID, unikhedsconstraints skal håndteres i kode
+
+**Læring:**
+
+- Valg af database bør baseres på data-modellen og kravene, ikke personlig præference
+- NoSQL-erfaring er bedre at opnå i en kontekst hvor det giver mening
+
+------
+
+## ORM: Behold ActiveRecord vs. Raw SQL
+
+### Context
+
+Instruktøren anbefalede at droppe ORM'en givet den simple datamodel. Diskuteret i GitHub Discussion #228.
+
+### Challenge
+
+- ActiveRecord er designet til Rails og føles tungt for en standalone Sinatra-app
+- Kun to simple tabeller uden joins — ORM-abstraktionen udnyttes ikke fuldt
+- At skifte til raw SQL kræver omskrivning af eksisterende modeller og migrationer uden funktionel gevinst
+
+### Choice
+
+**Beslutning:** Behold ActiveRecord — en pragmatisk beslutning, ikke en teknisk
+
+**Rationale:**
+
+- Omskrivning har reel arbejdsomkostning med nul funktionel forbedring
+- ActiveRecord gør database-adapter-skiftet til en config-ændring (sqlite3 → postgresql)
+- Rake migrations er allerede sat op og integreret
+- Tiden bruges bedre på højere-prioritets issues
+
+**Vigtigt:** Vi argumenterer ikke for at ActiveRecord er det rigtige tekniske valg. Vi argumenterer for at omkostningen ved at skifte overstiger fordelen på dette tidspunkt i projektet.
+
+**Læring:**
+
+- Teknisk korrekthed vs. pragmatisme er en reel afvejning i softwareudvikling
+- At dokumentere *hvorfor* man træffer et suboptimalt valg er lige så vigtigt som valget selv
+
+------
+
+## Migration Tool: Rake vs. Flyway vs. Manual SQL
+
+### Context
+
+Valg af migrationsværktøj afhænger af ORM-valget. Diskuteret i GitHub Discussion #229.
+
+### Choice
+
+**Beslutning:** Rake migrations (følger af ActiveRecord-valget)
+
+**Rationale:**
+
+- Allerede sat op i projektet — ingen ny tooling nødvendig
+- Integreret med ActiveRecord modeller
+- Flyway kræver JVM runtime — for tungt en afhængighed for migrering alene
+- Manuel SQL scripts giver ingen versionering eller rollback
+
+**Læring:**
+
+- Migrationsværktøj bør følge ORM/database-valget, ikke omvendt
 
 ------
