@@ -1799,7 +1799,7 @@ id INTEGER, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, password 
     Antal login-forsøg: ´docker logs app-nginx-1 | grep "/login" | wc -l´
     
 Pris på infrastruktur:
-- Azure VM: pris i alt 119,-
+- Azure VM: pris i alt 120,-
 - Forudsigelse for et helt år: 620,-
 - Månedlige priser: februar 32,-, marts 61,-, april 27,-
 ```
