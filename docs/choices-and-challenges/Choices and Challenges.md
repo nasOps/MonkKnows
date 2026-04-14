@@ -1787,8 +1787,9 @@ id INTEGER, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, password 
   
 - Derfor brugte vi nginx' access log via Dockers stdout – docker logs henter hvad containeren har printet til skærmen ´docker logs app-nginx-1´:
   Active users (unique IPs):     112
-  Average searches per day:      179 requests over [antal dage siden deploy]
+  Average searches per day:      179 requests fra 13/04-14/04
   Login attempts:                195
+  - Docker logs gemmer kun logs fra den nuværende container-instans, ikke historisk. 
   
 - Note: trafik inkluderer simulator-requests fra kursus-infrastrukturen (python-requests/2.32.3). Rå tal er ikke filtreret.
   
