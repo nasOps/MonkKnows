@@ -1,0 +1,8 @@
+# Default owners for all files
+* @Gabel1998 @sobr0002 @NimaAB
+
+# CI/CD and DevOps
+.github/ @Gabel1998
+docker-compose*.yml @Gabel1998
+nginx.conf @Gabel1998
+ruby-sinatra/Dockerfile @Gabel1998

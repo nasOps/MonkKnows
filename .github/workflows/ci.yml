@@ -117,11 +117,9 @@ jobs:
 
       - name: Create .env file for CI
         run: |
-          cat > ruby-sinatra/.env << EOF
-          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-          OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
-          RACK_ENV=test
-          EOF
+          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET || 'ci_test_secret_key_not_for_production_use_1234567890' }}" > ruby-sinatra/.env
+          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY || 'dummy_key_for_ci' }}" >> ruby-sinatra/.env
+          echo "RACK_ENV=test" >> ruby-sinatra/.env
 
       - name: Start app with Docker Compose
         run: docker compose -f docker-compose.dev.yml up -d
@@ -141,6 +139,83 @@ jobs:
           done
           echo "❌ CI Smoke test failed — app did not respond with 200 within 92s"
           exit 1
+
+      - name: Tear down app
+        if: always()
+        run: docker compose -f docker-compose.dev.yml down
+
+  # --- E2E tests (parallel, does not block fast feedback) ---
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Create dummy database
+        run: |
+          rm -rf whoknows.db
+          touch whoknows.db
+          chmod 666 whoknows.db
+
+      - name: Create .env file
+        run: |
+          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET || 'ci_test_secret_key_not_for_production_use_1234567890' }}" > ruby-sinatra/.env
+          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY || 'dummy_key_for_ci' }}" >> ruby-sinatra/.env
+          echo "RACK_ENV=e2e" >> ruby-sinatra/.env
+
+      - name: Start app
+        run: docker compose -f docker-compose.dev.yml up -d
+
+      - name: Wait for app
+        run: |
+          healthy=0
+          for i in $(seq 1 45); do
+            if curl -s http://localhost:4567/health | grep -q ok; then
+              echo "✅ App ready"
+              healthy=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$healthy" -ne 1 ]; then
+            echo "❌ App did not become ready in time"
+            exit 1
+          fi
+
+      - name: Load database schema
+        run: |
+          docker compose -f docker-compose.dev.yml exec -T \
+            -e RACK_ENV=e2e \
+            -e DATABASE_PATH=/whoknows.db \
+            web bundle exec rake db:schema:load
+
+      - name: Create FTS5 table
+        run: |
+          docker compose -f docker-compose.dev.yml exec -T web ruby db/migrate_to_fts5.rb
+
+      - name: Set up Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          cd ruby-sinatra/spec/e2e
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: cd ruby-sinatra/spec/e2e && npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: playwright-report
+          path: ruby-sinatra/spec/e2e/playwright-report/
 
       - name: Tear down app
         if: always()

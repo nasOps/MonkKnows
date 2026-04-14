@@ -22,6 +22,7 @@ class WhoknowsApp < Sinatra::Base
   set :public_folder, File.expand_path('public', __dir__)
   set :views, File.expand_path('views', __dir__)
   set :bind, '0.0.0.0'
+  set :logging, true
 
   # Session configuration (needed for login/logout)
   set :session_secret,
@@ -51,8 +52,23 @@ class WhoknowsApp < Sinatra::Base
   ################################################################################
 
   before do
+    request.env['sinatra.route_start_time'] = Time.now
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
+
+    # Force password reset guard — redirect flagged users
+    if @current_user.respond_to?(:force_password_reset) &&
+       @current_user&.force_password_reset == 1 &&
+       request.path_info != '/reset-password' &&
+       request.path_info != '/api/reset-password' &&
+       request.path_info != '/api/logout'
+      if request.path_info.start_with?('/api/')
+        content_type :json
+        halt 403, { detail: [{ loc: ['auth'], msg: 'Password reset required', type: 'security' }] }.to_json
+      else
+        redirect '/reset-password'
+      end
+    end
 
     # Parse JSON body og merge ind i params
     # Begrænset til POST requests da GET aldrig sender JSON body
@@ -74,8 +90,16 @@ class WhoknowsApp < Sinatra::Base
   end
 
   after do
-    # Tilsvarende Flask's after_request
-    # Cleanup, logging, etc.
+    log_data = {
+      timestamp: Time.now.utc.iso8601,
+      method: request.request_method,
+      path: request.path_info,
+      status: response.status,
+      ip: request.ip,
+      user: session[:user_id] ? Digest::SHA256.hexdigest(session[:user_id].to_s)[0..7] : nil,
+      duration_ms: ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
+    }.compact
+    logger.info(log_data.to_json)
   end
 
   ################################################################################
@@ -89,8 +113,10 @@ class WhoknowsApp < Sinatra::Base
     @language = params[:language] || 'en'
 
     @results = if @q && !@q.strip.empty?
-                 Page.where(language: @language)
-                     .where('content LIKE ?', "%#{@q}%")
+                 Page.joins('INNER JOIN pages_fts ON pages.rowid = pages_fts.rowid')
+                     .where(language: @language)
+                     .where('pages_fts MATCH ?', @q)
+                     .order(Arel.sql('pages_fts.rank'))
                else
                  []
                end
@@ -124,6 +150,12 @@ class WhoknowsApp < Sinatra::Base
     erb :login
   end
 
+  # GET /reset-password - Forced password reset page
+  get '/reset-password' do
+    redirect '/login' unless logged_in?
+    erb :reset_password
+  end
+
   ################################################################################
   # API Routes (JSON Responses)
   ###############################################################################
@@ -144,8 +176,10 @@ class WhoknowsApp < Sinatra::Base
       }.to_json
 
     else
-      search_results = Page.where(language: language)
-                           .where('content LIKE ?', "%#{q}%")
+      search_results = Page.joins('INNER JOIN pages_fts ON pages.rowid = pages_fts.rowid')
+                           .where(language: language)
+                           .where('pages_fts MATCH ?', q)
+                           .order(Arel.sql('pages_fts.rank'))
                            .as_json
 
       status 200
@@ -246,6 +280,37 @@ class WhoknowsApp < Sinatra::Base
 
     status 200
     { statusCode: 200, message: 'You were logged in' }.to_json
+  end
+
+  # POST /api/reset-password - Forced password reset
+  post '/api/reset-password' do
+    content_type :json
+
+    redirect '/login' unless logged_in?
+
+    password  = params[:password]
+    password2 = params[:password2]
+
+    if password.nil? || password.strip.empty?
+      status 422
+      return { detail: [{ loc: %w[body password], msg: 'You have to enter a password', type: 'value_error' }] }.to_json
+    end
+
+    if password != password2
+      status 422
+      return {
+        detail: [{ loc: %w[body password2], msg: 'The two passwords do not match', type: 'value_error' }]
+      }.to_json
+    end
+
+    @current_user.update_columns(
+      password_digest: User.hash_password(password),
+      password: nil,
+      force_password_reset: 0
+    )
+
+    status 200
+    { statusCode: 200, message: 'Your password has been changed successfully' }.to_json
   end
 
   # GET /api/logout - User logout

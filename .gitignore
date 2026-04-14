@@ -8,7 +8,6 @@
 Thumbs.db
 
 # ---- Personal notes ----
-package.json
 tingeling.md
 
 # ---- IDE / Editor ----
@@ -86,3 +85,8 @@ cython_debug/
 # ---- Ruby / Sinatra ----
 ruby-sinatra/vendor/
 ruby-sinatra/.bundle/
+
+# ---- Node / Playwright ----
+node_modules/
+test-results/
+playwright-report/

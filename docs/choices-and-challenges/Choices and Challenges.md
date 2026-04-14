@@ -1433,6 +1433,273 @@ aktiv stillingtagen frem for blind implementering
 
 ------
 
+## Implementering af tests
+
+### Context
+Under migrering fra Flask til Sinatra blev der ikke implementeret tests, da fokus var på at få en funktionel MVP op at 
+køre. Nu hvor projektet er stabilt og CI/CD pipelines er på plads, er det tid til at implementere tests for at sikre 
+kvalitet og muliggøre fremtidige ændringer uden frygt for regressionsfejl.
+
+### Challenge
+- Strukturering af eksisterende tests
+- Tilføj en Playwright end-to-end test for søgefunktionen
+- Dokumentér testvalg
+
+**Overvejede patterns:**
+**Overvejede patterns:**
+
+| Type | Status | Begrundelse |
+|------|--------|-------------|
+| Unit tests | ✅ Implemented | Tester isolerede model-metoder (User.hash_password) uden DB eller HTTP |
+| Integration | ✅ Implemented | Rack::Test spinner appen op in-process og tester HTTP-endpoints med DB |
+| E2E | ✅ Implemented | Playwright tester brugerflows mod live app i Docker |
+| Performance | ❌ Not relevant | Mikroservice med lavt load — ingen SLA-krav i kurset |
+| Contract | ✅ Implemented | Appen skal leve op til en OpenAPI-spec defineret af læreren. Contract tests verificerer at JSON-responses matcher de definerede schemas (AuthResponse, SearchResponse, StandardResponse). Implementeret i RSpec uden ekstern afhængighed da spec er lille og stabil |
+
+### Choice
+**Beslutning:**
+- ´bundle exec rspec´ kører unit- og integrationstests i ci.yml (spec/unit & spec/integration)
+- E2E-tests kører som et parallelt job i ci.yml — starter samtidig med quality gates og blokerer ikke hurtig feedback på unit/integration tests
+
+**Implementering:**
+
+```bash
+bundle exec rspec                       # unit + integration
+cd spec/e2e && npx playwright test      # e2e (kræver app kørende lokalt)
+```
+**Rationale:**
+- Tests blev introduceret efter en stabil MVP, med fokus på de mest kritiske dele: autentificeringslogik (unit) og 
+HTTP-endpoint-opførsel (integration)
+- Testpyramiden er overholdt — mange hurtige unit tests i bunden, færre langsommere E2E-tests i toppen
+- Rack::Test blev valgt til integrationstests fordi den kører in-process uden en rigtig server, hvilket gør tests 
+hurtige og pålidelige i CI uden portkonflikter eller opstartstid (fordi mange jobs i CI kører parallelt)
+
+**Fordele:**
+- Unit tests kører uden database eller HTTP-stack — hurtig feedback på under 2 sekunder lokalt
+- Integrationstests dækker reel route-opførsel inklusiv session-håndtering og JSON-responses
+- E2E-tests fanger regressioner der kun opstår i et fuldt kørende Docker-miljø
+- E2E kører som parallelt job i CI — blokerer ikke hurtig unit/integration-feedback, men alt er samlet i én fil
+
+**Ulemper:**
+- Lokal test af E2E kræver at appen kører, hvorefter Playwright skal køres i en separat terminal > friktion
+
+**Retrospektiv:** (Opdateres løbende)
+- Tests blev skrevet efter implementering frem for sideløbende — TDD ville have gjort det nemmere at designe testbare
+metoder fra starten
+
+**Læring:**
+- ActiveRecord skal loades eksplicit når en enkelt spec-fil køres isoleret med ´bundle exec rspec spec/unit/user_spec.rb´ 
+— hele suiten loader det automatisk via ´spec_helper.rb´
+- BCrypt salter automatisk hver hash, hvilket betyder at samme password aldrig producerer samme hash to gange — unit 
+testen beviser dette eksplicit
+- Rack::Test simulerer HTTP in-process, hvilket gør integrationstests hurtigere end rigtige netværkskald men stadig 
+tættere på virkeligheden end rene unit tests
+
+
+------
+
+## Implementering af contract tests
+
+### Context
+Læreren har defineret en OpenAPI-spec som appens API-endpoints skal leve op til. Contract tests verificerer automatisk at vores responses matcher denne kontrakt — både statuskoder, content-types og JSON-strukturer.
+
+### Challenge
+- Committee gem understøtter ikke OpenAPI 3.1 (lærerens spec-version)
+- Committee::Test::Methods er designet til Rails/minitest — ikke RSpec med Rack::Test
+- Løsning: downgrade spe c til 3.0.0 i lokal kopi + manuel schema-validering for JSON-endpoints
+
+**Overvejede patterns:**
+- Committee gem med `assert_response_schema_confirm` — fejlede pga. OpenAPI 3.1 og Rack::Test inkompatibilitet
+- Schemathesis (Python) — fravalgt da det er et Python-værktøj i et Ruby-projekt
+
+### Choice
+**Beslutning:**
+- Committee gem bruges til at loade og parse OpenAPI-spec
+- `Committee::Test::Methods` er inkluderet men `assert_response_schema_confirm` erstattes med manuelle RSpec-assertions da metoden forudsætter Rails-miljø
+- HTML-endpoints valideres med content-type og statuskode
+- JSON-endpoints valideres mod OpenAPI-specens schema-nøgler (AuthResponse, SearchResponse, HTTPValidationError)
+- Lokal kopi af spec downgradet fra `3.1.0` til `3.0.0` for Committee-kompatibilitet
+
+**Implementering:**
+
+```bash
+bundle exec rspec spec/integration/contract_spec.rb
+```
+
+**Rationale:**
+- Contract tests sikrer at appen lever op til den fælles API-kontrakt defineret af læreren
+- Manuel validering mod spec-nøgler giver samme sikkerhed som Committee's automatiske validering for denne specs kompleksitet
+- OpenAPI 3.0 er bagudkompatibel med 3.1 for alle felter brugt i lærerens spec
+
+**Fordele:**
+- Ingen ekstern afhængighed udover Committee gem som allerede er installeret
+- Tests kører in-process via Rack::Test — ingen kørende server nødvendig
+- Fanger regressionsfejl hvis JSON-strukturen ændres i app.rb
+
+**Ulemper:**
+- Committee::Test::Methods bruges ikke fuldt ud — `assert_response_schema_confirm` virker ikke med Rack::Test uden Rails
+- Lokal spec-kopi afviger fra lærerens originale 3.1-version
+- Manuel validering af nøgler er ikke fuldt automatisk — nye felter i spec opdages ikke automatisk
+
+**Retrospektiv:** *(Opdateres løbende)*
+- Committee viste sig at have flere begrænsninger end forventet — OpenAPI 3.1 support og Rails-afhængighed
+
+**Læring:**
+- Committee gem understøtter kun OpenAPI op til 3.0 — tjek altid gem-kompatibilitet mod spec-versionen før implementering
+- `include Rack::Test::Methods` skal eksplicit tilføjes i RSpec — det loades ikke automatisk via spec_helper i isolerede filer
+- OpenAPI 3.1 vs 3.0 er en minor version-forskel men kan bryde tooling der ikke er opdateret
+
+------
+
+## Security Breach: Forced Password Reset
+
+### Context
+
+En hacker opnåede read access til vores database og fremviste sample user credentials som bevis. Alle brugerpasswords var hashet med MD5 (før bcrypt-migrationen), hvilket gjorde dem sårbare over for rainbow table attacks.
+
+### Challenge
+
+- Alle brugere potentielt kompromitterede — hackeren havde adgang til hele users-tabellen
+- bcrypt-migrationen var allerede deployed, men virkede ikke på serveren pga. en `NOT NULL` constraint på `password`-kolonnen
+- `migrate_to_bcrypt!` satte `password: nil` efter re-hash, men SQLite afviste det med `NOT NULL constraint failed`
+- 1628 ud af 1742 brugere sad stadig på MD5 og kunne ikke logge ind
+- SQLite understøtter ikke `ALTER COLUMN` — constraint kan ikke fjernes in-place
+
+### Choice
+
+**Beslutning:** Implementer forced password reset for alle brugere og fix den underliggende database-constraint
+
+**Implementering:**
+
+1. **Fix NOT NULL constraint:** Genskabt users-tabellen uden `NOT NULL` på `password` og tilføjet `force_password_reset`-kolonne (SQLite kræver table recreation for at ændre constraints)
+2. **Before-filter guard:** Alle requests fra flaggede brugere redirectes til `/reset-password` (HTML) eller returnerer 403 (API)
+3. **Reset-flow:** Bruger vælger nyt password → bcrypt-hash gemmes → flag fjernes → adgang genoprettet
+4. **Defensiv kode:** Guard tjekker `respond_to?(:force_password_reset)` så deploy ikke crasher før migrering er kørt
+
+**Rationale:**
+
+- Force reset for ALLE brugere (ikke kun kendte kompromitterede) fordi hackeren havde read access til hele tabellen
+- Guard i `before`-filter sikrer at ingen routes kan bypasses
+- API-endpoints returnerer 403 i stedet for redirect for at undgå at bryde API-consumers
+
+**Fordele:**
+
+- Alle kompromitterede passwords invalideres
+- Brugere tvinges til at vælge nyt password ved næste besøg
+- Fixer samtidig bcrypt-migration buggen der blokerede MD5-brugere
+
+**Ulemper:**
+
+- Alle brugere (inkl. ikke-kompromitterede) skal resette password
+- Kræver manuel SSH + migration på serveren efter deploy
+- Ingen email-notifikation implementeret (brugere ser kun beskeden ved login)
+
+**Læring:**
+
+- Database constraints skal valideres end-to-end, ikke kun i applikationskoden
+- SQLite's manglende `ALTER COLUMN` gør schema-ændringer komplekse — et argument for migration til PostgreSQL
+- Deploy og database-migrering skal koordineres — defensiv kode forhindrer downtime mellem de to
+
+------
+
+## Database Indexes for Query Performance
+
+### Context
+
+Alle database-queries kørte uden indexes, hvilket betød full table scans på hver forespørgsel. Med 51 pages og 1742 brugere var performance endnu ikke et problem, men indexes er god praksis og forberedelse til skalering.
+
+### Challenge
+
+- Ingen eksisterende indexes ud over SQLite's auto-indexes på `UNIQUE` constraints
+- Identificering af hvilke kolonner der faktisk bruges i queries
+
+### Choice
+
+**Beslutning:** Tilføj indexes på `pages.language`, `pages.url` og `pages.last_updated`
+
+**Implementering:**
+
+- Migreringsscript (`db/add_indexes.rb`) med `CREATE INDEX IF NOT EXISTS` — idempotent og sikkert at køre flere gange
+- `users.username` og `users.email` har allerede implicit index via `UNIQUE` constraint
+
+**Rationale:**
+
+- `pages.language` bruges i alle søge-queries (`WHERE language = ?`)
+- `pages.url` bruges til URL-lookups
+- `pages.last_updated` muliggør effektiv sortering efter aktualitet
+- `users`-tabellen behøver ikke yderligere indexes
+
+**Fordele:**
+
+- Hurtigere søgninger, specielt ved voksende dataset
+- Ingen ændring i applikationskode nødvendig
+- Idempotent migration — ingen risiko ved gentagen kørsel
+
+**Ulemper:**
+
+- Marginalt langsommere writes (index-opdatering ved INSERT/UPDATE)
+- Minimal effekt på nuværende datamængde
+
+**Læring:**
+
+- Indexes bør planlægges ud fra faktiske query-patterns, ikke gætværk
+- `IF NOT EXISTS` gør migrations robuste og re-runnable
+- SQLite's auto-index på `UNIQUE` dækker allerede de mest kritiske lookups
+
+------
+
+## SQLite FTS5: Full-Text Search
+
+### Context
+
+Søgefunktionen brugte `LIKE '%query%'` til at finde pages. Dette er langsomt (full table scan, ingen index-brug) og returnerer resultater i vilkårlig rækkefølge uden relevansrangering.
+
+### Challenge
+
+- `LIKE` med leading wildcard (`%query%`) kan ikke bruge indexes
+- Ingen relevansrangering — brugere får resultater i tabel-rækkefølge
+- Multi-word søgninger matcher kun som substring, ikke som individuelle termer
+
+### Choice
+
+**Beslutning:** Implementer SQLite FTS5 (Full-Text Search 5) som erstatning for LIKE
+
+**Implementering:**
+
+1. **FTS5 virtual table:** `pages_fts` med `title` og `content` kolonner, synkroniseret via `content='pages'`
+2. **Triggers:** `AFTER INSERT`, `AFTER DELETE` og `AFTER UPDATE` triggers holder FTS5-tabellen synkroniseret automatisk
+3. **Query-ændring:** Erstattet `WHERE content LIKE ?` med `INNER JOIN pages_fts ... WHERE pages_fts MATCH ?` og `ORDER BY pages_fts.rank`
+4. **Begge endpoints opdateret:** Både HTML (`GET /`) og API (`GET /api/search`) bruger FTS5
+
+**Rationale:**
+
+- FTS5 er built-in i SQLite (kræver version ≥ 3.9.0) — ingen eksterne dependencies
+- `MATCH` operatoren er markant hurtigere end `LIKE` med wildcards
+- `rank` giver automatisk relevansrangering baseret på BM25 algoritmen
+- Triggers sikrer at FTS5-tabellen altid er i sync uden applikationslogik
+
+**Fordele:**
+
+- Relevansrangerede søgeresultater
+- Bedre performance ved voksende datamængde
+- Understøtter avanceret søgesyntaks (phrase search, boolean operators)
+- Transparent for eksisterende API-consumers (samme response format)
+
+**Ulemper:**
+
+- Ekstra diskplads til FTS5 index
+- Marginalt langsommere writes pga. trigger-overhead
+- Migration kræver initial population af FTS5-tabellen
+- FTS5 er SQLite-specifik — skal reimplementeres ved migration til PostgreSQL (men PostgreSQL har sin egen FTS)
+
+**Læring:**
+
+- Built-in database features (FTS5, indexes) bør foretrækkes over applikationslogik
+- Triggers er effektive til at holde derived data i sync
+- `content=` parameter i FTS5 undgår data-duplikering — FTS5 refererer direkte til kilde-tabellen
+
+------
+
 ## Server Telemetri
 
 ### Context
