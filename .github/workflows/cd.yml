@@ -94,10 +94,12 @@ jobs:
 
       - name: Create .env file
         run: |
-          cat > .env <<'EOF'
-          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-          OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
-          EOF
+          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" > .env
+          echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
 
       - name: Transfer .env to server
         run: |
