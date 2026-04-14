@@ -19,6 +19,7 @@ group :test do
   gem 'committee' # For testing API responses against OpenAPI specs
   gem 'rack-test' # Simulates HTTP requests in tests
   gem 'rspec'
+  gem 'simplecov', require: false
 end
 
 group :development, :test do
