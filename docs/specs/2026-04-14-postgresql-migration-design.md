@@ -361,20 +361,20 @@ main (production — stays on SQLite until migration is verified)
 
 ## 8. Task Breakdown and Assignment
 
-| # | Task | Branch | Who | When | Dependency |
-|---|------|--------|-----|------|------------|
-| 1 | Provision VM2, install Docker, run PostgreSQL container | (infra, no branch) | Andreas | Wed | — |
-| 2 | Firewall: NSG + pg_hba.conf lockdown | (infra, no branch) | Andreas | Wed | 1 |
-| 3 | Code: database.yml, Gemfile (pg gem) | `203-db-postgresql-setup` | Andreas | Wed-Thu | — |
-| 4 | Code: FTS5 → tsvector search logic in Page model + app.rb | `203-db-fts5-to-tsvector` | Andreas | Thu | 3 |
-| 5 | Rake migration: create tsvector column, GIN index, trigger | `203-db-fts5-to-tsvector` | Andreas | Thu | 3 |
-| 6 | docker-compose.dev.yml PostgreSQL setup | `203-db-docker-dev-postgres` | Sofie | Fri | 3 |
-| 7 | Data migration script (SQLite → PostgreSQL + delta-sync) | `203-db-data-migration-script` | Andreas/Sofie | Thu-Fri | 1, 3 |
-| 8 | Automated cutover script with rollback | `203-db-cutover-script` | Andreas | Fri | 7 |
-| 9 | Update CD pipeline (new secrets, env vars) | `203-db-cd-pipeline-update` | Andreas | Fri | 3 |
-| 10 | E2E tests against PostgreSQL in CI | `203-db-cd-pipeline-update` | Sofie | Fri | 4, 6 |
-| 11 | Choices and Challenges documentation | (in each sub-branch) | Ongoing | All week | — |
-| 12 | Blue-green cutover in production | Final PR to `main` | Together | Fri | All above |
+| # | Task | Branch | Dependency | Status |
+|---|------|--------|------------|--------|
+| 1 | Provision VM2, install Docker, run PostgreSQL container | (infra, no branch) | — | done |
+| 2 | Firewall: NSG + pg_hba.conf lockdown | (infra, no branch) | 1 | done |
+| 3 | Code: database.yml, Gemfile (pg gem) | `203-db-postgresql-setup` | — | |
+| 4 | Code: FTS5 → tsvector search logic in Page model + app.rb | `203-db-fts5-to-tsvector` | 3 | |
+| 5 | Rake migration: create tsvector column, GIN index, trigger | `203-db-fts5-to-tsvector` | 3 | |
+| 6 | docker-compose.dev.yml PostgreSQL setup | `203-db-docker-dev-postgres` | 3 | |
+| 7 | Data migration script (SQLite → PostgreSQL + delta-sync) | `203-db-data-migration-script` | 1, 3 | |
+| 8 | Automated cutover script with rollback | `203-db-cutover-script` | 7 | |
+| 9 | Update CD pipeline (new secrets, env vars) | `203-db-cd-pipeline-update` | 3 | |
+| 10 | E2E tests against PostgreSQL in CI | `203-db-cd-pipeline-update` | 4, 6 | |
+| 11 | Choices and Challenges documentation | (in each sub-branch) | — | |
+| 12 | Blue-green cutover in production | Final PR to `main` | All above | |
 
 ---
 
