@@ -14,7 +14,7 @@ services:
     env_file:
       - ./ruby-sinatra/.env
     environment:
-      - RACK_ENV=development
+      #- RACK_ENV=development
       - DATABASE_PATH=/whoknows.db
     # Overrides CMD in Dockerfile to use rerun for hot-reloading
     command: sh -c "ruby app.rb & bundle exec guard --no-interactions --no-bundler-warning"

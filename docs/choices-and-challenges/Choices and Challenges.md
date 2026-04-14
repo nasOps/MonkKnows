@@ -1433,6 +1433,124 @@ aktiv stillingtagen frem for blind implementering
 
 ------
 
+## Implementering af tests
+
+### Context
+Under migrering fra Flask til Sinatra blev der ikke implementeret tests, da fokus var på at få en funktionel MVP op at 
+køre. Nu hvor projektet er stabilt og CI/CD pipelines er på plads, er det tid til at implementere tests for at sikre 
+kvalitet og muliggøre fremtidige ændringer uden frygt for regressionsfejl.
+
+### Challenge
+- Strukturering af eksisterende tests
+- Tilføj en Playwright end-to-end test for søgefunktionen
+- Dokumentér testvalg
+
+**Overvejede patterns:**
+**Overvejede patterns:**
+
+| Type | Status | Begrundelse |
+|------|--------|-------------|
+| Unit tests | ✅ Implemented | Tester isolerede model-metoder (User.hash_password) uden DB eller HTTP |
+| Integration | ✅ Implemented | Rack::Test spinner appen op in-process og tester HTTP-endpoints med DB |
+| E2E | ✅ Implemented | Playwright tester brugerflows mod live app i Docker |
+| Performance | ❌ Not relevant | Mikroservice med lavt load — ingen SLA-krav i kurset |
+| Contract | ✅ Implemented | Appen skal leve op til en OpenAPI-spec defineret af læreren. Contract tests verificerer at JSON-responses matcher de definerede schemas (AuthResponse, SearchResponse, StandardResponse). Implementeret i RSpec uden ekstern afhængighed da spec er lille og stabil |
+
+### Choice
+**Beslutning:**
+- ´bundle exec rspec´ kører unit- og integrationstests i ci.yml (spec/unit & spec/integration)
+- E2E-tests kører som et parallelt job i ci.yml — starter samtidig med quality gates og blokerer ikke hurtig feedback på unit/integration tests
+
+**Implementering:**
+
+```bash
+bundle exec rspec                       # unit + integration
+cd spec/e2e && npx playwright test      # e2e (kræver app kørende lokalt)
+```
+**Rationale:**
+- Tests blev introduceret efter en stabil MVP, med fokus på de mest kritiske dele: autentificeringslogik (unit) og 
+HTTP-endpoint-opførsel (integration)
+- Testpyramiden er overholdt — mange hurtige unit tests i bunden, færre langsommere E2E-tests i toppen
+- Rack::Test blev valgt til integrationstests fordi den kører in-process uden en rigtig server, hvilket gør tests 
+hurtige og pålidelige i CI uden portkonflikter eller opstartstid (fordi mange jobs i CI kører parallelt)
+
+**Fordele:**
+- Unit tests kører uden database eller HTTP-stack — hurtig feedback på under 2 sekunder lokalt
+- Integrationstests dækker reel route-opførsel inklusiv session-håndtering og JSON-responses
+- E2E-tests fanger regressioner der kun opstår i et fuldt kørende Docker-miljø
+- E2E kører som parallelt job i CI — blokerer ikke hurtig unit/integration-feedback, men alt er samlet i én fil
+
+**Ulemper:**
+- Lokal test af E2E kræver at appen kører, hvorefter Playwright skal køres i en separat terminal > friktion
+
+**Retrospektiv:** (Opdateres løbende)
+- Tests blev skrevet efter implementering frem for sideløbende — TDD ville have gjort det nemmere at designe testbare
+metoder fra starten
+
+**Læring:**
+- ActiveRecord skal loades eksplicit når en enkelt spec-fil køres isoleret med ´bundle exec rspec spec/unit/user_spec.rb´ 
+— hele suiten loader det automatisk via ´spec_helper.rb´
+- BCrypt salter automatisk hver hash, hvilket betyder at samme password aldrig producerer samme hash to gange — unit 
+testen beviser dette eksplicit
+- Rack::Test simulerer HTTP in-process, hvilket gør integrationstests hurtigere end rigtige netværkskald men stadig 
+tættere på virkeligheden end rene unit tests
+
+
+------
+
+## Implementering af contract tests
+
+### Context
+Læreren har defineret en OpenAPI-spec som appens API-endpoints skal leve op til. Contract tests verificerer automatisk at vores responses matcher denne kontrakt — både statuskoder, content-types og JSON-strukturer.
+
+### Challenge
+- Committee gem understøtter ikke OpenAPI 3.1 (lærerens spec-version)
+- Committee::Test::Methods er designet til Rails/minitest — ikke RSpec med Rack::Test
+- Løsning: downgrade spe c til 3.0.0 i lokal kopi + manuel schema-validering for JSON-endpoints
+
+**Overvejede patterns:**
+- Committee gem med `assert_response_schema_confirm` — fejlede pga. OpenAPI 3.1 og Rack::Test inkompatibilitet
+- Schemathesis (Python) — fravalgt da det er et Python-værktøj i et Ruby-projekt
+
+### Choice
+**Beslutning:**
+- Committee gem bruges til at loade og parse OpenAPI-spec
+- `Committee::Test::Methods` er inkluderet men `assert_response_schema_confirm` erstattes med manuelle RSpec-assertions da metoden forudsætter Rails-miljø
+- HTML-endpoints valideres med content-type og statuskode
+- JSON-endpoints valideres mod OpenAPI-specens schema-nøgler (AuthResponse, SearchResponse, HTTPValidationError)
+- Lokal kopi af spec downgradet fra `3.1.0` til `3.0.0` for Committee-kompatibilitet
+
+**Implementering:**
+
+```bash
+bundle exec rspec spec/integration/contract_spec.rb
+```
+
+**Rationale:**
+- Contract tests sikrer at appen lever op til den fælles API-kontrakt defineret af læreren
+- Manuel validering mod spec-nøgler giver samme sikkerhed som Committee's automatiske validering for denne specs kompleksitet
+- OpenAPI 3.0 er bagudkompatibel med 3.1 for alle felter brugt i lærerens spec
+
+**Fordele:**
+- Ingen ekstern afhængighed udover Committee gem som allerede er installeret
+- Tests kører in-process via Rack::Test — ingen kørende server nødvendig
+- Fanger regressionsfejl hvis JSON-strukturen ændres i app.rb
+
+**Ulemper:**
+- Committee::Test::Methods bruges ikke fuldt ud — `assert_response_schema_confirm` virker ikke med Rack::Test uden Rails
+- Lokal spec-kopi afviger fra lærerens originale 3.1-version
+- Manuel validering af nøgler er ikke fuldt automatisk — nye felter i spec opdages ikke automatisk
+
+**Retrospektiv:** *(Opdateres løbende)*
+- Committee viste sig at have flere begrænsninger end forventet — OpenAPI 3.1 support og Rails-afhængighed
+
+**Læring:**
+- Committee gem understøtter kun OpenAPI op til 3.0 — tjek altid gem-kompatibilitet mod spec-versionen før implementering
+- `include Rack::Test::Methods` skal eksplicit tilføjes i RSpec — det loades ikke automatisk via spec_helper i isolerede filer
+- OpenAPI 3.1 vs 3.0 er en minor version-forskel men kan bryde tooling der ikke er opdateret
+
+------
+
 ## Security Breach: Forced Password Reset
 
 ### Context

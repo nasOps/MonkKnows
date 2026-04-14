@@ -25,3 +25,9 @@ test:
   database: ":memory:"
   pool: 5
   timeout: 5000
+
+e2e:
+  adapter: sqlite3
+  database: <%= ENV.fetch('DATABASE_PATH', '../whoknows.db') %>
+  pool: 5
+  timeout: 5000
