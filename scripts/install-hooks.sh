@@ -17,12 +17,16 @@ fi
 
 echo "Running RuboCop on staged files..."
 
+# Convert host paths to container paths (ruby-sinatra/ -> /app/)
+CONTAINER_FILES=$(echo "$STAGED_RB" | sed 's|^ruby-sinatra/||')
+
 # Try Docker first (matches CI environment), fall back to local bundle
 if docker compose -f docker-compose.dev.yml ps --status running web 2>/dev/null | grep -q web; then
-  docker compose -f docker-compose.dev.yml exec -T web bundle exec rubocop
+  echo "$CONTAINER_FILES" | xargs docker compose -f docker-compose.dev.yml exec -T web bundle exec rubocop --force-exclusion
   RESULT=$?
-elif cd ruby-sinatra 2>/dev/null && bundle exec rubocop 2>/dev/null; then
-  RESULT=0
+elif cd ruby-sinatra 2>/dev/null; then
+  echo "$STAGED_RB" | xargs bundle exec rubocop --force-exclusion
+  RESULT=$?
 else
   echo "⚠️  Skipping RuboCop — Docker not running and rubocop not installed locally"
   exit 0
