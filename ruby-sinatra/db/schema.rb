@@ -23,5 +23,6 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.text "email", null: false
     t.text "password"
     t.text "password_digest"
+    t.integer "force_password_reset", default: 0
   end
 end

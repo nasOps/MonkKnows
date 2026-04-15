@@ -57,8 +57,7 @@ class WhoknowsApp < Sinatra::Base
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
 
     # Force password reset guard — redirect flagged users
-    if @current_user.respond_to?(:force_password_reset) &&
-       @current_user&.force_password_reset == 1 &&
+    if @current_user&.force_password_reset == 1 &&
        request.path_info != '/reset-password' &&
        request.path_info != '/api/reset-password' &&
        request.path_info != '/api/logout'

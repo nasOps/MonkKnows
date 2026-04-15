@@ -63,6 +63,7 @@ RSpec.configure do |config|
         t.string :email,    null: false
         t.string :password
         t.string :password_digest
+        t.integer :force_password_reset, default: 0
       end
 
       create_table :pages, force: true do |t|
