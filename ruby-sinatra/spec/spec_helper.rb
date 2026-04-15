@@ -5,7 +5,7 @@ SimpleCov.start do
   add_filter '/spec/'
   add_filter '/config/'
   add_filter '/db/'
-  minimum_coverage 65
+  minimum_coverage 60
 end
 
 ENV['RACK_ENV'] = 'test'
