@@ -26,5 +26,7 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.text "email", null: false
     t.text "password"
     t.text "password_digest"
+    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["username"], name: "index_users_on_username", unique: true
   end
 end
