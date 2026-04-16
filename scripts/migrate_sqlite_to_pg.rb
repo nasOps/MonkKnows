@@ -45,8 +45,7 @@ def create_pg_schema(pg)
       username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE,
       password TEXT,
-      password_digest TEXT,
-      force_password_reset INTEGER DEFAULT 0
+      password_digest TEXT
     );
   SQL
 
@@ -77,8 +76,8 @@ def migrate_users(sqlite, pg)
   return if users.empty?
 
   pg.prepare('insert_user', <<-SQL)
-    INSERT INTO users (id, username, email, password, password_digest, force_password_reset)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO users (id, username, email, password, password_digest)
+    VALUES ($1, $2, $3, $4, $5)
     ON CONFLICT (id) DO NOTHING
   SQL
 
@@ -86,17 +85,13 @@ def migrate_users(sqlite, pg)
   skipped = 0
 
   users.each do |user|
-    # SQLite prod may not have force_password_reset column
-    force_reset = user['force_password_reset'] || 0
-
     begin
       pg.exec_prepared('insert_user', [
         user['id'],
         user['username'],
         user['email'],
         user['password'],
-        user['password_digest'],
-        force_reset
+        user['password_digest']
       ])
       migrated += 1
     rescue PG::UniqueViolation
