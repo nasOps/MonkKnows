@@ -113,15 +113,7 @@ class WhoknowsApp < Sinatra::Base
     @language = params[:language] || 'en'
 
     @results = if @q && !@q.strip.empty?
-                 sanitized_q = sanitize_fts5(@q)
-                 if sanitized_q.empty?
-                   []
-                 else
-                   Page.joins('INNER JOIN pages_fts ON pages.rowid = pages_fts.rowid')
-                       .where(language: @language)
-                       .where('pages_fts MATCH ?', sanitized_q)
-                       .order(Arel.sql('pages_fts.rank'))
-                 end
+                 Page.search(@q, language: @language)
                else
                  []
                end
@@ -181,16 +173,7 @@ class WhoknowsApp < Sinatra::Base
       }.to_json
 
     else
-      sanitized_q = sanitize_fts5(q)
-      search_results = if sanitized_q.empty?
-                         []
-                       else
-                         Page.joins('INNER JOIN pages_fts ON pages.rowid = pages_fts.rowid')
-                             .where(language: language)
-                             .where('pages_fts MATCH ?', sanitized_q)
-                             .order(Arel.sql('pages_fts.rank'))
-                             .as_json
-                       end
+      search_results = Page.search(q, language: language).as_json(except: :tsv)
 
       status 200
       {
@@ -351,10 +334,6 @@ class WhoknowsApp < Sinatra::Base
 
     def logged_in?
       !current_user.nil?
-    end
-
-    def sanitize_fts5(query)
-      query.gsub(/[?*"()^+\-:{}~]/, ' ').gsub(/\s+/, ' ').strip
     end
   end
 
