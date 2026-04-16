@@ -11,6 +11,9 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[7.2].define(version: 0) do
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "plpgsql"
+
   create_table "pages", primary_key: "title", id: :text, force: :cascade do |t|
     t.text "url", null: false
     t.text "language", default: "en", null: false

@@ -112,17 +112,13 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - name: Create dummy database
-        run: touch whoknows.db
-
       - name: Create .env file for CI
         run: |
           echo "SESSION_SECRET=${{ secrets.SESSION_SECRET || 'ci_test_secret_key_not_for_production_use_1234567890' }}" > ruby-sinatra/.env
           echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY || 'dummy_key_for_ci' }}" >> ruby-sinatra/.env
-          echo "RACK_ENV=test" >> ruby-sinatra/.env
 
       - name: Start app with Docker Compose
-        run: docker compose -f docker-compose.dev.yml up -d
+        run: docker compose -f docker-compose.dev.yml up -d --build
 
       - name: Run smoke test with cURL
         run: |
@@ -154,20 +150,14 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - name: Create dummy database
-        run: |
-          rm -rf whoknows.db
-          touch whoknows.db
-          chmod 666 whoknows.db
-
       - name: Create .env file
         run: |
           echo "SESSION_SECRET=${{ secrets.SESSION_SECRET || 'ci_test_secret_key_not_for_production_use_1234567890' }}" > ruby-sinatra/.env
           echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY || 'dummy_key_for_ci' }}" >> ruby-sinatra/.env
           echo "RACK_ENV=e2e" >> ruby-sinatra/.env
 
-      - name: Start app
-        run: docker compose -f docker-compose.dev.yml up -d
+      - name: Start app with Docker Compose
+        run: docker compose -f docker-compose.dev.yml up -d --build
 
       - name: Wait for app
         run: |
@@ -185,16 +175,12 @@ jobs:
             exit 1
           fi
 
-      - name: Load database schema
+      - name: Load database schema and run tsvector migration
         run: |
           docker compose -f docker-compose.dev.yml exec -T \
             -e RACK_ENV=e2e \
-            -e DATABASE_PATH=/whoknows.db \
             web bundle exec rake db:schema:load
-
-      - name: Create FTS5 table
-        run: |
-          docker compose -f docker-compose.dev.yml exec -T web ruby db/migrate_to_fts5.rb
+          docker compose -f docker-compose.dev.yml exec -T web ruby db/migrate_to_tsvector.rb
 
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f

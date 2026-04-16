@@ -36,6 +36,7 @@ GEM
     diff-lcs (1.6.2)
     dotenv (3.2.0)
     drb (2.2.3)
+    ffi (1.17.3-aarch64-linux-gnu)
     ffi (1.17.3-arm64-darwin)
     ffi (1.17.3-x86_64-linux-gnu)
     formatador (1.2.3)
@@ -84,6 +85,7 @@ GEM
     parser (3.3.10.2)
       ast (~> 2.4.1)
       racc
+    pg (1.6.3-aarch64-linux)
     pg (1.6.3-arm64-darwin)
     pg (1.6.3-x86_64-linux)
     prism (1.9.0)
@@ -157,6 +159,7 @@ GEM
       sinatra (>= 1.0)
     sqlite3 (1.7.3)
       mini_portile2 (~> 2.8.0)
+    sqlite3 (1.7.3-aarch64-linux)
     sqlite3 (1.7.3-x86_64-linux)
     thor (1.5.0)
     tilt (2.7.0)
@@ -168,6 +171,7 @@ GEM
     unicode-emoji (4.2.0)
 
 PLATFORMS
+  aarch64-linux
   arm64-darwin-24
   arm64-darwin-25
   x86_64-linux-gnu

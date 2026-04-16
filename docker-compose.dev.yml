@@ -38,7 +38,7 @@ services:
       db:
         condition: service_healthy
     # Overrides CMD in Dockerfile to use rerun for hot-reloading
-    command: sh -c "bundle exec rake db:migrate 2>/dev/null; ruby app.rb & bundle exec guard --no-interactions --no-bundler-warning"
+    command: sh -c "bundle exec rake db:schema:load 2>/dev/null; bundle exec rake db:migrate 2>/dev/null; ruby db/migrate_to_tsvector.rb 2>/dev/null; ruby app.rb & bundle exec guard --no-interactions --no-bundler-warning"
 
 volumes:
   pgdata:
