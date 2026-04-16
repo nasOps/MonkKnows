@@ -13,10 +13,10 @@ development:
 # Production (VM2 PostgreSQL server)
 production:
   adapter: postgresql
-  host: <%= ENV['DB_HOST'] %>
-  database: <%= ENV.fetch('DB_NAME', 'monkknows') %>
-  username: <%= ENV['DB_USER'] %>
-  password: <%= ENV['DB_PASSWORD'] %>
+  host: <%= ENV.fetch('DB_HOST') { raise 'DB_HOST must be set in production' } %>
+  database: <%= ENV.fetch('DB_NAME') { raise 'DB_NAME must be set in production' } %>
+  username: <%= ENV.fetch('DB_USER') { raise 'DB_USER must be set in production' } %>
+  password: <%= ENV.fetch('DB_PASSWORD') { raise 'DB_PASSWORD must be set in production' } %>
   pool: 5
 
 # In-memory SQLite for fast unit tests
@@ -30,7 +30,7 @@ test:
 e2e:
   adapter: postgresql
   host: <%= ENV.fetch('DB_HOST', 'db') %>
-  database: <%= ENV.fetch('DB_NAME', 'monkknows_e2e') %>
+  database: <%= ENV.fetch('DB_NAME_E2E', 'monkknows_e2e') %>
   username: <%= ENV.fetch('DB_USER', 'monkknows') %>
   password: <%= ENV.fetch('DB_PASSWORD', 'dev_password') %>
   pool: 5
