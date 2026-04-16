@@ -173,7 +173,7 @@ class WhoknowsApp < Sinatra::Base
       }.to_json
 
     else
-      search_results = Page.search(q, language: language).as_json
+      search_results = Page.search(q, language: language).as_json(except: :tsv)
 
       status 200
       {
