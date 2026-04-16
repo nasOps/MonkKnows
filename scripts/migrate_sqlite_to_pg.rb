@@ -100,7 +100,7 @@ def migrate_users(sqlite, pg)
   end
 
   # Reset sequence to max ID so new inserts get correct IDs
-  pg.exec("SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 1) FROM users))")
+  pg.exec("SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) FROM users))")
 
   puts "Migrated: #{migrated}, Skipped (duplicate): #{skipped}"
 end
@@ -135,50 +135,8 @@ def migrate_pages(sqlite, pg)
   puts "Pages migrated: #{pages.length}"
 end
 
-def setup_tsvector(pg)
-  puts "\n--- Setting up tsvector ---"
-
-  # Add column if not exists
-  result = pg.exec(<<-SQL)
-    SELECT column_name FROM information_schema.columns
-    WHERE table_name = 'pages' AND column_name = 'tsv'
-  SQL
-
-  if result.ntuples.zero?
-    pg.exec('ALTER TABLE pages ADD COLUMN tsv tsvector')
-    puts 'Added tsv column.'
-  end
-
-  # Populate tsvector
-  pg.exec(<<-SQL)
-    UPDATE pages SET tsv = to_tsvector('english', coalesce(title, '') || ' ' || coalesce(content, ''))
-  SQL
-  puts 'Populated tsvector from title + content.'
-
-  # GIN index
-  pg.exec(<<-SQL)
-    CREATE INDEX IF NOT EXISTS idx_pages_tsv ON pages USING GIN(tsv)
-  SQL
-  puts 'GIN index created.'
-
-  # Auto-update trigger
-  pg.exec(<<-SQL)
-    CREATE OR REPLACE FUNCTION pages_tsv_update_trigger() RETURNS trigger AS $$
-    BEGIN
-      NEW.tsv := to_tsvector('english', coalesce(NEW.title, '') || ' ' || coalesce(NEW.content, ''));
-      RETURN NEW;
-    END;
-    $$ LANGUAGE plpgsql;
-  SQL
-
-  pg.exec(<<-SQL)
-    DROP TRIGGER IF EXISTS pages_tsv_update ON pages;
-    CREATE TRIGGER pages_tsv_update
-      BEFORE INSERT OR UPDATE ON pages
-      FOR EACH ROW EXECUTE FUNCTION pages_tsv_update_trigger();
-  SQL
-  puts 'Auto-update trigger created.'
-end
+# tsvector setup (column, GIN index, multilingual trigger, backfill) is handled by
+# db/migrate_to_tsvector.rb, which runs automatically on container startup.
 
 def verify(sqlite, pg)
   puts "\n--- Verification ---"
@@ -210,7 +168,6 @@ pg = connect_pg
 create_pg_schema(pg)
 migrate_users(sqlite, pg)
 migrate_pages(sqlite, pg)
-setup_tsvector(pg)
 verify(sqlite, pg)
 
 pg.close

@@ -27,6 +27,16 @@ DB_PASS_FILE="/opt/monkknows-db/db_password.txt"
 log() { echo "[$(date '+%H:%M:%S')] $1"; }
 fail() { log "FAILED: $1"; exit 1; }
 
+cleanup_temp_access() {
+  log "Cleaning up temporary firewall access..."
+  ssh "$VM2_HOST" "sed -i '/${LOCAL_IP}/d' /opt/monkknows-db/pg_hba.conf && cd /opt/monkknows-db && sg docker -c 'docker compose restart db'" 2>/dev/null || true
+  az network nsg rule delete \
+    --resource-group PRIVATEPROJECT_GROUP \
+    --nsg-name PrivateProject-nsg \
+    --name TempCutoverAccess \
+    --output none 2>/dev/null || true
+}
+
 # --- Phase 1: Pre-flight checks ---
 log "=== Phase 1: Pre-flight checks ==="
 
@@ -53,6 +63,7 @@ scp "$VM1_HOST:/opt/whoknows/data/whoknows.db" /tmp/whoknows_cutover.db
 
 log "Opening temporary firewall for migration..."
 LOCAL_IP=$(curl -s ifconfig.me)
+trap cleanup_temp_access EXIT
 az network nsg rule create \
   --resource-group PRIVATEPROJECT_GROUP \
   --nsg-name PrivateProject-nsg \
@@ -73,14 +84,7 @@ log "Running delta-sync..."
 DB_HOST="$VM2_IP" DB_USER="$DB_USER" DB_PASSWORD="$DB_PASS" DB_NAME="$DB_NAME" \
   ruby scripts/migrate_sqlite_to_pg.rb /tmp/whoknows_cutover.db
 
-log "Removing temporary firewall access..."
-ssh "$VM2_HOST" "sed -i '/${LOCAL_IP}/d' /opt/monkknows-db/pg_hba.conf && cd /opt/monkknows-db && sg docker -c 'docker compose restart db'" 2>/dev/null
-az network nsg rule delete \
-  --resource-group PRIVATEPROJECT_GROUP \
-  --nsg-name PrivateProject-nsg \
-  --name TempCutoverAccess \
-  --output none 2>/dev/null
-log "Delta-sync complete. Temporary access removed."
+log "Delta-sync complete."
 
 # --- Phase 3: Cutover ---
 log "=== Phase 3: Cutover ==="
@@ -89,14 +93,19 @@ log "Backing up current .env on VM1..."
 ssh "$VM1_HOST" "cp $APP_DIR/.env $APP_DIR/.env.sqlite.backup"
 
 log "Updating .env with PostgreSQL credentials..."
-ssh "$VM1_HOST" "cat > $APP_DIR/.env << ENVEOF
-SESSION_SECRET=\$(grep SESSION_SECRET $APP_DIR/.env.sqlite.backup | cut -d= -f2)
-OPENWEATHER_API_KEY=\$(grep OPENWEATHER_API_KEY $APP_DIR/.env.sqlite.backup | cut -d= -f2)
-DB_HOST=$VM2_IP
-DB_USER=$DB_USER
-DB_PASSWORD=$DB_PASS
-DB_NAME=$DB_NAME
-ENVEOF"
+DB_HOST_VAL="$VM2_IP" DB_USER_VAL="$DB_USER" DB_PASS_VAL="$DB_PASS" DB_NAME_VAL="$DB_NAME" \
+  ssh "$VM1_HOST" 'bash -s' <<'REMOTE'
+SESSION_SECRET=$(grep SESSION_SECRET "$APP_DIR/.env.sqlite.backup" | cut -d= -f2-)
+OPENWEATHER_API_KEY=$(grep OPENWEATHER_API_KEY "$APP_DIR/.env.sqlite.backup" | cut -d= -f2-)
+cat > "$APP_DIR/.env" <<EOF
+SESSION_SECRET=$SESSION_SECRET
+OPENWEATHER_API_KEY=$OPENWEATHER_API_KEY
+DB_HOST=$DB_HOST_VAL
+DB_USER=$DB_USER_VAL
+DB_PASSWORD=$DB_PASS_VAL
+DB_NAME=$DB_NAME_VAL
+EOF
+REMOTE
 
 log "Deploying with PostgreSQL..."
 ssh "$VM1_HOST" "cd $APP_DIR && docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d --remove-orphans"

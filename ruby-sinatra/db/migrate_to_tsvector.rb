@@ -20,53 +20,55 @@ end
 
 conn = ActiveRecord::Base.connection
 
-puts 'Adding tsvector column to pages...'
-conn.execute('ALTER TABLE pages ADD COLUMN tsv tsvector') unless conn.column_exists?(:pages, :tsv)
+conn.transaction do # rubocop:disable Metrics/BlockLength
+  puts 'Adding tsvector column to pages...'
+  conn.execute('ALTER TABLE pages ADD COLUMN tsv tsvector') unless conn.column_exists?(:pages, :tsv)
 
-puts 'Populating tsvector from existing data (using per-row language)...'
-conn.execute(<<-SQL)
-  UPDATE pages SET tsv = to_tsvector(
-    CASE language
-      WHEN 'da' THEN 'danish'
-      WHEN 'de' THEN 'german'
-      WHEN 'fr' THEN 'french'
-      WHEN 'es' THEN 'spanish'
-      ELSE 'english'
-    END::regconfig,
-    coalesce(title, '') || ' ' || coalesce(content, '')
-  )
-  WHERE tsv IS NULL
-SQL
+  puts 'Creating GIN index on tsvector column...'
+  unless conn.index_exists?(:pages, :tsv, name: 'idx_pages_tsv')
+    conn.execute('CREATE INDEX idx_pages_tsv ON pages USING GIN(tsv)')
+  end
 
-puts 'Creating GIN index on tsvector column...'
-unless conn.index_exists?(:pages, :tsv, name: 'idx_pages_tsv')
-  conn.execute('CREATE INDEX idx_pages_tsv ON pages USING GIN(tsv)')
-end
+  puts 'Creating auto-update trigger...'
+  conn.execute(<<-SQL)
+    CREATE OR REPLACE FUNCTION pages_tsv_update_trigger() RETURNS trigger AS $$
+    BEGIN
+      NEW.tsv := to_tsvector(
+        CASE NEW.language
+          WHEN 'da' THEN 'danish'
+          WHEN 'de' THEN 'german'
+          WHEN 'fr' THEN 'french'
+          WHEN 'es' THEN 'spanish'
+          ELSE 'english'
+        END::regconfig,
+        coalesce(NEW.title, '') || ' ' || coalesce(NEW.content, '')
+      );
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+  SQL
 
-puts 'Creating auto-update trigger...'
-conn.execute(<<-SQL)
-  CREATE OR REPLACE FUNCTION pages_tsv_update_trigger() RETURNS trigger AS $$
-  BEGIN
-    NEW.tsv := to_tsvector(
-      CASE NEW.language
+  conn.execute(<<-SQL)
+    DROP TRIGGER IF EXISTS pages_tsv_update ON pages;
+    CREATE TRIGGER pages_tsv_update
+      BEFORE INSERT OR UPDATE ON pages
+      FOR EACH ROW EXECUTE FUNCTION pages_tsv_update_trigger();
+  SQL
+
+  puts 'Populating tsvector from existing data (using per-row language)...'
+  conn.execute(<<-SQL)
+    UPDATE pages SET tsv = to_tsvector(
+      CASE language
         WHEN 'da' THEN 'danish'
         WHEN 'de' THEN 'german'
         WHEN 'fr' THEN 'french'
         WHEN 'es' THEN 'spanish'
         ELSE 'english'
       END::regconfig,
-      coalesce(NEW.title, '') || ' ' || coalesce(NEW.content, '')
-    );
-    RETURN NEW;
-  END;
-  $$ LANGUAGE plpgsql;
-SQL
-
-conn.execute(<<-SQL)
-  DROP TRIGGER IF EXISTS pages_tsv_update ON pages;
-  CREATE TRIGGER pages_tsv_update
-    BEFORE INSERT OR UPDATE ON pages
-    FOR EACH ROW EXECUTE FUNCTION pages_tsv_update_trigger();
-SQL
+      coalesce(title, '') || ' ' || coalesce(content, '')
+    )
+    WHERE tsv IS NULL
+  SQL
+end
 
 puts 'FTS5 → tsvector migration complete.'

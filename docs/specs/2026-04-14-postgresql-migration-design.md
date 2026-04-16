@@ -28,7 +28,7 @@ These decisions were made collaboratively via GitHub Discussions with voting:
 
 ### Current state
 
-```
+```text
 VM1 (Azure) — 4.225.161.111
 ├── nginx container (128MB, 0.25 CPU)
 ├── web container (256MB, 0.50 CPU)
@@ -37,7 +37,7 @@ VM1 (Azure) — 4.225.161.111
 
 ### Target state
 
-```
+```text
 VM1 (Azure) — existing
 ├── nginx container
 ├── web container (connects to VM2 via DATABASE_URL)
@@ -62,7 +62,7 @@ VM2 (Azure free tier) — new, dedicated database server
 - Azure NSG: restrict port 5432 to VM1's IP only
 - PostgreSQL `pg_hba.conf`: app user from VM1's IP only
 - Credentials stored in GitHub Secrets, injected via CD pipeline
-- No hardcoded credentials anywhere
+- No hardcoded production credentials (`dev_password` in `database.yml` and `docker-compose.dev.yml` is a local-dev placeholder only)
 
 ---
 
@@ -210,8 +210,8 @@ Note: SQLite volume mount removed. No more file-based database in production.
 
 | Table | Estimated rows | Notes |
 |-------|---------------|-------|
-| `users` | ~50 | Preserve id, password_digest, force_password_reset. Some users have MD5 `password` field (gradual migration) |
-| `pages` | ~thousands | Preserve all fields. Generate tsvector column after insert |
+| `users` | ~1785 | Preserve id, password_digest, force_password_reset. Some users have MD5 `password` field (gradual migration) |
+| `pages` | ~51 | Preserve all fields. Generate tsvector column after insert |
 
 ### Migration script: `scripts/migrate_sqlite_to_pg.rb`
 
@@ -245,7 +245,7 @@ The cutover is treated as a deployment — same principles as our CI/CD pipeline
 
 ### scripts/cutover_to_pg.sh
 
-```
+```text
 Phase 1: PRE-FLIGHT
   ├── Verify PostgreSQL is reachable from VM1
   ├── Verify row counts match (within expected delta)
@@ -336,9 +336,9 @@ This migration uses an **integration branch** pattern — a deliberate exception
 
 **Why:** A database migration cannot be deployed incrementally. Half-SQLite, half-PostgreSQL makes no sense in production. The integration branch lets us develop, test and verify the full migration before it touches `main`.
 
-**How:** Rebase `main` onto the integration branch as needed to stay current.
+**How:** Rebase the integration branch onto `main` as needed to stay current.
 
-```
+```text
 main (production — stays on SQLite until migration is verified)
   └── 203-devops-postgresql-migration (integration branch)
         ├── 203-db-postgresql-setup         (Gemfile, database.yml, pg gem)

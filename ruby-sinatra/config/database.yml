@@ -19,18 +19,22 @@ production:
   password: <%= ENV.fetch('DB_PASSWORD') { raise 'DB_PASSWORD must be set in production' } %>
   pool: 5
 
-# In-memory SQLite for fast unit tests
+# In-memory SQLite for fast unit tests.
+# NOTE: models/page.rb branches on RACK_ENV to select FTS5 (SQLite) vs tsvector (PG)
+# queries — keep that branch in sync if the adapter here ever changes.
 test:
   adapter: sqlite3
   database: ":memory:"
   pool: 5
   timeout: 5000
 
-# E2E tests use PostgreSQL to match production
+# E2E tests use PostgreSQL to match production.
+# Uses the same DB as development (monkknows_dev) because docker-compose.dev.yml
+# only provisions a single 'db' service — no separate e2e database is created.
 e2e:
   adapter: postgresql
   host: <%= ENV.fetch('DB_HOST', 'db') %>
-  database: <%= ENV.fetch('DB_NAME_E2E', 'monkknows_e2e') %>
+  database: <%= ENV.fetch('DB_NAME', 'monkknows_dev') %>
   username: <%= ENV.fetch('DB_USER', 'monkknows') %>
   password: <%= ENV.fetch('DB_PASSWORD', 'dev_password') %>
   pool: 5

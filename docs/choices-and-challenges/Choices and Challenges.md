@@ -1958,3 +1958,61 @@ Valg af migrationsværktøj afhænger af ORM-valget. Diskuteret i GitHub Discuss
 - Migrationsværktøj bør følge ORM/database-valget, ikke omvendt
 
 ------
+
+## CodeRabbit review af PostgreSQL-migrering
+
+### Context
+
+Hele SQLite → PostgreSQL migreringen blev samlet i én PR (#244) mod main, med det formål at lade CodeRabbit reviewe det samlede diff i stedet for de individuelle sub-PRs. CodeRabbit producerede 13 actionable comments og 5 nitpicks på tværs af 17 filer.
+
+### Challenge
+
+- 6 sub-PRs var allerede merged til en integrationsbranch — CodeRabbit auto-review var slået fra på non-default branches
+- Reviewet dækkede alt fra shell-sikkerhed til SQL-korrekthed til CI/CD-konfiguration
+- Flere findings var reelle sikkerhedsproblemer (secret interpolation, firewall cleanup, heredoc expansion)
+
+### Choice
+
+**Beslutning:** Adressere alle 18 kommentarer (inkl. nitpicks) — ikke kun de kritiske
+
+**Implementering:**
+
+```text
+Fixes grupperet efter domæne og kørt som parallelle agents:
+1. cd.yml — secrets via env: block + printf (sikkerhed)
+2. docker-compose.dev.yml — fjern stderr suppression, brug && chains, fix port collision
+3. database.yml — E2E DB name mismatch, RACK_ENV override
+4. migrate_to_tsvector.rb — transaction wrapping, trigger-before-backfill
+5. migrate_sqlite_to_pg.rb — fjern duplicate tsvector setup (overskrev multilingual FTS)
+6. cutover_to_pg.sh — EXIT trap for firewall cleanup, quoted heredoc
+7. rollback_to_sqlite.sh — curl fallback ved set -e
+8. docs — code fence languages, credential policy, row counts, rebase wording
+```
+
+**Rationale:**
+
+- CodeRabbit fangede en kritisk bug: `setup_tsvector` i migrationsscriptet hardcodede `'english'` og overskrev vores per-language FTS — søgning på andre sprog ville have fejlet stille efter cutover
+- Firewall-cleanup trap forhindrer at VM2's PostgreSQL-port forbliver åben ved fejlet migrering
+- Secret-interpolation i cd.yml var en reel command injection-risiko
+
+**Fordele:**
+
+- Automatisk review fanger mønstre der er svære at spotte manuelt (shell expansion, SQL ordering, env var precedence)
+- Sub-branch → samlet PR strategi giver CodeRabbit fuld kontekst over hele migreringen
+- Parallelle fix-agents reducerer tid på at adressere mange kommentarer
+
+**Ulemper:**
+
+- CodeRabbit rate limit kan forsinke review
+- Nogle findings er false positives eller overkill (f.eks. DRY-suggestion for SQL CASE der kun bruges i migration scripts)
+- Kræver at man kritisk vurderer hver kommentar — ikke alt skal fixes
+
+**Læring:**
+
+- Samlet PR mod main er bedre end individuelle sub-PR reviews når der er tæt kobling mellem ændringer
+- Shell-scripts er særligt sårbare over for expansion-bugs — brug altid quoted heredocs og env: blocks
+- Standalone migration scripts bør ikke duplicere logik fra container-startup scripts — én source of truth
+- `set -e` i bash kræver defensiv coding af health checks og cleanup — brug `|| echo fallback` og EXIT traps
+- Automatisk code review er mest værdifuldt som supplement til menneskelig review, ikke erstatning
+
+------

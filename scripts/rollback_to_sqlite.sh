@@ -25,10 +25,10 @@ ssh "$VM1_HOST" "cd $APP_DIR && docker compose -f docker-compose.prod.yml up -d 
 log "Waiting for app to start..."
 sleep 10
 
-HEALTH=$(curl -o /dev/null -s -w "%{http_code}" -L "$PROD_URL/health")
+HEALTH=$(curl -o /dev/null -s -w "%{http_code}" -L "$PROD_URL/health" || echo "000")
 log "Health check: $HEALTH"
 
-if [ "$HEALTH" -eq 200 ]; then
+if [ "$HEALTH" = "200" ]; then
   log "Rollback successful. App is running on SQLite."
 else
   log "WARNING: App may not be healthy after rollback (status: $HEALTH)"
