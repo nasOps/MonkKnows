@@ -1752,38 +1752,267 @@ sudo nethogs                           # Netværkstrafik per proces
 
 ------
 
-## 
+## KPI (Key Performance Indicators)
 
 ### Context
-
-### Challenge
--
-
-**Overvejede patterns:**
--
+A venture capital fund is considering investing in our project and has requested key performance indicators (KPIs) to evaluate the project's health and growth potential.
 
 ### Choice
 **Beslutning:**
+Undersøg:
+- CPU load på server
+- Antal brugere
+- Pris på infrastruktur: mdr. eller total pris på Azure VM
 
 **Implementering:**
 
 ```markdown
+ssh ind på server
 
+CPU load på server:
+Kommando htop 
+- CPU load:     0.7% (measured via htop)
+- Load average: 0.00 / 0.00 / 0.00 (1, 5, 15 min)
+- RAM usage:    460MB / 848MB (54%)
+- Uptime:       4 days
+
+Antal brugere:
+sqlite3 /opt/whoknows/data/whoknows.db "SELECT COUNT(*) FROM users;"
+- 1770 brugere
+
+Antal aktive brugere:
+- /opt/whoknows/data$ sqlite3 whoknows.db ".schema users" viser at vi har følgende kolonner i users-tabellen:
+id INTEGER, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, password TEXT NOT NULL , password_digest TEXT);
+- Dvs. ingen time stamp eller last_login kolonne, så vi kan ikke definere "aktive brugere" ud fra databasen alene. 
+  
+- Derfor brugte vi nginx' access log via Dockers stdout – docker logs henter hvad containeren har printet til skærmen ´docker logs app-nginx-1´:
+  Active users (unique IPs):     112
+  Average searches per day:      179 requests fra 13/04-14/04
+  Login attempts:                195
+  - Docker logs gemmer kun logs fra den nuværende container-instans, ikke historisk. 
+  
+- Note: trafik inkluderer simulator-requests fra kursus-infrastrukturen (python-requests/2.32.3). Rå tal er ikke filtreret.
+  
+- Bash kommandoer: 
+    Unikke IP-adresser: ´docker logs app-nginx-1 | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u | wc -l´
+    Antal søgninger: ´docker logs app-nginx-1 | grep "GET /?q=" | wc -l´
+    Antal login-forsøg: ´docker logs app-nginx-1 | grep "/login" | wc -l´
+    
+Pris på infrastruktur:
+- Azure VM: pris i alt 120,-
+- Forudsigelse for et helt år: 620,-
+- Månedlige priser: februar 32,-, marts 61,-, april 27,-
+```
+
+**Læring:**
+- Efter at have kørt disse kommandoer på serveren:
+´docker logs app-nginx-1 | grep "GET /?q=" | wc -l´, 
+´docker logs app-nginx-1 | grep "/login" | wc -l´,
+´docker logs app-nginx-1 | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u | wc -l´ (unikke IP-adresser)
+blev vi opmærksomme på denne gentagne besked (tyder på en angriber):
+client intended to send too large body: 10485761 bytes POST / HTTP/1.1
+
+------
+
+## Database Placement: Separat VM vs. Co-located vs. Managed Service
+
+### Context
+
+Som del af migreringen fra SQLite til PostgreSQL (issue #203) skulle vi beslutte hvor databasen skulle køre. Opgaven anbefaler eksplicit at databasen ikke bør ligge på samme VM som applikationen medmindre det kan begrundes.
+
+### Challenge
+
+- VM1 (app-serveren) kører allerede nginx + Sinatra med begrænsede ressourcer (256MB til web, 128MB til nginx)
+- PostgreSQL kræver dedikeret memory til shared_buffers, work_mem og connections
+- Co-located database ville konkurrere med appen om CPU og memory
+- Managed services (Supabase, Neon) tilbyder gratis tiers men introducerer ekstern afhængighed og vendor lock-in
+
+### Choice
+
+**Beslutning:** Dedikeret Azure VM (VM2) til PostgreSQL
+
+
+**Implementering:**
+
+- VM2 (Standard_B2ats_v2) provisioneret på Azure free tier med statisk IP (20.91.203.235)
+- PostgreSQL 16 kører som Docker container med persistent volume
+- Firewall: Azure NSG tillader kun port 5432 fra VM1's IP (4.225.161.111)
+- Database-level sikkerhed: `pg_hba.conf` begrænser adgang til app-brugeren fra VM1
+- Password håndteret via Docker secrets, ikke environment variables
+
+**Rationale:**
+
+- Ressourceisolering: databasen påvirker ikke app-performance og omvendt
+- Cost: Azure free tier dækker en ekstra VM uden ekstra omkostninger
+- Kontrol: fuld kontrol over PostgreSQL konfiguration, backup og adgang
+- Ingen vendor lock-in sammenlignet med managed services
+- Matcher opgavens anbefaling om at separere database fra applikation
+
+**Fordele:**
+
+- Uafhængig skalering af database og applikation
+- Mindre attack surface — database port kun åben for app-serveren
+- Lettere at migrere til managed service senere hvis nødvendigt
+
+**Ulemper:**
+
+- Mere ops-overhead: vi skal selv håndtere backup, opdateringer og monitoring
+- Netværkslatency mellem VM1 og VM2 (minimal i praksis, begge i swedencentral)
+- En ekstra server at vedligeholde
+
+**Læring:**
+
+- Infrastruktur-som-kode bør overvejes — VM2 blev sat op manuelt, men bør dokumenteres reproducerbart
+- Statisk IP er vigtigt for firewall-regler mellem servere
+
+------
+
+## Database Engine: PostgreSQL vs. MySQL vs. NoSQL
+
+### Context
+
+SQLite understøtter ikke concurrent writes, hvilket er problematisk for en webapplikation med multiple samtidige brugere. Valget af ny database blev diskuteret i GitHub Discussion #226.
+
+### Challenge
+
+- Applikationen har et simpelt datamodel (to uafhængige tabeller: `users` og `pages`)
+- Full-text search er en kernefunktion der kræver god FTS-understøttelse
+- Concurrent writes fra simulatoren og rigtige brugere crasher SQLite
+- NoSQL ville kræve ny datamodel og miste ACID-garantier for authentication
+
+### Choice
+
+**Beslutning:** PostgreSQL
+
+**Rationale (fra Discussion #226):**
+
+- Allerede en SQL-database — minimal migration fra SQLite
+- ACID-garantier for password-håndtering og bruger-unikhed
+- Bedre concurrent write-håndtering end MySQL's default locking
+- Built-in full-text search via `tsvector` erstatter SQLite FTS5
+- ActiveRecord understøtter PostgreSQL med én linje ændring i `database.yml`
+
+**Overvejet men fravalgt:**
+
+- **MySQL:** Svagere FTS, Oracle-ejerskab giver open source-bekymringer
+- **NoSQL (MongoDB):** Overkill for to simple tabeller, ingen ACID, unikhedsconstraints skal håndteres i kode
+
+**Læring:**
+
+- Valg af database bør baseres på data-modellen og kravene, ikke personlig præference
+- NoSQL-erfaring er bedre at opnå i en kontekst hvor det giver mening
+
+------
+
+## ORM: Behold ActiveRecord vs. Raw SQL
+
+### Context
+
+Instruktøren anbefalede at droppe ORM'en givet den simple datamodel. Diskuteret i GitHub Discussion #228.
+
+### Challenge
+
+- ActiveRecord er designet til Rails og føles tungt for en standalone Sinatra-app
+- Kun to simple tabeller uden joins — ORM-abstraktionen udnyttes ikke fuldt
+- At skifte til raw SQL kræver omskrivning af eksisterende modeller og migrationer uden funktionel gevinst
+
+### Choice
+
+**Beslutning:** Behold ActiveRecord — en pragmatisk beslutning, ikke en teknisk
+
+**Rationale:**
+
+- Omskrivning har reel arbejdsomkostning med nul funktionel forbedring
+- ActiveRecord gør database-adapter-skiftet til en config-ændring (sqlite3 → postgresql)
+- Rake migrations er allerede sat op og integreret
+- Tiden bruges bedre på højere-prioritets issues
+
+**Vigtigt:** Vi argumenterer ikke for at ActiveRecord er det rigtige tekniske valg. Vi argumenterer for at omkostningen ved at skifte overstiger fordelen på dette tidspunkt i projektet.
+
+**Læring:**
+
+- Teknisk korrekthed vs. pragmatisme er en reel afvejning i softwareudvikling
+- At dokumentere *hvorfor* man træffer et suboptimalt valg er lige så vigtigt som valget selv
+
+------
+
+## Migration Tool: Rake vs. Flyway vs. Manual SQL
+
+### Context
+
+Valg af migrationsværktøj afhænger af ORM-valget. Diskuteret i GitHub Discussion #229.
+
+### Choice
+
+**Beslutning:** Rake migrations (følger af ActiveRecord-valget)
+
+**Rationale:**
+
+- Allerede sat op i projektet — ingen ny tooling nødvendig
+- Integreret med ActiveRecord modeller
+- Flyway kræver JVM runtime — for tungt en afhængighed for migrering alene
+- Manuel SQL scripts giver ingen versionering eller rollback
+
+**Læring:**
+
+- Migrationsværktøj bør følge ORM/database-valget, ikke omvendt
+
+------
+
+## CodeRabbit review af PostgreSQL-migrering
+
+### Context
+
+Hele SQLite → PostgreSQL migreringen blev samlet i én PR (#244) mod main, med det formål at lade CodeRabbit reviewe det samlede diff i stedet for de individuelle sub-PRs. CodeRabbit producerede 13 actionable comments og 5 nitpicks på tværs af 17 filer.
+
+### Challenge
+
+- 6 sub-PRs var allerede merged til en integrationsbranch — CodeRabbit auto-review var slået fra på non-default branches
+- Reviewet dækkede alt fra shell-sikkerhed til SQL-korrekthed til CI/CD-konfiguration
+- Flere findings var reelle sikkerhedsproblemer (secret interpolation, firewall cleanup, heredoc expansion)
+
+### Choice
+
+**Beslutning:** Adressere alle 18 kommentarer (inkl. nitpicks) — ikke kun de kritiske
+
+**Implementering:**
+
+```text
+Fixes grupperet efter domæne og kørt som parallelle agents:
+1. cd.yml — secrets via env: block + printf (sikkerhed)
+2. docker-compose.dev.yml — fjern stderr suppression, brug && chains, fix port collision
+3. database.yml — E2E DB name mismatch, RACK_ENV override
+4. migrate_to_tsvector.rb — transaction wrapping, trigger-before-backfill
+5. migrate_sqlite_to_pg.rb — fjern duplicate tsvector setup (overskrev multilingual FTS)
+6. cutover_to_pg.sh — EXIT trap for firewall cleanup, quoted heredoc
+7. rollback_to_sqlite.sh — curl fallback ved set -e
+8. docs — code fence languages, credential policy, row counts, rebase wording
 ```
 
 **Rationale:**
--
+
+- CodeRabbit fangede en kritisk bug: `setup_tsvector` i migrationsscriptet hardcodede `'english'` og overskrev vores per-language FTS — søgning på andre sprog ville have fejlet stille efter cutover
+- Firewall-cleanup trap forhindrer at VM2's PostgreSQL-port forbliver åben ved fejlet migrering
+- Secret-interpolation i cd.yml var en reel command injection-risiko
 
 **Fordele:**
--
+
+- Automatisk review fanger mønstre der er svære at spotte manuelt (shell expansion, SQL ordering, env var precedence)
+- Sub-branch → samlet PR strategi giver CodeRabbit fuld kontekst over hele migreringen
+- Parallelle fix-agents reducerer tid på at adressere mange kommentarer
 
 **Ulemper:**
--
 
-**Retrospektiv:** (Opdateres løbende)
--
+- CodeRabbit rate limit kan forsinke review
+- Nogle findings er false positives eller overkill (f.eks. DRY-suggestion for SQL CASE der kun bruges i migration scripts)
+- Kræver at man kritisk vurderer hver kommentar — ikke alt skal fixes
 
 **Læring:**
--
+
+- Samlet PR mod main er bedre end individuelle sub-PR reviews når der er tæt kobling mellem ændringer
+- Shell-scripts er særligt sårbare over for expansion-bugs — brug altid quoted heredocs og env: blocks
+- Standalone migration scripts bør ikke duplicere logik fra container-startup scripts — én source of truth
+- `set -e` i bash kræver defensiv coding af health checks og cleanup — brug `|| echo fallback` og EXIT traps
+- Automatisk code review er mest værdifuldt som supplement til menneskelig review, ikke erstatning
 
 ------

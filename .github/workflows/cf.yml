@@ -17,31 +17,21 @@ jobs:
     name: OWASP ZAP Baseline Scan
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: ruby-sinatra
-
     steps:
       - name: Checkout source code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@09a7688d3b55cf0e976497ff046b70949eeaccfd
-        with:
-          ruby-version: '3.2.3'
-          bundler-cache: true
-          working-directory: ruby-sinatra
-
-      - name: Start Sinatra app
+      - name: Create .env file
         run: |
-          DATABASE_PATH=./whoknows.db \
-          RACK_ENV=test \
-          SESSION_SECRET=$(openssl rand -hex 32) \
-          bundle exec ruby app.rb &
+          echo "SESSION_SECRET=$(openssl rand -hex 32)" > ruby-sinatra/.env
+          echo "OPENWEATHER_API_KEY=dummy_key_for_ci" >> ruby-sinatra/.env
+
+      - name: Start app with Docker Compose
+        run: docker compose -f docker-compose.dev.yml up -d --build
 
       - name: Wait for app to be ready
         run: |
-          echo "Waiting for Sinatra to be ready..."
+          echo "Waiting for app to be ready..."
           for i in $(seq 1 30); do
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:4567/health | grep -q "200"; then
               echo "App is ready!"
@@ -55,13 +45,13 @@ jobs:
 
       - name: Run OWASP ZAP Baseline Scan
         run: |
-          sudo chmod -R a+w $(pwd)
+          sudo chmod -R a+w ruby-sinatra
           docker run --rm \
-            --add-host=host.docker.internal:host-gateway \
-            -v $(pwd):/zap/wrk \
+            --network=host \
+            -v $(pwd)/ruby-sinatra:/zap/wrk \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
-              -t http://host.docker.internal:4567 \
+              -t http://localhost:4567 \
               -r zap-report.html \
               -J zap-report.json \
               -x zap-report.xml \
@@ -77,3 +67,7 @@ jobs:
             ruby-sinatra/zap-report.json
             ruby-sinatra/zap-report.xml
           retention-days: 30
+
+      - name: Tear down app
+        if: always()
+        run: docker compose -f docker-compose.dev.yml down

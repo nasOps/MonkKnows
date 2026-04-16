@@ -1,33 +1,40 @@
-# DB config : skal pege til ../whoknows.db
 # Database connection settings
+# PostgreSQL for development and production, SQLite for tests
 
-# Kan udkommenteres når db skal bruges
-#development:
-  #adapter: sqlite3
-  #database: ../whoknows.db
-
-# For local development and Docker-dev
+# Local development via Docker (docker-compose.dev.yml provides the 'db' service)
 development:
-  adapter: sqlite3
-  database: <%= ENV.fetch('DATABASE_PATH', '../whoknows.db') %>
+  adapter: postgresql
+  host: <%= ENV.fetch('DB_HOST', 'db') %>
+  database: <%= ENV.fetch('DB_NAME', 'monkknows_dev') %>
+  username: <%= ENV.fetch('DB_USER', 'monkknows') %>
+  password: <%= ENV.fetch('DB_PASSWORD', 'dev_password') %>
   pool: 5
-  timeout: 5000
 
-# For production (Docker)
+# Production (VM2 PostgreSQL server)
 production:
-  adapter: sqlite3
-  database: <%= ENV.fetch('DATABASE_PATH', '../whoknows.db') %>
+  adapter: postgresql
+  host: <%= ENV.fetch('DB_HOST', nil) || (ENV['RACK_ENV'] == 'production' ? raise('DB_HOST must be set in production') : 'db') %>
+  database: <%= ENV.fetch('DB_NAME', nil) || (ENV['RACK_ENV'] == 'production' ? raise('DB_NAME must be set in production') : 'monkknows') %>
+  username: <%= ENV.fetch('DB_USER', nil) || (ENV['RACK_ENV'] == 'production' ? raise('DB_USER must be set in production') : 'monkknows') %>
+  password: <%= ENV.fetch('DB_PASSWORD', nil) || (ENV['RACK_ENV'] == 'production' ? raise('DB_PASSWORD must be set in production') : '') %>
   pool: 5
-  timeout: 5000
 
+# In-memory SQLite for fast unit tests.
+# NOTE: models/page.rb branches on RACK_ENV to select FTS5 (SQLite) vs tsvector (PG)
+# queries — keep that branch in sync if the adapter here ever changes.
 test:
   adapter: sqlite3
   database: ":memory:"
   pool: 5
   timeout: 5000
 
+# E2E tests use PostgreSQL to match production.
+# Uses the same DB as development (monkknows_dev) because docker-compose.dev.yml
+# only provisions a single 'db' service — no separate e2e database is created.
 e2e:
-  adapter: sqlite3
-  database: <%= ENV.fetch('DATABASE_PATH', '../whoknows.db') %>
+  adapter: postgresql
+  host: <%= ENV.fetch('DB_HOST', 'db') %>
+  database: <%= ENV.fetch('DB_NAME', 'monkknows_dev') %>
+  username: <%= ENV.fetch('DB_USER', 'monkknows') %>
+  password: <%= ENV.fetch('DB_PASSWORD', 'dev_password') %>
   pool: 5
-  timeout: 5000
