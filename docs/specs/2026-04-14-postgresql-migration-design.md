@@ -365,15 +365,15 @@ main (production — stays on SQLite until migration is verified)
 |---|------|--------|------------|--------|
 | 1 | Provision VM2, install Docker, run PostgreSQL container | (infra, no branch) | — | done |
 | 2 | Firewall: NSG + pg_hba.conf lockdown | (infra, no branch) | 1 | done |
-| 3 | Code: database.yml, Gemfile (pg gem) | `203-db-postgresql-setup` | — | |
-| 4 | Code: FTS5 → tsvector search logic in Page model + app.rb | `203-db-fts5-to-tsvector` | 3 | |
-| 5 | Rake migration: create tsvector column, GIN index, trigger | `203-db-fts5-to-tsvector` | 3 | |
-| 6 | docker-compose.dev.yml PostgreSQL setup | `203-db-docker-dev-postgres` | 3 | |
-| 7 | Data migration script (SQLite → PostgreSQL + delta-sync) | `203-db-data-migration-script` | 1, 3 | |
-| 8 | Automated cutover script with rollback | `203-db-cutover-script` | 7 | |
-| 9 | Update CD pipeline (new secrets, env vars) | `203-db-cd-pipeline-update` | 3 | |
+| 3 | Code: database.yml, Gemfile (pg gem), Dockerfile | `203-db-postgresql-setup` | — | PR #234 |
+| 4 | Code: FTS5 → tsvector search logic in Page model + app.rb | `203-db-fts5-to-tsvector` | 3 | PR #235 |
+| 5 | Rake migration: create tsvector column, GIN index, trigger | `203-db-fts5-to-tsvector` | 3 | PR #235 |
+| 6 | docker-compose.dev.yml PostgreSQL setup | `203-db-docker-dev-postgres` | 3 | PR #237 |
+| 7 | Data migration script + initial data migrated (1785 users, 51 pages) | `203-db-data-migration-script` | 1, 3 | PR #236 |
+| 8 | Automated cutover + rollback scripts | `203-db-cutover-script` | 7 | PR #238 |
+| 9 | Update CD pipeline (secrets, env vars, prod compose) | `203-db-cd-pipeline-update` | 3 | PR #239 |
 | 10 | E2E tests against PostgreSQL in CI | `203-db-cd-pipeline-update` | 4, 6 | |
-| 11 | Choices and Challenges documentation | (in each sub-branch) | — | |
+| 11 | Choices and Challenges documentation | (in each sub-branch) | — | in progress |
 | 12 | Blue-green cutover in production | Final PR to `main` | All above | |
 
 ---
