@@ -25,7 +25,7 @@ if docker compose -f docker-compose.dev.yml ps --status running web 2>/dev/null 
   echo "$CONTAINER_FILES" | xargs docker compose -f docker-compose.dev.yml exec -T web bundle exec rubocop --force-exclusion
   RESULT=$?
 elif cd ruby-sinatra 2>/dev/null; then
-  echo "$STAGED_RB" | xargs bundle exec rubocop --force-exclusion
+  echo "$CONTAINER_FILES" | xargs bundle exec rubocop --force-exclusion
   RESULT=$?
 else
   echo "⚠️  Skipping RuboCop — Docker not running and rubocop not installed locally"
