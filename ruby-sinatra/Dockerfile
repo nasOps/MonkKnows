@@ -7,7 +7,7 @@ ARG BUNDLE_WITHOUT="development test"
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
         build-essential \
-        libsqlite3-dev \
+        libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -29,7 +29,7 @@ FROM ruby:3.2-slim
 RUN apt-get update -qq && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
-        libsqlite3-0 \
+        libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

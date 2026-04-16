@@ -1,4 +1,20 @@
 services:
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: monkknows_dev
+      POSTGRES_USER: monkknows
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monkknows -d monkknows_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   web:
     init: true # Ensures proper signal handling and graceful shutdown
     build:
@@ -10,11 +26,22 @@ services:
       - "4567:4567"
     volumes:
       - ./ruby-sinatra:/app          # hot-reload: local code is mounted to container
-      - ./whoknows.db:/whoknows.db # db is mounted from root
     env_file:
       - ./ruby-sinatra/.env
     environment:
-      #- RACK_ENV=development
-      - DATABASE_PATH=/whoknows.db
+      - DB_HOST=db
+      - DB_USER=monkknows
+      - DB_PASSWORD=dev_password
+      - DB_NAME=monkknows_dev
+    depends_on:
+      db:
+        condition: service_healthy
     # Overrides CMD in Dockerfile to use rerun for hot-reloading
-    command: sh -c "ruby app.rb & bundle exec guard --no-interactions --no-bundler-warning"
+    command: >
+      sh -c "bundle exec rake db:schema:load || true
+      && bundle exec rake db:migrate
+      && ruby db/migrate_to_tsvector.rb
+      && ruby app.rb & bundle exec guard --no-interactions --no-bundler-warning"
+
+volumes:
+  pgdata:
