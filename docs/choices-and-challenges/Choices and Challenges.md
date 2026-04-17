@@ -2016,3 +2016,38 @@ Fixes grupperet efter domæne og kørt som parallelle agents:
 - Automatisk code review er mest værdifuldt som supplement til menneskelig review, ikke erstatning
 
 ------
+
+## Logging, scraping and indexing
+
+### Context
+- At logge hvad brugerne søger efter for at scrape de rigtige hjemmesider 
+
+### Challenge
+- Eksisterende `after`-blok loggede alle requests men ikke søgeordet
+- Logs forsvinder ved deploy da containeren erstattes (`docker compose up -d`)
+
+### Choice
+**Beslutning:**
+- Tilføj `query`-felt til eksisterende `after`-blok via Ruby built-in `logger`.
+
+**Implementering:**
+
+```ruby
+query: (params[:q].strip.slice(0, 200) if params[:q] && !params[:q].strip.empty?)
+```
+
+**Rationale:**
+- Lærerens krav: "do not overengineer" + "leverage your framework's logging system"
+- Logs overlever `docker restart` men ikke `docker compose down`
+
+**Fordele:**
+- 
+
+**Ulemper:**
+- 
+
+**Læring:**
+- Twelve-Factor App: stdout er best practice for containeriserede apps
+- `docker logs app-web-1 | grep '"query"'` filtrerer søgninger fra øvrig log-støj
+
+------
