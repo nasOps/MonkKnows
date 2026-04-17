@@ -83,7 +83,8 @@ class WhoknowsApp < Sinatra::Base
       status: response.status,
       ip: request.ip,
       user: session[:user_id] ? Digest::SHA256.hexdigest(session[:user_id].to_s)[0..7] : nil,
-      duration_ms: ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
+      duration_ms: ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2),
+      query: (params[:q].strip if params[:q] && !params[:q].strip.empty?)
     }.compact
     logger.info(log_data.to_json)
   end
