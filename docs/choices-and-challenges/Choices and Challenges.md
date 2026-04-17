@@ -2036,6 +2036,15 @@ Fixes grupperet efter domæne og kørt som parallelle agents:
 query: (params[:q].strip.slice(0, 200) if params[:q] && !params[:q].strip.empty?)
 ```
 
+**Søgning d. 17/4:**
+  
+| Tid | Søgning |
+|-----|---------|
+| 16:26 | `catholic charities` |
+| 16:28 | `hornets vs magic` |
+| 16:30 | `mjf` |
+| 16:39 | `What are the data types in PHP?` |
+
 **Rationale:**
 - Lærerens krav: "do not overengineer" + "leverage your framework's logging system"
 - Logs overlever `docker restart` men ikke `docker compose down`
