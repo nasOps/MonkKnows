@@ -2045,6 +2045,55 @@ query: (params[:q].strip.slice(0, 200) if params[:q] && !params[:q].strip.empty?
 | 16:30 | `mjf` |
 | 16:39 | `What are the data types in PHP?` |
 
+| Tid | Søgning |
+|-----|---------|
+| 16:26 | `catholic charities` |
+| 16:28 | `hornets vs magic` |
+| 16:30 | `mjf` |
+| 16:39 | `What are the data types in PHP?` |
+| | `rj barrett` |
+| | `creepy nuts` |
+| | `hormuz` |
+| | `nba games tomorrow` |
+| | `brandon ingram` |
+| | `How to scale Oberon applications?` |
+| | `espn nba scores` |
+| | `What is the best programming language for secure development?` |
+| | `Oberon` |
+| | `tommy robinson` |
+| | `bkfc` |
+| | `tax filing deadline` |
+| | `What is the best programming language for automation?` |
+| | `prime` |
+| | `dennis buzukja` |
+| | `Pros and cons of Computer network` |
+| | `tottenham vs brighton` |
+| | `desmond bane` |
+| 22:16 | `air canada` |
+| 22:20 | `What are the best practices for IDL performance?` |
+| 22:26 | `Algorithm` |
+| 22:30 | `What is the best programming language for secure development?` |
+| 22:31 | `What is the best programming language for mobile development?` |
+| 22:33 | `What are the most popular libraries for Software engineering?` |
+| 22:35 | `How to write classes in Docker?` |
+| 22:44 | `Licensing of Stata` |
+| 22:46 | `How to write secure code in Internet protocol?` |
+| 22:57 | `Drawbacks of Amazon DynamoDB` |
+| 23:03 | `What is the best programming language for mobile development?` |
+| 23:04 | `flamengo` |
+| 23:05 | `san lorenzo - dep. cuenca` |
+| 23:08 | `What is the learning curve for Coq?` |
+| 23:10 | `nha` |
+| 23:10 | `kansas city weather` |
+| 23:17 | `luke raley` |
+| 23:19 | `What companies support Caml?` |
+| 23:22 | `What is the best programming language for secure coding?` |
+| 23:25 | `weather.com` |
+| 23:29 | `How to build a GUI with GraphQL?` |
+| 23:34 | `Tutorials for C++` |
+| 23:42 | `valerie bertinelli movie love again` |
+| 23:45 | `What are the best resources to learn Apache Flink?` |
+
 **Rationale:**
 - Lærerens krav: "do not overengineer" + "leverage your framework's logging system"
 - Logs overlever `docker restart` men ikke `docker compose down`
