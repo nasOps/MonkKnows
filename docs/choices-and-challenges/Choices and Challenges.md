@@ -2109,3 +2109,132 @@ query: (params[:q].strip.slice(0, 200) if params[:q] && !params[:q].strip.empty?
 - `docker logs app-web-1 | grep '"query"'` filtrerer søgninger fra øvrig log-støj
 
 ------
+
+## Logging System
+
+### Context
+Applikationen indeholder en søgefunktion, hvor brugere kan søge i indekseret webindhold. For at forstå brugeradfærd og forbedre systemet er det nødvendigt at logge, hvad brugerne søger efter.
+
+Loggingen bruges til at:
+
+- identificere populære søgninger
+- prioritere hvilke sider der skal crawles og indekseres
+- analysere performance og fejl
+
+
+### Challenge
+Systemet skulle:
+
+- logge søgninger uden at påvirke performance
+- undgå at blande logging-data med applikationens primære database
+- fungere i et Docker-miljø
+- være simpelt at implementere i Sinatra (uden Rails autoloading/migrations)
+
+### Choice
+
+**Beslutning:** Vi valgte at implementere et separat logging-system baseret på SQLite, adskilt fra den primære PostgreSQL database.
+## Implementering
+
+```ruby
+# base class for separat database connection
+class LoggingBase < ActiveRecord::Base
+  self.abstract_class = true
+  establish_connection :logging
+end
+
+# model for logging
+class SearchLog < LoggingBase
+end
+```
+
+```ruby
+# logging i after hook
+after do
+  duration = ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
+
+  query = params[:q].to_s.strip
+  query = nil if query.empty?
+
+  if query && ['/', '/api/search'].include?(request.path_info)
+    begin
+      SearchLog.create(
+        query: query,
+        path: request.path_info,
+        method: request.request_method,
+        status: response.status,
+        ip: request.ip,
+        duration_ms: duration
+      )
+    rescue StandardError => e
+      logger.error("Failed to log search: #{e.message}")
+    end
+  end
+end
+```
+
+## Rationale
+
+- Separation of concerns: logging er isoleret fra core data
+- SQLite er letvægts og kræver minimal opsætning
+- `after do` sikrer at logging ikke påvirker request flow
+- Fejl i logging påvirker ikke brugeroplevelsen
+
+## Fordele
+
+- Lav kompleksitet
+- Hurtig implementering
+- Isoleret logging database
+- Robust (fejler ikke hele appen hvis logging fejler)
+- Klar til analyse (fx top searches)
+
+## Ulemper
+
+- SQLite i Docker kræver ekstra håndtering (fx manglende CLI)
+- Ikke optimal til skalering
+- Logging-data er ikke centraliseret
+- Ingen real-time analyse
+
+## Læring
+
+- Sinatra kræver manuel loading af models (ingen autoload som i Rails)
+- Det er vigtigt at isolere logging fra core systemer
+- Docker ændrer hvordan databaser og filsystemer håndteres
+- Logging bør aldrig kunne crashe applikationen
+- Data fra logging kan bruges direkte til at forbedre crawling-strategi
+
+------
+
+## 
+
+### Context
+
+
+### Challenge
+
+
+### Choice
+
+**Beslutning:**
+
+**Implementering:**
+
+```
+
+```
+
+**Rationale:**
+
+
+
+**Fordele:**
+
+
+
+**Ulemper:**
+
+-
+
+**Læring:**
+
+
+------

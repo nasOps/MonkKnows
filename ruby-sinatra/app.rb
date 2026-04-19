@@ -10,6 +10,7 @@ require_relative 'config/environment'
 require_relative 'models/page'
 require_relative 'models/user'
 require_relative 'services/weather_service'
+require_relative 'models/search_log'
 require 'dotenv/load' if ENV['RACK_ENV'] != 'production'
 
 # TODO: Change class name to MonkKnowsApp
@@ -85,14 +86,19 @@ class WhoknowsApp < Sinatra::Base
 
     # Saves the logging from search queries (from routes "/" and "/api/search") to SQLite DB
     if query && ['/', '/api/search'].include?(request.path_info)
-      SearchLog.create(
-        query: query, # Saves to DB
-        path: request.path_info, # Search from the user
-        method: request.request_method, # Should only be GET
-        status: response.status, # HTTP status to analyse successful vs failed searches
-        ip: request.ip, # IP-address is logged to find unique users
-        duration_ms: duration # Search duration is logged to analyse performance and find slow queries
-      )
+      begin
+        SearchLog.create(
+          query: query, # Saves to DB
+          path: request.path_info, # Search from the user
+          method: request.request_method, # Should only be GET
+          status: response.status, # HTTP status to analyse successful vs failed searches
+          ip: request.ip, # IP-address is logged to find unique users
+          duration_ms: duration # Search duration is logged to analyse performance and find slow queries
+        )
+        # Prevents app from crashing if logging fails - logs the error message instead
+      rescue StandardError => e
+        logger.error("Failed to log search: #{e.message}")
+      end
     end
 
     log_data = {
