@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Migration to create the search_logs table in the logging database
+# For: version control and to make it every dev able to set up the logging DB schema easily
 require 'active_record'
 require_relative '../models/base/logging_base'
 
