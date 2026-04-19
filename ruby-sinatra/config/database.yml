@@ -38,3 +38,7 @@ e2e:
   username: <%= ENV.fetch('DB_USER', 'monkknows') %>
   password: <%= ENV.fetch('DB_PASSWORD', 'dev_password') %>
   pool: 5
+
+logging:
+  adapter: sqlite3
+  database: db/logging.sqlite3
