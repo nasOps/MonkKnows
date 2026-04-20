@@ -1,7 +1,7 @@
 # Choices and Challenges
 
 **Written by:** Andreas, Nima & Sofie
- **Updated:** 7th April 2026
+ **Updated:** 20th April 2026
 
 ------
 
@@ -2014,5 +2014,98 @@ Fixes grupperet efter domæne og kørt som parallelle agents:
 - Standalone migration scripts bør ikke duplicere logik fra container-startup scripts — én source of truth
 - `set -e` i bash kræver defensiv coding af health checks og cleanup — brug `|| echo fallback` og EXIT traps
 - Automatisk code review er mest værdifuldt som supplement til menneskelig review, ikke erstatning
+
+------
+
+## ⚠️ Prometheus + Grafana Monitoring (Session 11)
+
+### Context
+
+Som del af session 11 (monitoring/logging) skulle vi implementere bruger-telemetri for at forstå hvordan systemet bruges. Opgaven krævede at vi gik ud over simpel health monitoring (Postman) og indsamlede metrics om brugeradfærd.
+
+### Challenge
+
+- VM1 (app-serveren) har begrænsede ressourcer (web + nginx bruger allerede 384 MB) — ikke plads til Prometheus + Grafana oveni
+- Monitoring-stacken skal overleve app-deploys og være uafhængig af applikationens livscyklus
+- Vi skal kunne forklare til eksamen *hvorfor* vi valgte de specifikke metrics vi monitorerer
+- Sikkerhed: Grafana dashboard eksponeret på en offentlig IP
+
+### Choice
+
+**Beslutning:** Prometheus + Grafana deployes på VM2 (database-serveren), som scraper VM1's `/metrics` endpoint over HTTPS.
+
+**Arkitektur:**
+
+```
+VM1 (app)                          VM2 (DB + monitoring)
+┌──────────────────┐               ┌──────────────────────────┐
+│ nginx       :80  │               │ PostgreSQL         :5432 │
+│ web         :4567│── scrape ─────│ Prometheus         :9090 │
+│  └─ /metrics     │               │ Grafana            :3000 │
+└──────────────────┘               └──────────────────────────┘
+```
+
+**Hvordan valget blev truffet:**
+
+- VM2 har ledig kapacitet — kører kun PostgreSQL med ugentlige backups
+- Separat server sikrer at monitoring overlever app-deploys og crashes
+- Prometheus scraper via HTTPS (monkknows.dk) gennem nginx — konsistent med reel trafik
+- Automatisk CD pipeline deployer monitoring-ændringer til VM2 ved push til main
+
+### Metrics og begrundelse (til eksamen)
+
+| Metric | Type | Hvorfor |
+|---|---|---|
+| `http_server_requests_total{code, method, path}` | Counter | Viser login-frekvens, fejlrate pr. endpoint, hvad brugerne interagerer med |
+| `http_server_request_duration_seconds{method, path}` | Histogram | Identificerer langsomme endpoints og latency-fordeling (p50/p95) |
+| `app_users_total` | Gauge | Antal registrerede brugere over tid — vokser basen? |
+
+Metrics leveres af `prometheus-client` gem (v4.x) via Rack middleware. Request-metrics er automatiske; `app_users_total` er en custom gauge der opdateres hvert 60. sekund.
+
+**Grafana dashboard (5 panels):**
+
+1. Request rate pr. endpoint — hvad brugerne bruger mest
+2. Login rate — succesfulde vs. fejlede logins over tid
+3. Error rate: 4xx vs 5xx — "minor" vs. "breaking" fejl
+4. Request latency (p50, p95) — performance over tid
+5. Total registrerede brugere — vækst-gauge
+
+### ⚠️ Bevidst valg: Grafana eksponeret på offentlig IP
+
+CodeRabbit anbefalede at binde Grafana til `127.0.0.1` (kun tilgængelig via SSH-tunnel). Vi valgte bevidst at beholde den på `0.0.0.0:3000` fordi:
+
+- Det er et skoleprojekt med begrænset levetid
+- SSH-tunnel tilføjer friktion for alle teammedlemmer
+- Grafana er sikret med krævet brugernavn/password (ingen default), signup deaktiveret, og anonym adgang deaktiveret
+
+**I et produktionsmiljø** ville vi binde til localhost og sætte nginx reverse proxy med TLS foran — eller bruge en managed Grafana-løsning.
+
+### Tekniske udfordringer
+
+**App-startup:** Den oprindelige `ruby app.rb` startup loadede ikke Rack middleware fra `config.ru`. Vi ændrede til `bundle exec rackup config.ru` i både Dockerfile og docker-compose for at sikre Prometheus middleware mountes korrekt.
+
+**Metric label-navne:** `prometheus-client` gem v4.x bruger `code` (ikke `status`) som label for HTTP statuskoder. Dette blev først opdaget via CodeRabbit review efter dashboard var oprettet — alle PromQL queries skulle rettes fra `status="200"` til `code="200"`.
+
+**CD pipeline idempotens:** Første version brugte `scp -r` som nester directories ved re-deploy. Ændret til `rsync --delete` for idempotent sync.
+
+### Fordele
+
+- Automatisk telemetri — ingen manuel instrumentering for request-metrics
+- Persistent data — Prometheus beholder 90 dages metrics med named Docker volumes
+- Auto-provisioned dashboard — Grafana loader datasource og dashboard fra config-filer ved startup
+- CD pipeline — ændringer i `monitoring/` deployes automatisk til VM2
+
+### Ulemper
+
+- Prometheus scraper over offentligt internet (HTTPS) i stedet for internt netværk — højere latency
+- Grafana er eksponeret på offentlig IP (bevidst valg, se ovenfor)
+- Custom metrics (search-telemetri) afhænger af Sofies logging-PR (#246)
+
+### Læring
+
+- Rack middleware skal mountes i `config.ru`, ikke i Sinatra-klassen — det wrapper hele app'en
+- Prometheus label-navne varierer mellem gem-versioner — tjek altid `/metrics` output direkte
+- `rsync --delete` er idempotent; `scp -r` er det ikke — vigtigt for CD pipelines
+- Monitoring og applikation bør være på separate servere — hvis appen crasher, mister du ellers også dine metrics
 
 ------

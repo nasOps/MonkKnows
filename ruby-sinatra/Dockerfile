@@ -47,5 +47,5 @@ EXPOSE 4567
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ruby -e "require 'net/http'; res = Net::HTTP.get_response(URI('http://localhost:4567/health')); exit(res.is_a?(Net::HTTPSuccess) ? 0 : 1)" || exit 1
 
-# Starts Ruby and runs app.rb when the container launches
-CMD ["ruby", "app.rb"]
+# Starts the app via rackup so Rack middleware (Prometheus) is loaded from config.ru
+CMD ["bundle", "exec", "rackup", "config.ru", "-p", "4567", "-o", "0.0.0.0"]
