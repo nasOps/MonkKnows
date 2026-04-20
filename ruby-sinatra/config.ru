@@ -8,7 +8,7 @@ require 'prometheus/middleware/exporter'
 require './app'
 
 # Prometheus middleware — must be mounted before the app
-# Collector: auto-tracks http_requests_total and http_request_duration_seconds
+# Collector: auto-tracks http_server_requests_total and http_server_request_duration_seconds
 # Exporter: exposes /metrics endpoint for Prometheus to scrape
 use Prometheus::Middleware::Collector
 use Prometheus::Middleware::Exporter

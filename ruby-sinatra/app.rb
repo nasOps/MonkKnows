@@ -37,7 +37,9 @@ class WhoknowsApp < Sinatra::Base
   unless ENV['RACK_ENV'] == 'test'
     Thread.new do
       loop do
-        USERS_TOTAL.set(User.count)
+        ActiveRecord::Base.connection_pool.with_connection do
+          USERS_TOTAL.set(User.count)
+        end
       rescue StandardError => e
         warn "Prometheus gauge error: #{e.message}"
       ensure
