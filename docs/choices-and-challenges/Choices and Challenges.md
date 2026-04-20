@@ -2067,7 +2067,7 @@ Metrics leveres af `prometheus-client` gem (v4.x) via Rack middleware. Request-m
 1. Request rate pr. endpoint — hvad brugerne bruger mest
 2. Login rate — succesfulde vs. fejlede logins over tid
 3. Error rate: 4xx vs 5xx — "minor" vs. "breaking" fejl
-4. Request latency (p50, p95) — performance over tid
+4. Request latency (p50, p95) — performance over tid. Vi bruger percentiler frem for gennemsnit fordi gennemsnit skjuler outliers. p50 (medianen) viser den typiske brugeroplevelse, p95 fanger de 5% langsomste requests. En enkelt request på 10 sekunder forsvinder i et gennemsnit, men dukker op i p95.
 5. Total registrerede brugere — vækst-gauge
 
 ### ⚠️ Bevidst valg: Grafana eksponeret på offentlig IP
