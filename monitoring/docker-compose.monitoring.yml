@@ -2,7 +2,7 @@ services:
   prometheus:
     image: prom/prometheus:v2.53.4
     ports:
-      - "127.0.0.1:9090:9090"
+      - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
@@ -16,7 +16,7 @@ services:
   grafana:
     image: grafana/grafana:11.6.0
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
