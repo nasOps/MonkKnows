@@ -41,7 +41,7 @@ services:
       sh -c "bundle exec rake db:schema:load || true
       && bundle exec rake db:migrate
       && ruby db/migrate_to_tsvector.rb
-      && ruby app.rb & bundle exec guard --no-interactions --no-bundler-warning"
+      && bundle exec rackup config.ru -p 4567 -o 0.0.0.0 & bundle exec guard --no-interactions --no-bundler-warning"
 
 volumes:
   pgdata:
