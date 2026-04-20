@@ -1,4 +1,4 @@
-# NOTE: This workflow requires a new GitHub secret: SSH_HOST_DB (IP/hostname of VM2).
+# NOTE: This workflow requires GitHub secrets: SSH_HOST_DB (IP of VM2) and SSH_USER_DB (SSH user for VM2).
 # Add it under Settings → Secrets and variables → Actions before running this workflow.
 
 name: CD — Monitoring Stack (VM2)
@@ -35,16 +35,16 @@ jobs:
 
       - name: Transfer monitoring config to VM2
         run: |
-          ssh -i ~/.ssh/ssh_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DB }} \
+          ssh -i ~/.ssh/ssh_key ${{ secrets.SSH_USER_DB }}@${{ secrets.SSH_HOST_DB }} \
             'mkdir -p /opt/whoknows/monitoring'
           rsync -az --delete -e "ssh -i ~/.ssh/ssh_key" \
             monitoring/ \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DB }}:/opt/whoknows/monitoring/
+            ${{ secrets.SSH_USER_DB }}@${{ secrets.SSH_HOST_DB }}:/opt/whoknows/monitoring/
 
       - name: Deploy monitoring stack on VM2
         run: |
           ssh -i ~/.ssh/ssh_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DB }} << "EOF"
+            ${{ secrets.SSH_USER_DB }}@${{ secrets.SSH_HOST_DB }} << "EOF"
             set -euo pipefail
             cd /opt/whoknows/monitoring
             docker compose -f docker-compose.monitoring.yml up -d --pull always --remove-orphans
@@ -69,7 +69,7 @@ jobs:
       - name: Check Prometheus and Grafana readiness
         run: |
           ssh -i ~/.ssh/ssh_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DB }} << 'EOF'
+            ${{ secrets.SSH_USER_DB }}@${{ secrets.SSH_HOST_DB }} << 'EOF'
           set -euo pipefail
           for url in http://127.0.0.1:9090/-/ready http://127.0.0.1:3000/api/health; do
             for i in $(seq 1 30); do
