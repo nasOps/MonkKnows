@@ -35,7 +35,9 @@ jobs:
 
       - name: Transfer monitoring config to VM2
         run: |
-          scp -i ~/.ssh/ssh_key -r \
+          ssh -i ~/.ssh/ssh_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DB }} \
+            'mkdir -p /opt/whoknows/monitoring'
+          rsync -az --delete -e "ssh -i ~/.ssh/ssh_key" \
             monitoring/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DB }}:/opt/whoknows/monitoring/
 
@@ -56,24 +58,25 @@ jobs:
     needs: deploy-monitoring
 
     steps:
-      - name: Check Prometheus readiness
+      - name: Add SSH key to runner
         run: |
-          URL="http://${{ secrets.SSH_HOST_DB }}:9090/-/ready"
-          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" --max-time 10 "$URL")
-          if [ "$HTTP_STATUS" -eq 200 ]; then
-            echo "Prometheus smoke test passed (status: $HTTP_STATUS)"
-          else
-            echo "Prometheus smoke test failed (status: $HTTP_STATUS)"
-            exit 1
-          fi
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ssh_key
+          chmod 600 ~/.ssh/ssh_key
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
-      - name: Check Grafana health
+      - name: Check Prometheus and Grafana readiness
         run: |
-          URL="http://${{ secrets.SSH_HOST_DB }}:3000/api/health"
-          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" --max-time 10 "$URL")
-          if [ "$HTTP_STATUS" -eq 200 ]; then
-            echo "Grafana smoke test passed (status: $HTTP_STATUS)"
-          else
-            echo "Grafana smoke test failed (status: $HTTP_STATUS)"
-            exit 1
-          fi
+          ssh -i ~/.ssh/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DB }} << 'EOF'
+          set -euo pipefail
+          for url in http://127.0.0.1:9090/-/ready http://127.0.0.1:3000/api/health; do
+            for i in $(seq 1 30); do
+              code=$(curl -o /dev/null -s -w '%{http_code}' --max-time 5 "$url" || true)
+              [ "$code" = "200" ] && echo "OK $url" && break
+              sleep 2
+              [ "$i" = "30" ] && echo "FAIL $url (last=$code)" && exit 1
+            done
+          done
+          EOF
