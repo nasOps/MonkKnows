@@ -37,7 +37,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/ssh_key ${{ secrets.SSH_USER_DB }}@${{ secrets.SSH_HOST_DB }} \
             'mkdir -p /opt/whoknows/monitoring'
-          rsync -az --delete -e "ssh -i ~/.ssh/ssh_key" \
+          rsync -az --delete --exclude='.env' -e "ssh -i ~/.ssh/ssh_key" \
             monitoring/ \
             ${{ secrets.SSH_USER_DB }}@${{ secrets.SSH_HOST_DB }}:/opt/whoknows/monitoring/
 
