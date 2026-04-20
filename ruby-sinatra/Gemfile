@@ -9,6 +9,7 @@ gem 'dotenv'
 # so we include it explicitly to avoid warnings
 gem 'ostruct'
 gem 'pg', '~> 1.5' # PostgreSQL adapter for production and development
+gem 'prometheus-client', '~> 4.0'
 gem 'puma'
 gem 'rackup'
 gem 'rake' # Runs the db:migrate command
