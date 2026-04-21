@@ -2099,7 +2099,33 @@ CodeRabbit anbefalede at binde Grafana til `127.0.0.1` (kun tilgængelig via SSH
 
 - Prometheus scraper over offentligt internet (HTTPS) i stedet for internt netværk — højere latency
 - Grafana er eksponeret på offentlig IP (bevidst valg, se ovenfor)
-- Custom metrics (search-telemetri) afhænger af Sofies logging-PR (#246)
+- ~~Custom metrics (search-telemetri) afhænger af Sofies logging-PR (#246)~~ — tilføjet i fase 2 (se nedenfor)
+
+### Fase 2: Søge-metrics og dashboard-opdatering (21/4-2026)
+
+Efter merge af Sofies logging-PR (#246) tilføjede vi søge-specifikke Prometheus metrics:
+
+| Metric | Type | Hvorfor |
+|---|---|---|
+| `app_searches_total` | Counter | Hvor mange søgninger kører over tid — er søgefunktionen brugt? |
+| `app_search_zero_results_total` | Counter | Hvor ofte søger brugere på noget vi ikke har indhold for — input til crawling-strategi |
+
+**Dashboard-opdatering:**
+- Tilføjet stat-panels for Total Searches og Zero-Result Searches i toppen
+- Tilføjet Search Rate timeseries (searches/s + zero results/s over tid)
+- Filtreret "Request Rate per Endpoint" til kun app-routes (whitelist) — fjerner støj fra bot-scanners
+- Tilføjet separat "Bot/Scanner Traffic" panel der viser alt der IKKE matcher app-routes
+
+**Bevidst valg: Whitelist vs blacklist for endpoint-filtrering**
+
+Bot-scannere rammer hundredvis af stier (`.env`, `.aws/credentials`, `/wp-admin`, osv.). Vi valgte whitelist-tilgang (kun vise kendte app-routes) frem for blacklist (ekskludere kendte scanner-stier), fordi:
+- Nye scanner-stier dukker konstant op — blacklist kræver vedligeholdelse
+- Whitelist er stabil — ændres kun når vi tilføjer nye routes
+- Bot-trafikken er stadig synlig i sit eget panel, så vi mister ikke indsigten
+
+**Fund: Bot-scanner aktivitet opdaget via monitoring**
+
+Dashboardet afslørede at vores server konstant scannes af automatiserede bots der leder efter eksponerede credentials (`.env`, `.aws/config`, `.git/config` osv.). Dette er et direkte eksempel på Anders' pointe: "It's an impressive sign if your setup makes you realize something that helps you improve your system."
 
 ### Læring
 
@@ -2107,6 +2133,8 @@ CodeRabbit anbefalede at binde Grafana til `127.0.0.1` (kun tilgængelig via SSH
 - Prometheus label-navne varierer mellem gem-versioner — tjek altid `/metrics` output direkte
 - `rsync --delete` er idempotent; `scp -r` er det ikke — vigtigt for CD pipelines
 - Monitoring og applikation bør være på separate servere — hvis appen crasher, mister du ellers også dine metrics
+- Zero-result rate er direkte input til crawling-strategi — hvis brugere søger på emner vi ikke har, ved vi hvad vi skal scrape
+- Whitelist-filtrering af endpoints er mere robust end blacklist for dashboards med offentligt eksponerede servere
 
 ------
 
