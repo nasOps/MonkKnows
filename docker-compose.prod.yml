@@ -18,7 +18,7 @@ services:
   web:
     image: ghcr.io/nasops/monkknows:latest
     volumes:
-      - /opt/whoknows/data/logging:/app/db
+      - /opt/whoknows/data/logging:/app/db/logging
     mem_limit: 256m
     cpus: 0.50
     environment:
