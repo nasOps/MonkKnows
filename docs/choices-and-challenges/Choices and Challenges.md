@@ -2017,7 +2017,7 @@ Fixes grupperet efter domæne og kørt som parallelle agents:
 
 ------
 
-## Logging, scraping and indexing
+## Logging - first edition
 
 ### Context
 - At logge hvad brugerne søger efter for at scrape de rigtige hjemmesider 
@@ -2037,13 +2037,6 @@ query: (params[:q].strip.slice(0, 200) if params[:q] && !params[:q].strip.empty?
 ```
 
 **Søgning d. 17/4:**
-  
-| Tid | Søgning |
-|-----|---------|
-| 16:26 | `catholic charities` |
-| 16:28 | `hornets vs magic` |
-| 16:30 | `mjf` |
-| 16:39 | `What are the data types in PHP?` |
 
 | Tid | Søgning |
 |-----|---------|
@@ -2099,10 +2092,10 @@ query: (params[:q].strip.slice(0, 200) if params[:q] && !params[:q].strip.empty?
 - Logs overlever `docker restart` men ikke `docker compose down`
 
 **Fordele:**
-- 
+- Nu og her hurtigt
 
 **Ulemper:**
-- 
+- Ikke skalerbart
 
 **Læring:**
 - Twelve-Factor App: stdout er best practice for containeriserede apps
@@ -2126,13 +2119,14 @@ Loggingen bruges til at:
 Systemet skulle:
 
 - logge søgninger uden at påvirke performance
-- undgå at blande logging-data med applikationens primære database
-- fungere i et Docker-miljø
+- undgå at blande logging-data med applikationens primære database 
+- fungere i et Docker-miljø hvor SQLite-filen overlever deploys
 - være simpelt at implementere i Sinatra (uden Rails autoloading/migrations)
 
 ### Choice
 
 **Beslutning:** Vi valgte at implementere et separat logging-system baseret på SQLite, adskilt fra den primære PostgreSQL database.
+
 ## Implementering
 
 ```ruby
@@ -2142,7 +2136,6 @@ class LoggingBase < ActiveRecord::Base
   establish_connection :logging
 end
 
-# model for logging
 class SearchLog < LoggingBase
 end
 ```
@@ -2151,7 +2144,6 @@ end
 # logging i after hook
 after do
   duration = ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
-
   query = params[:q].to_s.strip
   query = nil if query.empty?
 
@@ -2160,9 +2152,9 @@ after do
       SearchLog.create(
         query: query,
         path: request.path_info,
-        method: request.request_method,
+        http_method: request.request_method,
         status: response.status,
-        ip: request.ip,
+        ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15],
         duration_ms: duration
       )
     rescue StandardError => e
@@ -2171,34 +2163,35 @@ after do
   end
 end
 ```
+SQLite-filen persisteres via Docker volume og oprettes automatisk ved opstart via entrypoint.sh
 
 ## Rationale
 
-- Separation of concerns: logging er isoleret fra core data
+- Separation of concerns: logging er isoleret fra kernedata
 - SQLite er letvægts og kræver minimal opsætning
-- `after do` sikrer at logging ikke påvirker request flow
-- Fejl i logging påvirker ikke brugeroplevelsen
+- `after do` sikrer at logging ikke påvirker request flow/brugeroplevelsen
+- rescue betyder at logging-fejl aldrig crasher appen 
+- IP hashes med dagligt salt — unik per dag uden cross-day tracking (GDPR)
 
 ## Fordele
 
 - Lav kompleksitet
-- Hurtig implementering
 - Isoleret logging database
 - Robust (fejler ikke hele appen hvis logging fejler)
 - Klar til analyse (fx top searches)
+- SQLite-data overlever deploys via volume mount
 
 ## Ulemper
 
-- SQLite i Docker kræver ekstra håndtering (fx manglende CLI)
-- Ikke optimal til skalering
-- Logging-data er ikke centraliseret
+- SQLite i Docker kræver volume mount for persistens 
+- Ikke optimal til skalering 
 - Ingen real-time analyse
 
 ## Læring
 
 - Sinatra kræver manuel loading af models (ingen autoload som i Rails)
-- Det er vigtigt at isolere logging fra core systemer
-- Docker ændrer hvordan databaser og filsystemer håndteres
+- exec i entrypoint.sh er afgørende — uden det bliver sh PID 1 og Ruby modtager ikke signals korrekt
+- Docker volume-stien i database.yml og docker-compose.prod.yml skal pege på samme sti i containeren
 - Logging bør aldrig kunne crashe applikationen
 - Data fra logging kan bruges direkte til at forbedre crawling-strategi
 
