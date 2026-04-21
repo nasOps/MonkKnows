@@ -2109,3 +2109,218 @@ CodeRabbit anbefalede at binde Grafana til `127.0.0.1` (kun tilgængelig via SSH
 - Monitoring og applikation bør være på separate servere — hvis appen crasher, mister du ellers også dine metrics
 
 ------
+
+## Logging - first edition
+
+### Context
+- At logge hvad brugerne søger efter for at scrape de rigtige hjemmesider 
+
+### Challenge
+- Eksisterende `after`-blok loggede alle requests men ikke søgeordet
+- Logs forsvinder ved deploy da containeren erstattes (`docker compose up -d`)
+
+### Choice
+**Beslutning:**
+- Tilføj `query`-felt til eksisterende `after`-blok via Ruby built-in `logger`.
+
+**Implementering:**
+
+```ruby
+query: (params[:q].strip.slice(0, 200) if params[:q] && !params[:q].strip.empty?)
+```
+
+**Søgning d. 17/4:**
+
+| Tid | Søgning |
+|-----|---------|
+| 16:26 | `catholic charities` |
+| 16:28 | `hornets vs magic` |
+| 16:30 | `mjf` |
+| 16:39 | `What are the data types in PHP?` |
+| | `rj barrett` |
+| | `creepy nuts` |
+| | `hormuz` |
+| | `nba games tomorrow` |
+| | `brandon ingram` |
+| | `How to scale Oberon applications?` |
+| | `espn nba scores` |
+| | `What is the best programming language for secure development?` |
+| | `Oberon` |
+| | `tommy robinson` |
+| | `bkfc` |
+| | `tax filing deadline` |
+| | `What is the best programming language for automation?` |
+| | `prime` |
+| | `dennis buzukja` |
+| | `Pros and cons of Computer network` |
+| | `tottenham vs brighton` |
+| | `desmond bane` |
+| 22:16 | `air canada` |
+| 22:20 | `What are the best practices for IDL performance?` |
+| 22:26 | `Algorithm` |
+| 22:30 | `What is the best programming language for secure development?` |
+| 22:31 | `What is the best programming language for mobile development?` |
+| 22:33 | `What are the most popular libraries for Software engineering?` |
+| 22:35 | `How to write classes in Docker?` |
+| 22:44 | `Licensing of Stata` |
+| 22:46 | `How to write secure code in Internet protocol?` |
+| 22:57 | `Drawbacks of Amazon DynamoDB` |
+| 23:03 | `What is the best programming language for mobile development?` |
+| 23:04 | `flamengo` |
+| 23:05 | `san lorenzo - dep. cuenca` |
+| 23:08 | `What is the learning curve for Coq?` |
+| 23:10 | `nha` |
+| 23:10 | `kansas city weather` |
+| 23:17 | `luke raley` |
+| 23:19 | `What companies support Caml?` |
+| 23:22 | `What is the best programming language for secure coding?` |
+| 23:25 | `weather.com` |
+| 23:29 | `How to build a GUI with GraphQL?` |
+| 23:34 | `Tutorials for C++` |
+| 23:42 | `valerie bertinelli movie love again` |
+| 23:45 | `What are the best resources to learn Apache Flink?` |
+
+**Rationale:**
+- Lærerens krav: "do not overengineer" + "leverage your framework's logging system"
+- Logs overlever `docker restart` men ikke `docker compose down`
+
+**Fordele:**
+- Nu og her hurtigt
+
+**Ulemper:**
+- Ikke skalerbart
+
+**Læring:**
+- Twelve-Factor App: stdout er best practice for containeriserede apps
+- `docker logs app-web-1 | grep '"query"'` filtrerer søgninger fra øvrig log-støj
+
+------
+
+## Logging System - second edition
+
+### Context
+Applikationen indeholder en søgefunktion, hvor brugere kan søge i indekseret webindhold. For at forstå brugeradfærd og forbedre systemet er det nødvendigt at logge, hvad brugerne søger efter.
+
+Loggingen bruges til at:
+
+- identificere populære søgninger
+- prioritere hvilke sider der skal crawles og indekseres
+- analysere performance og fejl
+
+
+### Challenge
+Systemet skulle:
+
+- logge søgninger uden at påvirke performance
+- undgå at blande logging-data med applikationens primære database 
+- fungere i et Docker-miljø hvor SQLite-filen overlever deploys
+- være simpelt at implementere i Sinatra (uden Rails autoloading/migrations)
+
+### Choice
+
+**Beslutning:** Vi valgte at implementere et separat logging-system baseret på SQLite, adskilt fra den primære PostgreSQL database.
+
+## Implementering
+
+```ruby
+# base class for separat database connection
+class LoggingBase < ActiveRecord::Base
+  self.abstract_class = true
+  establish_connection :logging
+end
+
+class SearchLog < LoggingBase
+end
+```
+
+```ruby
+# logging i after hook
+after do
+  duration = ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
+  query = params[:q].to_s.strip
+  query = nil if query.empty?
+
+  if query && ['/', '/api/search'].include?(request.path_info)
+    begin
+      SearchLog.create(
+        query: query,
+        path: request.path_info,
+        http_method: request.request_method,
+        status: response.status,
+        ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15],
+        duration_ms: duration
+      )
+    rescue StandardError => e
+      logger.error("Failed to log search: #{e.message}")
+    end
+  end
+end
+```
+SQLite-filen persisteres via Docker volume og oprettes automatisk ved opstart via entrypoint.sh
+
+## Rationale
+
+- Separation of concerns: logging er isoleret fra kernedata
+- SQLite er letvægts og kræver minimal opsætning
+- `after do` sikrer at logging ikke påvirker request flow/brugeroplevelsen
+- rescue betyder at logging-fejl aldrig crasher appen 
+- IP hashes med dagligt salt — unik per dag uden cross-day tracking (GDPR)
+
+## Fordele
+
+- Lav kompleksitet
+- Isoleret logging database
+- Robust (fejler ikke hele appen hvis logging fejler)
+- Klar til analyse (fx top searches)
+- SQLite-data overlever deploys via volume mount
+
+## Ulemper
+
+- SQLite i Docker kræver volume mount for persistens 
+- Ikke optimal til skalering 
+- Ingen real-time analyse
+
+## Læring
+
+- Sinatra kræver manuel loading af models (ingen autoload som i Rails)
+- exec i entrypoint.sh er afgørende — uden det bliver sh PID 1 og Ruby modtager ikke signals korrekt
+- Docker volume-stien i database.yml og docker-compose.prod.yml skal pege på samme sti i containeren
+- Logging bør aldrig kunne crashe applikationen
+- Data fra logging kan bruges direkte til at forbedre crawling-strategi
+
+------
+
+## 
+
+### Context
+
+
+### Challenge
+
+
+### Choice
+
+**Beslutning:**
+
+**Implementering:**
+
+```
+
+```
+
+**Rationale:**
+
+
+
+**Fordele:**
+
+
+
+**Ulemper:**
+
+-
+
+**Læring:**
+
+
+------
