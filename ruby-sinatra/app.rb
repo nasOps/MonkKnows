@@ -91,7 +91,7 @@ class WhoknowsApp < Sinatra::Base
         SearchLog.create(
           query: query, # Saves to DB
           path: request.path_info, # Search from the user
-          method: request.request_method, # Should only be GET
+          http_method: request.request_method, # Should only be GET
           status: response.status, # HTTP status to analyse successful vs failed searches
           # Logs unique users
           ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15], # Salted hash of IP address
