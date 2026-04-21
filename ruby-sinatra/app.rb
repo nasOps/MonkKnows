@@ -6,6 +6,7 @@
 require 'sinatra'
 # require 'sinatra/activerecord'
 require 'json'
+require 'digest'
 require_relative 'config/environment'
 require_relative 'models/page'
 require_relative 'models/user'
@@ -92,7 +93,8 @@ class WhoknowsApp < Sinatra::Base
           path: request.path_info, # Search from the user
           method: request.request_method, # Should only be GET
           status: response.status, # HTTP status to analyse successful vs failed searches
-          ip: request.ip, # IP-address is logged to find unique users
+          # Logs unique users
+          ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15], # Salted hash of IP address
           duration_ms: duration # Search duration is logged to analyse performance and find slow queries
         )
         # Prevents app from crashing if logging fails - logs the error message instead
@@ -106,10 +108,10 @@ class WhoknowsApp < Sinatra::Base
       method: request.request_method,
       path: request.path_info,
       status: response.status,
-      ip: request.ip,
+      ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15], # Salted hash of IP address
       user: session[:user_id] ? Digest::SHA256.hexdigest(session[:user_id].to_s)[0..7] : nil,
-      duration_ms: ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2),
-      query: (params[:q].strip if params[:q] && !params[:q].strip.empty?)
+      duration_ms: duration,
+      query: query || nil
     }.compact
     logger.info(log_data.to_json)
   end
