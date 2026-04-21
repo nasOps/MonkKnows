@@ -80,43 +80,43 @@
     },
     {
       "id": 2,
-      "title": "Login Rate",
+      "title": "Logins per Hour",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path=\"/api/login\",code=\"200\"}[5m]))",
-          "legendFormat": "Successful logins/s"
+          "expr": "sum(increase(http_server_requests_total{job=\"monkknows\",path=\"/api/login\",code=\"200\"}[1h]))",
+          "legendFormat": "Successful logins"
         },
         {
-          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path=\"/api/login\",code=\"422\"}[5m]))",
-          "legendFormat": "Failed logins/s"
+          "expr": "sum(increase(http_server_requests_total{job=\"monkknows\",path=\"/api/login\",code=\"422\"}[1h]))",
+          "legendFormat": "Failed logins"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps"
+          "unit": "short"
         }
       }
     },
     {
       "id": 8,
-      "title": "Search Rate",
+      "title": "Searches per Hour",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "targets": [
         {
-          "expr": "rate(app_searches_total{job=\"monkknows\"}[5m])",
-          "legendFormat": "Searches/s"
+          "expr": "increase(app_searches_total{job=\"monkknows\"}[1h])",
+          "legendFormat": "Searches"
         },
         {
-          "expr": "rate(app_search_zero_results_total{job=\"monkknows\"}[5m])",
-          "legendFormat": "Zero results/s"
+          "expr": "increase(app_search_zero_results_total{job=\"monkknows\"}[1h])",
+          "legendFormat": "Zero results"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps"
+          "unit": "short"
         }
       }
     },
