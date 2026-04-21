@@ -41,6 +41,6 @@ e2e:
 
 logging:
   adapter: sqlite3
-  database: <%= File.expand_path('../db/logging/logging.sqlite3', __dir__) %>
+  database: db/logging/logging.sqlite3
   pool: 5
   timeout: 5000
