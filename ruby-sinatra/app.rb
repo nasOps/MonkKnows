@@ -13,6 +13,7 @@ require_relative 'models/user'
 require_relative 'services/weather_service'
 require_relative 'models/search_log'
 require 'dotenv/load' if ENV['RACK_ENV'] != 'production'
+require 'prometheus/client'
 
 # TODO: Change class name to MonkKnowsApp
 # App is defined as modular Sinatra class
@@ -25,6 +26,29 @@ class WhoknowsApp < Sinatra::Base
   set :views, File.expand_path('views', __dir__)
   set :bind, '0.0.0.0'
   set :logging, true
+
+  # Prometheus custom metrics
+  PROMETHEUS = Prometheus::Client.registry
+  USERS_TOTAL = PROMETHEUS.gauge(
+    :app_users_total,
+    docstring: 'Total number of registered users',
+    labels: []
+  )
+
+  # Update user count gauge every 60 seconds in a background thread
+  unless ENV['RACK_ENV'] == 'test'
+    Thread.new do
+      loop do
+        ActiveRecord::Base.connection_pool.with_connection do
+          USERS_TOTAL.set(User.count)
+        end
+      rescue StandardError => e
+        warn "Prometheus gauge error: #{e.message}"
+      ensure
+        sleep 60
+      end
+    end
+  end
 
   # Session configuration (needed for login/logout)
   set :session_secret,
@@ -110,8 +134,8 @@ class WhoknowsApp < Sinatra::Base
       status: response.status,
       ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15], # Salted hash of IP address
       user: session[:user_id] ? Digest::SHA256.hexdigest(session[:user_id].to_s)[0..7] : nil,
-      duration_ms: duration,
-      query: query || nil
+      duration_ms: ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2),
+      query: (params[:q].strip if params[:q] && !params[:q].strip.empty?)
     }.compact
     logger.info(log_data.to_json)
   end
