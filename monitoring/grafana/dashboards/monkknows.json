@@ -68,7 +68,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path=~\"/|/api/.*|/health|/hello|/login|/register|/weather|/logout|/metrics\"}[5m])) by (path)",
+          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path=~\"/|/api/search|/api/login|/api/register|/api/logout|/api/weather|/health|/hello|/login|/register|/weather|/logout|/metrics\"}[5m])) by (path)",
           "legendFormat": "{{path}}"
         }
       ],
@@ -169,7 +169,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path!~\"/|/api/.*|/health|/hello|/login|/register|/weather|/logout|/metrics\"}[5m])) by (path)",
+          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path!~\"/|/api/search|/api/login|/api/register|/api/logout|/api/weather|/health|/hello|/login|/register|/weather|/logout|/metrics\"}[5m])) by (path)",
           "legendFormat": "{{path}}"
         }
       ],
