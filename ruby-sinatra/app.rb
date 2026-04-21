@@ -34,6 +34,16 @@ class WhoknowsApp < Sinatra::Base
     docstring: 'Total number of registered users',
     labels: []
   )
+  SEARCHES_TOTAL = PROMETHEUS.counter(
+    :app_searches_total,
+    docstring: 'Total number of search queries',
+    labels: []
+  )
+  SEARCH_ZERO_RESULTS = PROMETHEUS.counter(
+    :app_search_zero_results_total,
+    docstring: 'Total number of searches that returned no results',
+    labels: []
+  )
 
   # Update user count gauge every 60 seconds in a background thread
   unless ENV['RACK_ENV'] == 'test'
@@ -151,7 +161,10 @@ class WhoknowsApp < Sinatra::Base
     @language = params[:language] || 'en'
 
     @results = if @q && !@q.strip.empty?
-                 Page.search(@q, language: @language)
+                 SEARCHES_TOTAL.increment
+                 results = Page.search(@q, language: @language)
+                 SEARCH_ZERO_RESULTS.increment if results.empty?
+                 results
                else
                  []
                end
@@ -207,11 +220,13 @@ class WhoknowsApp < Sinatra::Base
       }.to_json
 
     else
-      search_results = Page.search(q, language: language).as_json(except: :tsv)
+      SEARCHES_TOTAL.increment
+      search_results = Page.search(q, language: language)
+      SEARCH_ZERO_RESULTS.increment if search_results.empty?
 
       status 200
       {
-        data: search_results
+        data: search_results.as_json(except: :tsv)
       }.to_json
     end
   end
