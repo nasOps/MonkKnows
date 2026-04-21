@@ -30,6 +30,7 @@ RUN apt-get update -qq && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
         libpq5 \
+        libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
