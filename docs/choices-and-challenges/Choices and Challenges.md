@@ -2290,9 +2290,32 @@ SQLite-filen persisteres via Docker volume og oprettes automatisk ved opstart vi
 
 ------
 
-## 
+## ⚠️ Production outage: SQLite logging crasher appen (21/4-2026)
 
 ### Context
+
+Efter merge af logging-PR (#246) returnerede monkknows.dk 502 Bad Gateway. Appen crash-loopede og nginx havde ingen backend at proxy til.
+
+### Challenge
+
+Sofies logging-system bruger en separat SQLite-database via `LoggingBase`. Ved container-startup forsøger `create_logging_db.rb` at oprette forbindelse med sqlite3-adapteren. To problemer:
+
+1. `sqlite3` gem var i `group :test` i Gemfile — Dockerfile builder med `BUNDLE_WITHOUT="development test"`, så gem'en var ikke i production-imaget
+2. Selv efter gem-fix manglede `libsqlite3-0` (native C-library) i runtime-stage af Docker-imaget — kun `libpq5` var installeret
+
+### Choice
+
+**Beslutning:** Quick fix i to trin:
+
+1. Flytte `sqlite3` gem ud af test-group så den bundler i production
+2. Tilføje `libsqlite3-0` til runtime-stage i Dockerfile
+
+### Læring
+
+- Gems med native extensions kræver både gem OG system-library i Docker runtime-stage
+- CI/CD checks (rubocop, brakeman, tests) fanger ikke missing runtime dependencies — de kører i et andet miljø
+- `BUNDLE_WITHOUT` i Dockerfile gør det kritisk at gems er i den rigtige group
+- Smoke tests i CD pipelinen fangede fejlen — uden dem ville vi først opdage det manuelt
 
 
 ### Challenge
