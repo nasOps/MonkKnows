@@ -20,6 +20,10 @@ RSpec.describe 'Accessibility' do
     it 'has aria-live on toast notification' do
       expect(last_response.body).to include('aria-live="polite"')
     end
+
+    it 'has a main landmark' do
+      expect(last_response.body).to include('role="main"')
+    end
   end
 
   describe 'GET / (search page)' do
