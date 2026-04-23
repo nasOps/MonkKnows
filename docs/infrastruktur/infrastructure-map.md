@@ -8,18 +8,18 @@ _Sidst opdateret: 2026-04-23 (live survey via SSH)_
 
 | VM | Hostname | IP | SSH-alias | Ansvar |
 |---|---|---|---|---|
-| App-VM | `whoknows-vm` | `4.225.161.111` | `monkknows` | Sinatra-app, Nginx, TLS |
-| Monitoring-VM | `PrivateProject` | `20.91.203.235` | `monkknows-monitoring` | Prometheus, Grafana, PostgreSQL, Backup |
+| App-VM | `<APP_VM_HOST>` | `<APP_VM_IP>` | `monkknows` | Sinatra-app, Nginx, TLS |
+| Monitoring-VM | `<MONITORING_VM_HOST>` | `<MONITORING_VM_IP>` | `monkknows-monitoring` | Prometheus, Grafana, PostgreSQL, Backup |
 
-SSH-config: `~/.ssh/config` — begge bruger `id_rsa`. Appens PostgreSQL er på Monitoring-VM port 5432.
+SSH-config: `~/.ssh/config` — begge bruger samme SSH-nøgle. Appens PostgreSQL er på Monitoring-VM port 5432.
 
 ---
 
-## App-VM (`monkknows`, 4.225.161.111)
+## App-VM (`monkknows`)
 
 ### Mappestruktur `/opt/whoknows/`
 
-```
+```text
 /opt/whoknows/
 ├── app/                    # Git-checkout af MonkKnows-repo (remote: GitHub NasOps/MonkKnows)
 │   ├── .env                # Runtime secrets (SESSION_SECRET, DB_*, OPENWEATHER_API_KEY)
@@ -106,7 +106,7 @@ Ingen upstream-blok, ingen rate limiting, ingen caching-direktiver.
 
 | Nøgle | Formål |
 |---|---|
-| `DB_HOST` | IP på Monitoring-VM's PostgreSQL (20.91.203.235) |
+| `DB_HOST` | IP på Monitoring-VM's PostgreSQL |
 | `DB_USER` | PostgreSQL brugernavn |
 | `DB_PASSWORD` | PostgreSQL password |
 | `DB_NAME` | PostgreSQL database-navn |
@@ -144,7 +144,7 @@ Manuel devutil — tester om en GitHub PAT har korrekte scopes til GHCR. Kører 
 
 ### Cron Jobs (root)
 
-```
+```cron
 */5 * * * *   /opt/whoknows/scripts/health_check.sh >> /var/log/whoknows/health_check.log 2>&1
 0   3 * * *   /opt/whoknows/scripts/db_backup.sh >> /var/log/whoknows/db_backup.log 2>&1
 */5 * * * *   /opt/whoknows/scripts/auto_deploy.sh >> /var/log/whoknows/deploy.log 2>&1
@@ -194,11 +194,11 @@ To serier med 7-dages rolling retention:
 
 ---
 
-## Monitoring-VM (`monkknows-monitoring`, 20.91.203.235)
+## Monitoring-VM (`monkknows-monitoring`)
 
 ### Mappestruktur
 
-```
+```text
 /opt/whoknows/monitoring/           # Prometheus + Grafana compose-projekt
 ├── docker-compose.monitoring.yml   # Definerer prometheus + grafana services
 ├── prometheus.yml                  # Scrape-config (1 job: monkknows → https://monkknows.dk/metrics)
@@ -224,7 +224,7 @@ To serier med 7-dages rolling retention:
 /home/azureuser/
 ├── .env                            # Kopi af monitoring .env (GRAFANA_USER, GRAFANA_PASSWORD)
 └── .ssh/
-    ├── id_ed25519                  # Ed25519 privat nøgle til backup SCP (comment: monkknows-db-backup)
+    ├── id_ed25519                  # Ed25519 privat nøgle til backup SCP
     ├── authorized_keys             # Indgående SSH-nøgler for azureuser (3.0 KB, flere teammedlemmer)
     └── known_hosts                 # Populeres af backup SCP-kørsler
 ```
@@ -306,11 +306,11 @@ Titel: **"MonkKnows User Telemetry"** — 9 panels:
 
 ### `pg_hba.conf` — Adgangskontrol
 
-```
-local   all   all                     trust    # Unix socket (pg_dump i container)
-host    all   monkknows  4.225.161.111/32  md5  # App-VM — tilladte med password
-host    all   monkknows  10.1.1.0/24      md5  # Privat subnet — tilladt med password
-host    all   all        0.0.0.0/0        reject  # Alle andre afvises
+```conf
+local   all   all                       trust   # Unix socket (pg_dump i container)
+host    all   monkknows  <APP_VM_IP>/32  md5    # App-VM — tilladt med password
+host    all   monkknows  <PRIVATE_SUBNET> md5   # Privat subnet — tilladt med password
+host    all   all        0.0.0.0/0       reject  # Alle andre afvises
 ```
 
 ### Backup Script (`/opt/monkknows-db/backup.sh`)
@@ -318,7 +318,7 @@ host    all   all        0.0.0.0/0        reject  # Alle andre afvises
 Køres af azureuser's cron dagligt 03:00 UTC. Adfærd (med `set -euo pipefail`):
 1. `docker exec monkknows-db-db-1 pg_dump -U monkknows monkknows | gzip` → `/opt/monkknows-db/backups/monkknows_YYYY-MM-DD_HHMM.sql.gz`
 2. Verifikation: fil må ikke være tom — ellers slet og exit 1
-3. `scp` til `adminuser@4.225.161.111:/opt/whoknows/backups/` (`-o StrictHostKeyChecking=no`)
+3. `scp` til `adminuser@<APP_VM_IP>:/opt/whoknows/backups/` (`-o StrictHostKeyChecking=no`)
 4. Ved succesfuld SCP: `find` på app-VM, slet filer ældre end 7 dage
 5. `find /opt/monkknows-db/backups -mtime +7 -delete` — lokal 7-dages retention
 6. Al output → `/opt/monkknows-db/backups/backup.log` (via cron-redirect)
@@ -342,12 +342,12 @@ Voksende ~8 KB/dag — konsistent med aktive database-writes.
 ### Cron Jobs
 
 **azureuser:**
-```
+
+```cron
 0 3 * * *   /opt/monkknows-db/backup.sh >> /opt/monkknows-db/backups/backup.log 2>&1
 ```
-Dagligt 03:00 UTC (05:00 dansk sommertid).
 
-**root:** ingen.
+Dagligt 03:00 UTC (05:00 dansk sommertid). **root:** ingen.
 
 ### Port-overblik (Monitoring-VM)
 
