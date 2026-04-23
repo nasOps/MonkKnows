@@ -81,7 +81,7 @@ div.footer {
     position: sticky;
     bottom: 0;
     background: #222;
-    color: #888;
+    color: #bbb;
     padding: 10px 20px;
     font-size: 12px;
     text-align: center;
@@ -270,10 +270,29 @@ button:active {
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
+/* ── Keyboard Focus Indicators ────────────────────────────── */
+:focus-visible {
+    outline: 3px solid #005fcc;
+    outline-offset: 2px;
+}
+
+/* Screen-reader-only utility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 /* ── Search Results ───────────────────────────────────────── */
 .results-count {
     font-size: 13px;
-    color: #888;
+    color: #666;
     margin-bottom: 12px;
 }
 
@@ -312,7 +331,7 @@ button:active {
 
 .no-results {
     margin-top: 20px;
-    color: #888;
+    color: #666;
     font-size: 14px;
 }
 
@@ -344,7 +363,7 @@ button:active {
 
 .wx-datetime {
     font-size: 0.95rem;
-    color: #5e81ac;
+    color: #3d5a82;
     margin: 0;
 }
 
@@ -371,12 +390,12 @@ button:active {
     font-weight: 400;
     margin-top: 10px;
     margin-left: 4px;
-    color: #5e81ac;
+    color: #3d5a82;
 }
 
 .wx-desc {
     font-size: 1rem;
-    color: #5e81ac;
+    color: #3d5a82;
     margin: 0 0 24px;
 }
 
@@ -400,7 +419,7 @@ button:active {
 .wx-detail-icon {
     width: 24px;
     height: 24px;
-    stroke: #5e81ac;
+    stroke: #3d5a82;
     opacity: 0.85;
 }
 
@@ -414,7 +433,7 @@ button:active {
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #5e81ac;
+    color: #3d5a82;
 }
 
 /* ── Definition Lists (login/register forms) ──────────────── */
