@@ -2385,6 +2385,10 @@ Et særligt opmærksomhedspunkt var den custom language-dropdown, som er impleme
 - `reset_password.erb` ikke rettet — uden for issue-scope, markeret som fremtidig task
 - Ingen `<nav aria-label>` ARIA-landmark — lavt impact, udskudt
 
+**Resultat:** Lighthouse Accessibility-score steg til **100/100** (verificeret 23. april 2026):
+
+![Lighthouse Accessibility 100/100](lighthouse-accessibility-100.png)
+
 ### Fordele
 
 - Meningsfuld forbedring for screen reader- og keyboard-brugere uden at bryde simulatorkontrakten
