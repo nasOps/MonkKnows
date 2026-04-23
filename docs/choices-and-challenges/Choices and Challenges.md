@@ -2348,6 +2348,63 @@ Sofies logging-system bruger en separat SQLite-database via `LoggingBase`. Ved c
 - `__dir__` er `nil` i ERB/YAML-kontekst — brug aldrig `__dir__` i `database.yml`. Relative stier eller ENV-variabler er sikrere
 - Smoke tests i CD pipelinen fangede fejlen — uden dem ville vi først opdage det manuelt
 
+------
+
+## Tilgængelighed / Accessibility (Issue #242)
+
+### Context
+
+AAAAA!-gruppen gennemgik sitet og identificerede adskillige WCAG 2.1 Level AA-overtrædelser. Da projektet kører under Anders' simulator, som automatisk klikker på sitet og er afhængig af specifikke HTML-IDs (`id="search-input"`, `id="nav-login"` m.fl.), måtte rettelser ikke bryde disse kontrakter.
+
+### Challenge
+
+Rette de kritiske tilgængelighedsfejl uden at ændre i den eksisterende HTML-struktur (IDs, class-navne, `name`-attributter, JavaScript-funktionsnavne) — og uden at tilføje nye routes eller backend-logik.
+
+Et særligt opmærksomhedspunkt var den custom language-dropdown, som er implementeret med `<button>` + `<ul>` i stedet for et native `<select>` (arvet fra Flask-versionen). Et sådant custom widget kræver ARIA-attributter for at være tilgængeligt for screen readers.
+
+### Choice
+
+10 kritiske problemer rettet:
+
+1. `lang="en"` tilføjet til `<html>` i `layout.erb`
+2. `role="status" aria-live="polite"` tilføjet til toast-notifikationen i `layout.erb`
+3. `<label for="...">` tilføjet til alle form-inputs i `login.erb` og `register.erb`
+4. Email-felt ændret til `type="email"` på register-formularen
+5. `role="search"` og visuelt skjult label (`.sr-only`) tilføjet til søgeformularen i `index.erb`
+6. `aria-expanded`, `aria-haspopup="listbox"`, `role="listbox"` tilføjet til custom dropdown i `index.erb`
+7. `aria-hidden="true"` og `focusable="false"` tilføjet til dekorative vejr-SVGs i `weather.erb`
+8. 3 kontrastfejl rettet i `style.css`:
+   - `#888` → `#666` (søgeresultater på lys baggrund: 3.72:1 → 4.88:1)
+   - `#888` → `#bbb` (footer-tekst på mørk baggrund: 4.03:1 → 8.68:1)
+   - `#5e81ac` → `#3d5a82` (vejrkort på blå baggrund: 3.08:1 → 5.27:1)
+9. `:focus-visible` outline tilføjet for keyboard-navigation
+10. `.sr-only` utility-klasse tilføjet til CSS
+
+**Bevidste fravalg:**
+- `id="nav-logout"` beholdes på et `<a>`-element (ikke `<button>`) — simulatoren forventer dette ID på et anker-element
+- `reset_password.erb` ikke rettet — uden for issue-scope, markeret som fremtidig task
+- Ingen `<nav aria-label>` ARIA-landmark — lavt impact, udskudt
+
+### Fordele
+
+- Meningsfuld forbedring for screen reader- og keyboard-brugere uden at bryde simulatorkontrakten
+- Kontrastforbedringer hjælper alle brugere under skarpt lys
+- Tilgængelighed er nu testbar i CI via rack-test integration-tests (ingen browser nødvendig)
+- `.sr-only` er en genanvendelig utility-klasse til fremtidige behov
+
+### Ulemper
+
+- Custom dropdown ARIA-pattern er mere skrøbeligt end et native `<select>` — fremtidige JS-ændringer skal manuelt holde `aria-expanded` synkroniseret
+- Kontrastrettelserne i vejrkortet giver en lidt mørkere blå tone, som afviger fra det originale design
+
+### Læring
+
+- Tilgængelighed kan TDD-testes med rack-test på HTML-struktur — dette passer direkte ind i det eksisterende CI-flow
+- Simulatorkontrakter og tilgængelighed behøver ikke kollidere: IDs og `name`-attributter (API-kontrakten) er adskilt fra `label`/ARIA-attributter (tilgængelighed)
+- Kontrastforhold beregnes med WCAG's relative luminans-formel — man kan ikke vurdere kontrast visuelt med sikkerhed
+- Krydstjek mod legacy Flask-koden bekræftede at simulatoren bruger IDs, ikke CSS class-navne
+
+------
 
 ### Challenge
 
@@ -2375,6 +2432,3 @@ Sofies logging-system bruger en separat SQLite-database via `LoggingBase`. Ved c
 -
 
 **Læring:**
-
-
-------
