@@ -20,13 +20,13 @@ namespace :data do
     # Check if the SQLite file exists before attempting to migrate
     unless File.exist?(sqlite_path)
       puts "No SQLite file found at #{sqlite_path}"
-      exit
+      next
     end
 
     # Check if there are already logs in the PostgreSQL database to avoid duplicates
     if SearchLog.exists?
       puts 'Already migrated — skipping'
-      exit
+      next
     end
 
     # Connect to the SQLite database and read the logs
