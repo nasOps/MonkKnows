@@ -2410,29 +2410,40 @@ Et særligt opmærksomhedspunkt var den custom language-dropdown, som er impleme
 
 ------
 
+## Session-cookies virker ikke bag nginx SSL-terminering
+
+### Context
+
+Anders' simulator rapporterede daglige `e2e_error:can_log_in`-fejl: simulatoren kunne logge ind (200 OK fra `/api/login`) men fandt aldrig `#nav-logout`-linket på `/` efterfølgende — dvs. sessionen gik tabt mellem login-kaldet og næste sideload.
+
 ### Challenge
 
+Login-endpointet returnerede 200 og autentificering virkede korrekt — men der var ingen `Set-Cookie`-header i svaret. Det betød at browseren/simulatoren aldrig modtog en session-cookie, og at alle efterfølgende requests var anonyme.
+
+Rodårsagen: Nginx terminerer SSL og forwarter requests til Sinatra over intern HTTP (`proxy_pass http://web:4567`). Rack's session-middleware (`Rack::Session::Cookie`) har `secure: true` i produktion, og **Rack sætter ikke en secure session-cookie hvis den ikke kan se at forbindelsen er HTTPS** — den tjekker `request.ssl?`, som checker `HTTP_X_FORWARDED_PROTO`. Fordi nginx ikke forwardede denne header, troede Rack at forbindelsen var plain HTTP og droppede cookien lydløst.
+
+Dette har sandsynligvis været brudt siden HTTPS blev sat op, og forklarer alle simulator-login-fejl siden da.
 
 ### Choice
 
-**Beslutning:**
+Tilføjet `proxy_set_header X-Forwarded-Proto $scheme;` til `location /`-blokken i `nginx.conf`. Med denne header sætter Rack `rack.url_scheme = 'https'`, `request.ssl?` returnerer true, og session-cookien skrives korrekt.
 
-**Implementering:**
+**Bevidst fravalg:** Vi validerer ikke at `X-Forwarded-Proto` kun kan komme fra en betroet proxy (f.eks. via IP-whitelist). I vores setup er Sinatra-containeren kun tilgængelig via Docker-netværket (ikke eksponeret udadtil), så spoofing-risikoen er minimal.
 
-```
+### Fordele
 
-```
+- Session-cookies sættes nu korrekt — login virker for alle brugere og simulatoren
+- En-linje fix i nginx.conf, ingen app-kode-ændringer nødvendige
+- Standard løsning på et velkendt reverse-proxy + SSL-terminering problem
 
-**Rationale:**
+### Ulemper
 
+- `X-Forwarded-Proto` er ikke cryptografisk verificeret — men intern Docker-netværksisolering mitigerer risikoen
 
+### Læring
 
-**Fordele:**
-
-
-
-**Ulemper:**
-
--
+- `secure: true` på Rack session-cookies er ikke kun et browser-hint — Rack sætter slet ikke cookien hvis den ikke ser HTTPS, selvom autentificeringen ellers lykkes
+- SSL-terminerende reverse proxies skal altid forwarde `X-Forwarded-Proto` til backenden, ellers er sikre cookies ubrugelige
+- Fejlen var usynlig fra app-laget (200 OK, ingen exception) — den krævede inspektion af response-headers for at afsløre at `Set-Cookie` manglede
 
 **Læring:**
