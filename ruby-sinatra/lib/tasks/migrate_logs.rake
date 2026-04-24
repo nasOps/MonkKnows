@@ -43,7 +43,7 @@ namespace :data do
       rows.each_with_index do |row, i|
         puts "Processing row #{i}"
 
-        SearchLog.create(
+        SearchLog.create!(
           query: row['query'],
           path: row['path'],
           http_method: row['http_method'],
