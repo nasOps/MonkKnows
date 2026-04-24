@@ -1,12 +1,17 @@
 <!-- Frontpage from of GET / - Root/Search page on localhost:4567 -->
 
-<form class="search-form" action="/" method="get">
+<form class="search-form" action="/" method="get" role="search">
+  <label for="search-input" class="sr-only">Search query</label>
   <input id="search-input" type="text" name="q" value="<%= @q %>" placeholder="Search...">
   <button id="search-button" type="submit">Search</button>
   <div class="custom-select">
-    <button type="button" class="custom-select-toggle" onclick="toggleDropdown()">English <span class="arrow">&#9662;</span></button>
-    <ul class="custom-select-menu" id="language-menu">
-      <li><a onclick="selectLanguage('en', 'English')">English</a></li>
+    <button type="button" class="custom-select-toggle"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-label="Select language"
+            onclick="toggleDropdown()">English <span class="arrow">&#9662;</span></button>
+    <ul class="custom-select-menu" id="language-menu" role="listbox" aria-label="Language">
+      <li role="option" aria-selected="true"><a onclick="selectLanguage('en', 'English')">English</a></li>
     </ul>
     <input type="hidden" name="language" id="language-value" value="en">
   </div>
@@ -14,18 +19,24 @@
 
 <script>
   function toggleDropdown() {
-    document.getElementById('language-menu').classList.toggle('open');
+    const menu = document.getElementById('language-menu');
+    const btn = document.querySelector('.custom-select-toggle');
+    const isOpen = menu.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(isOpen));
   }
 
   function selectLanguage(value, label) {
     document.getElementById('language-value').value = value;
-    document.querySelector('.custom-select-toggle').innerHTML = label + ' <span class="arrow">&#9662;</span>';
+    document.querySelector('.custom-select-toggle').textContent = label + ' ▾';
+    document.querySelector('.custom-select-toggle').setAttribute('aria-expanded', 'false');
     document.getElementById('language-menu').classList.remove('open');
   }
 
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.custom-select')) {
       document.getElementById('language-menu').classList.remove('open');
+      const btn = document.querySelector('.custom-select-toggle');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
     }
   });
 </script>

@@ -177,7 +177,11 @@ class WhoknowsApp < Sinatra::Base
   get '/weather' do
     content_type :html
     status 200
-    @weather = WeatherService.fetch # @weather makes it accessible in weather.erb
+    @weather = begin
+      WeatherService.fetch
+    rescue StandardError
+      { city: 'Unknown', temperature: 0.0, condition: 'unknown', humidity: 0, wind_speed: 0 }
+    end
     erb :weather
   end
 

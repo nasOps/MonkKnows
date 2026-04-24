@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <title>MonkKnows</title>
   <link rel="stylesheet" href="/css/style.css">
@@ -23,8 +23,8 @@
     </nav>
   </div>
 
-  <div class="body">
-    <div id="toast" class="toast" style="display:none"></div>
+  <div class="body" role="main">
+    <div id="toast" class="toast" role="status" aria-live="polite" style="display:none"></div>
     <%= yield %>
   </div>
 
