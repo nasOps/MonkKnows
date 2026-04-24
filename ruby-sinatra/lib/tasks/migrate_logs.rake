@@ -3,29 +3,30 @@
 # Migrates SQLite DB to PostgreSQL, then backs up the SQLite file by renaming it to logging.sqlite3.bak
 
 namespace :data do
-  desc 'Migrate SQLite logs to PostgreSQL'
-  task migrate_logs: :environment do
+  desc "Migrate SQLite logs to PostgreSQL"
+  task :migrate_logs do
+    require_relative '../../config/environment'
+    require_relative '../../models/search_log'
     require 'sqlite3'
-    '
-'
+
     # Determine the path to the SQLite file based on the environment
     sqlite_path =
       if ENV['RACK_ENV'] == 'production'
         '/app/db/logging/logging.sqlite3'
       else
-        'db/logging/logging.sqlite3'
+        'db/logging.sqlite3'
       end
 
     # Check if the SQLite file exists before attempting to migrate
     unless File.exist?(sqlite_path)
       puts "No SQLite file found at #{sqlite_path}"
-      next
+      exit
     end
 
     # Check if there are already logs in the PostgreSQL database to avoid duplicates
     if SearchLog.exists?
       puts 'Already migrated — skipping'
-      next
+      exit
     end
 
     # Connect to the SQLite database and read the logs
@@ -37,8 +38,12 @@ namespace :data do
 
     puts "Found #{rows.count} rows"
 
+    ActiveRecord::Base.transaction do
+
     # Migrate each row to the PostgreSQL database using ActiveRecord
-    rows.each do |row|
+    rows.each_with_index do |row, i|
+      puts "Processing row #{i}"
+
       SearchLog.create(
         query: row['query'],
         path: row['path'],
@@ -49,6 +54,7 @@ namespace :data do
         created_at: row['created_at'],
         updated_at: row['created_at']
       )
+    end
     end
 
     puts "Migrated #{rows.count} rows"
