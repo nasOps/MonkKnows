@@ -3,7 +3,7 @@
 # Migrates SQLite DB to PostgreSQL, then backs up the SQLite file by renaming it to logging.sqlite3.bak
 
 namespace :data do
-  desc "Migrate SQLite logs to PostgreSQL"
+  desc 'Migrate SQLite logs to PostgreSQL'
   task :migrate_logs do
     require_relative '../../config/environment'
     require_relative '../../models/search_log'
@@ -39,22 +39,21 @@ namespace :data do
     puts "Found #{rows.count} rows"
 
     ActiveRecord::Base.transaction do
+      # Migrate each row to the PostgreSQL database using ActiveRecord
+      rows.each_with_index do |row, i|
+        puts "Processing row #{i}"
 
-    # Migrate each row to the PostgreSQL database using ActiveRecord
-    rows.each_with_index do |row, i|
-      puts "Processing row #{i}"
-
-      SearchLog.create(
-        query: row['query'],
-        path: row['path'],
-        http_method: row['http_method'],
-        status: row['status'],
-        ip: row['ip'],
-        duration_ms: row['duration_ms'],
-        created_at: row['created_at'],
-        updated_at: row['created_at']
-      )
-    end
+        SearchLog.create(
+          query: row['query'],
+          path: row['path'],
+          http_method: row['http_method'],
+          status: row['status'],
+          ip: row['ip'],
+          duration_ms: row['duration_ms'],
+          created_at: row['created_at'],
+          updated_at: row['created_at']
+        )
+      end
     end
 
     puts "Migrated #{rows.count} rows"
