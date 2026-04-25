@@ -2,3 +2,7 @@
 
 require 'sinatra/activerecord/rake'
 require_relative 'config/environment'
+
+Rake.application.add_import('lib/tasks/migrate_logs.rake')
+
+Rake.application.load_imports

@@ -20,7 +20,7 @@ end
 
 conn = ActiveRecord::Base.connection
 
-conn.transaction do # rubocop:disable Metrics/BlockLength
+conn.transaction do
   puts 'Adding tsvector column to pages...'
   conn.execute('ALTER TABLE pages ADD COLUMN tsv tsvector') unless conn.column_exists?(:pages, :tsv)
 
