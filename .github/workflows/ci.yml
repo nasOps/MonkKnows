@@ -176,7 +176,7 @@ jobs:
             exit 1
           fi
 
-      # Resets the database to ensure a clean state for E2E tests, and runs migrations including the tsvector migration
+      # Resets DB to ensure a clean state for E2E tests
       - name: Reset database and run migrations
         run: |
           docker compose -f docker-compose.dev.yml exec -T \
@@ -184,6 +184,7 @@ jobs:
             web bundle exec rake db:drop db:create db:migrate
 
           docker compose -f docker-compose.dev.yml exec -T \
+            -e RACK_ENV=e2e \
             web ruby db/migrate_to_tsvector.rb
 
       - name: Set up Node.js
@@ -209,4 +210,4 @@ jobs:
 
       - name: Tear down app
         if: always()
-        run: docker compose -f docker-compose.dev.yml down
+        run: docker compose -f docker-compose.dev.yml down -v
