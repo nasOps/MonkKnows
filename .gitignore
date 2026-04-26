@@ -85,6 +85,7 @@ cython_debug/
 # ---- Ruby / Sinatra ----
 ruby-sinatra/vendor/
 ruby-sinatra/.bundle/
+ruby-sinatra/coverage/
 
 # ---- Node / Playwright ----
 node_modules/
