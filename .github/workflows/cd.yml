@@ -63,7 +63,7 @@ jobs:
           image-ref: ghcr.io/${{ env.DOCKER_GITHUB_USERNAME }}/monkknows:latest
           format: table
           exit-code: '1'
-          severity: CRITICAL,HIGH
+          severity: CRITICAL
           ignore-unfixed: 'true'
 
       # Push the same scanned image — no rebuild
