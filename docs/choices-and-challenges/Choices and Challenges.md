@@ -2364,7 +2364,7 @@ Et særligt opmærksomhedspunkt var den custom language-dropdown, som er impleme
 
 Anders' simulator rapporterede daglige `e2e_error:can_log_in`-fejl: simulatoren kunne logge ind (200 OK fra `/api/login`) men fandt aldrig `#nav-logout`-linket på `/` efterfølgende — dvs. sessionen gik tabt mellem login-kaldet og næste sideload.
 
-10 kritiske problemer rettet:
+14 problemer rettet (10 i initial PR, 4 efter code review):
 
 1. `lang="en"` tilføjet til `<html>` i `layout.erb`
 2. `role="status" aria-live="polite"` tilføjet til toast-notifikationen i `layout.erb`
@@ -2379,11 +2379,17 @@ Anders' simulator rapporterede daglige `e2e_error:can_log_in`-fejl: simulatoren 
    - `#5e81ac` → `#3d5a82` (vejrkort på blå baggrund: 3.08:1 → 5.27:1)
 9. `:focus-visible` outline tilføjet for keyboard-navigation
 10. `.sr-only` utility-klasse tilføjet til CSS
+11. Toast-elementet med `aria-live="polite"` pakket i en persistent wrapper — `display:none` på live-region-elementet selv forhindrer mange screen readers i at tracke opdateringer
+12. `clip: rect(0,0,0,0)` i `.sr-only` erstattet med `clip-path: inset(50%)` (deprecated CSS-property)
+13. `▾`-pilen i custom dropdown-knap lagt i `<span aria-hidden="true">` — tekst-glyffen blev annonceret af screen readers; `selectLanguage()` opdaterer nu kun text-noden fremfor `textContent` på hele knappen, så span bevares
+14. WeatherService-fejl logges nu med `logger.warn` — den stumme rescue gjorde API-fejl usynlige i produktion
 
 **Bevidste fravalg:**
 - `id="nav-logout"` beholdes på et `<a>`-element (ikke `<button>`) — simulatoren forventer dette ID på et anker-element
 - `reset_password.erb` ikke rettet — uden for issue-scope, markeret som fremtidig task
 - Ingen `<nav aria-label>` ARIA-landmark — lavt impact, udskudt
+- Custom listbox mangler fuld ARIA keyboard-interaktion (piltaster, Escape-tast) — WAI-ARIA APG kræver det teknisk for `role="listbox"`, men implementeringen kræver betydelig JS og er ikke en del af dette sprint; dropdown er en enkeltvalg-kontrol med kun ét reelt valg (English) og udgør et lavt impact-fravalg
+- Custom dropdown bruger `aria-label="Select language"` på knappen (ikke combobox-pattern med `role="combobox"`) — den eksisterende `aria-label` giver tilstrækkeligt accessible name; fuld combobox-implementering er ude af scope
 
 **Resultat:** Lighthouse Accessibility-score steg til **100/100** (verificeret 23. april 2026):
 
