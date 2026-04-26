@@ -179,7 +179,8 @@ class WhoknowsApp < Sinatra::Base
     status 200
     @weather = begin
       WeatherService.fetch
-    rescue StandardError
+    rescue StandardError => e
+      logger.warn("WeatherService.fetch failed: #{e.message}")
       { city: 'Unknown', temperature: 0.0, condition: 'unknown', humidity: 0, wind_speed: 0 }
     end
     erb :weather
