@@ -24,7 +24,9 @@
   </div>
 
   <div class="body" role="main">
-    <div id="toast" class="toast" role="status" aria-live="polite" style="display:none"></div>
+    <div role="status" aria-live="polite">
+      <div id="toast" class="toast" style="display:none"></div>
+    </div>
     <%= yield %>
   </div>
 
