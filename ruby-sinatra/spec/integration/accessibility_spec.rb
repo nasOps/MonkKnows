@@ -38,7 +38,7 @@ RSpec.describe 'Accessibility' do
     end
 
     it 'has aria-expanded on custom dropdown toggle' do
-      expect(last_response.body).to include('aria-expanded=')
+      expect(last_response.body).to include('aria-expanded="false"')
     end
   end
 
