@@ -1,5 +1,5 @@
 AllCops:
-  TargetRubyVersion: 3.3 # Matches our runtime Ruby version
+  TargetRubyVersion: 3.2 # Matches our runtime Ruby version
   NewCops: enable
   Exclude:
     - 'db/schema.rb'
