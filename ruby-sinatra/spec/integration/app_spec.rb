@@ -77,21 +77,21 @@ RSpec.describe 'Whoknows App' do
       post '/api/register', valid_params.merge(username: '')
       expect(last_response.status).to eq(422)
       body = JSON.parse(last_response.body)
-      expect(body['detail'].first['msg']).to include('You have to enter a username')
+      expect(body['detail'].first['msg']).to eq('You have to enter a username')
     end
 
     it 'returns 422 when email is blank' do
       post '/api/register', valid_params.merge(email: '')
       expect(last_response.status).to eq(422)
       body = JSON.parse(last_response.body)
-      expect(body['detail'].first['msg']).to include('You have to enter a valid email address')
+      expect(body['detail'].first['msg']).to eq('You have to enter a valid email address')
     end
 
     it 'returns 422 when email format is invalid' do
       post '/api/register', valid_params.merge(email: 'notanemail')
       expect(last_response.status).to eq(422)
       body = JSON.parse(last_response.body)
-      expect(body['detail'].first['msg']).to include('You have to enter a valid email address')
+      expect(body['detail'].first['msg']).to eq('You have to enter a valid email address')
     end
 
     it 'returns 422 for duplicate username' do
@@ -99,7 +99,7 @@ RSpec.describe 'Whoknows App' do
       post '/api/register', valid_params.merge(email: 'other@example.com')
       expect(last_response.status).to eq(422)
       body = JSON.parse(last_response.body)
-      expect(body['detail'].first['msg']).to include('The username is already taken')
+      expect(body['detail'].first['msg']).to eq('The username is already taken')
     end
 
     it 'stores password as bcrypt hash, not plaintext' do
