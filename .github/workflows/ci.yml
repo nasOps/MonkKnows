@@ -176,6 +176,7 @@ jobs:
             exit 1
           fi
 
+      # Resets the database to ensure a clean state for E2E tests, and runs migrations including the tsvector migration
       - name: Reset database and run migrations
         run: |
           docker compose -f docker-compose.dev.yml exec -T \
