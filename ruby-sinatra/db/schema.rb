@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 0) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_24_095720) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -19,6 +19,18 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.text "language", default: "en", null: false
     t.datetime "last_updated", precision: nil
     t.text "content", null: false
+  end
+
+  create_table "search_logs", force: :cascade do |t|
+    t.string "query"
+    t.string "path"
+    t.string "http_method"
+    t.integer "status"
+    t.string "ip"
+    t.float "duration_ms"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_search_logs_on_created_at"
   end
 
   create_table "users", force: :cascade do |t|
