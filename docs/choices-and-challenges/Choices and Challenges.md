@@ -2356,13 +2356,13 @@ Sofies logging-system bruger en separat SQLite-database via `LoggingBase`. Ved c
 
 AAAAA!-gruppen gennemgik sitet og identificerede adskillige WCAG 2.1 Level AA-overtrædelser. Da projektet kører under Anders' simulator, som automatisk klikker på sitet og er afhængig af specifikke HTML-IDs (`id="search-input"`, `id="nav-login"` m.fl.), måtte rettelser ikke bryde disse kontrakter.
 
-### Challenge
+## Session-cookies virker ikke bag nginx SSL-terminering
 
 Rette de kritiske tilgængelighedsfejl uden at ændre i den eksisterende HTML-struktur (IDs, class-navne, `name`-attributter, JavaScript-funktionsnavne) — og uden at tilføje nye routes eller backend-logik.
 
 Et særligt opmærksomhedspunkt var den custom language-dropdown, som er implementeret med `<button>` + `<ul>` i stedet for et native `<select>` (arvet fra Flask-versionen). Et sådant custom widget kræver ARIA-attributter for at være tilgængeligt for screen readers.
 
-### Choice
+Anders' simulator rapporterede daglige `e2e_error:can_log_in`-fejl: simulatoren kunne logge ind (200 OK fra `/api/login`) men fandt aldrig `#nav-logout`-linket på `/` efterfølgende — dvs. sessionen gik tabt mellem login-kaldet og næste sideload.
 
 10 kritiske problemer rettet:
 
