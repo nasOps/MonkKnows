@@ -160,22 +160,7 @@ jobs:
 
       # At first only start the DB
       - name: Start database
-        run: docker compose -f docker-compose.dev.yml up -d db
-
-      # Wait for DB to be healthy before proceeding
-      - name: Wait for DB
-        run: |
-          for i in $(seq 1 20); do
-            if docker compose -f docker-compose.dev.yml exec -T db \
-              pg_isready -U monkknows > /dev/null 2>&1; then
-              echo "✅ DB ready"
-              exit 0
-            fi
-            echo "Waiting for DB..."
-            sleep 2
-          done
-          echo "❌ DB not ready in time"
-          exit 1
+        run: docker compose -f docker-compose.dev.yml up -d --wait db
 
       # Create DB before app is running
       - name: Create E2E database
