@@ -32,7 +32,7 @@ services:
       - DB_HOST=db
       - DB_USER=monkknows
       - DB_PASSWORD=dev_password
-      - DB_NAME=monkknows_dev
+      - DB_NAME=${DB_NAME:-monkknows_dev}
     depends_on:
       db:
         condition: service_healthy
