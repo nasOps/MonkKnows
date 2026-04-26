@@ -176,12 +176,14 @@ jobs:
             exit 1
           fi
 
-      - name: Load database schema and run tsvector migration
+      - name: Reset database and run migrations
         run: |
           docker compose -f docker-compose.dev.yml exec -T \
             -e RACK_ENV=e2e \
-            web bundle exec rake db:schema:load
-          docker compose -f docker-compose.dev.yml exec -T web ruby db/migrate_to_tsvector.rb
+            web bundle exec rake db:drop db:create db:migrate
+
+          docker compose -f docker-compose.dev.yml exec -T \
+            web ruby db/migrate_to_tsvector.rb
 
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
