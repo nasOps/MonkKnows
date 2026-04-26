@@ -49,6 +49,64 @@ RSpec.describe 'Whoknows App' do
     end
   end
 
+  describe 'POST /api/register' do
+    let(:valid_params) do
+      { username: 'testuser', email: 'test@example.com', password: 'secret123', password2: 'secret123' }
+    end
+
+    after(:each) { User.delete_all }
+
+    it 'returns 200 and success message with valid input' do
+      post '/api/register', valid_params
+      expect(last_response.status).to eq(200)
+      body = JSON.parse(last_response.body)
+      expect(body['message']).to eq('You were successfully registered')
+    end
+
+    it 'returns 422 when passwords do not match' do
+      post '/api/register', valid_params.merge(password2: 'wrongpass')
+      expect(last_response.status).to eq(422)
+      body = JSON.parse(last_response.body)
+      expect(body['detail'].first['msg']).to eq('The two passwords do not match')
+    end
+
+    it 'returns 422 when username is blank' do
+      post '/api/register', valid_params.merge(username: '')
+      expect(last_response.status).to eq(422)
+      body = JSON.parse(last_response.body)
+      expect(body['detail'].first['msg']).to include('You have to enter a username')
+    end
+
+    it 'returns 422 when email is blank' do
+      post '/api/register', valid_params.merge(email: '')
+      expect(last_response.status).to eq(422)
+      body = JSON.parse(last_response.body)
+      expect(body['detail'].first['msg']).to include('You have to enter a valid email address')
+    end
+
+    it 'returns 422 when email format is invalid' do
+      post '/api/register', valid_params.merge(email: 'notanemail')
+      expect(last_response.status).to eq(422)
+      body = JSON.parse(last_response.body)
+      expect(body['detail'].first['msg']).to include('You have to enter a valid email address')
+    end
+
+    it 'returns 422 for duplicate username' do
+      post '/api/register', valid_params
+      post '/api/register', valid_params.merge(email: 'other@example.com')
+      expect(last_response.status).to eq(422)
+      body = JSON.parse(last_response.body)
+      expect(body['detail'].first['msg']).to include('The username is already taken')
+    end
+
+    it 'stores password as bcrypt hash, not plaintext' do
+      post '/api/register', valid_params
+      user = User.find_by(username: 'testuser')
+      expect(user.password_digest).to start_with('$2a$')
+      expect(user.password_digest).not_to eq('secret123')
+    end
+  end
+
   describe 'GET /metrics' do
     # Build the full Rack stack with Prometheus middleware (as in config.ru)
     let(:full_app) do
