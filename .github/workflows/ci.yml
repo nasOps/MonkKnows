@@ -25,7 +25,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@09a7688d3b55cf0e976497ff046b70949eeaccfd
         with:
-          ruby-version: '3.2.3'
+          ruby-version: '3.2'
           bundler-cache: true
           working-directory: ruby-sinatra
 
@@ -50,7 +50,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@09a7688d3b55cf0e976497ff046b70949eeaccfd
         with:
-          ruby-version: '3.2.3'
+          ruby-version: '3.2'
           bundler-cache: true
           working-directory: ruby-sinatra
 
@@ -91,7 +91,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@09a7688d3b55cf0e976497ff046b70949eeaccfd
         with:
-          ruby-version: '3.2.3'
+          ruby-version: '3.2'
           bundler-cache: true
           working-directory: ruby-sinatra
 
@@ -176,12 +176,24 @@ jobs:
             exit 1
           fi
 
-      - name: Load database schema and run tsvector migration
+      - name: Create E2E database
+        run: |
+          docker compose -f docker-compose.dev.yml exec -T db \
+            psql -U monkknows -c "CREATE DATABASE monkknows_e2e;" || true
+          
+          sleep 2
+
+      # Resets DB to ensure a clean state for E2E tests
+      - name: Reset database and run migrations
         run: |
           docker compose -f docker-compose.dev.yml exec -T \
             -e RACK_ENV=e2e \
-            web bundle exec rake db:schema:load
-          docker compose -f docker-compose.dev.yml exec -T web ruby db/migrate_to_tsvector.rb
+            -e DB_NAME=monkknows_e2e \
+            web bundle exec rake db:drop db:create db:migrate
+
+          docker compose -f docker-compose.dev.yml exec -T \
+            -e RACK_ENV=e2e \
+            web ruby db/migrate_to_tsvector.rb
 
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
@@ -206,4 +218,4 @@ jobs:
 
       - name: Tear down app
         if: always()
-        run: docker compose -f docker-compose.dev.yml down
+        run: docker compose -f docker-compose.dev.yml down -v

@@ -10,7 +10,7 @@ test('existing user can login', async ({ page }) => {
     // Register a new user via API to be independent of DB state
     const ctx = await request.newContext({ baseURL: 'http://localhost:4567' });
     const setupResponse = await ctx.post('/api/register', {
-        data: { ...user, password2: user.password }
+        form: { ...user, password2: user.password }
     });
     // Fail fast if setup fails — otherwise login test fails for the wrong reason
     expect(setupResponse.ok()).toBeTruthy();

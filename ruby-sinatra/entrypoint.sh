@@ -26,7 +26,9 @@ echo "Database is ready!"
 echo "Running migrations..."
 bundle exec rake db:migrate
 
-echo "Running data migration (safe)..."
-bundle exec rake data:migrate_logs || true
+echo "Running data migration (non-critical)..."
+if ! bundle exec rake data:migrate_logs; then
+  echo "WARN: log migration failed — continuing startup" >&2
+fi
 
 exec bundle exec rackup config.ru -p 4567 -o 0.0.0.0

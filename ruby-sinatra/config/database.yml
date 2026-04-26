@@ -34,7 +34,7 @@ test:
 e2e:
   adapter: postgresql
   host: <%= ENV.fetch('DB_HOST', 'db') %>
-  database: <%= ENV.fetch('DB_NAME', 'monkknows_dev') %>
+  database: <%= ENV.fetch('DB_NAME', 'monkknows_e2e') %>
   username: <%= ENV.fetch('DB_USER', 'monkknows') %>
   password: <%= ENV.fetch('DB_PASSWORD', 'dev_password') %>
   pool: 5
