@@ -189,6 +189,10 @@ jobs:
             exit 1
           fi
 
+      - name: Debug logs
+        if: failure()
+        run: docker compose -f docker-compose.dev.yml logs web
+
       # Resets DB to ensure a clean state for E2E tests
       - name: Reset database and run migrations
         run: |
