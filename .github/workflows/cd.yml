@@ -147,10 +147,21 @@ jobs:
       - name: Run smoke test on production
         run: |
           URL="https://monkknows.dk"
-          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" -L $URL)
-          if [ $HTTP_STATUS -eq 200 ]; then
-            echo "✅ CD Smoke test passed (status: $HTTP_STATUS)"
-          else
-            echo "❌ CD Smoke test failed (status: $HTTP_STATUS)"
-            exit 1
-          fi
+
+          echo "Waiting for app to be ready..."
+
+          for i in $(seq 1 30); do
+            HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" -L $URL || echo "000")
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ CD Smoke test passed (status: $HTTP_STATUS)"
+              exit 0
+            fi
+
+            echo "Attempt $i: not ready (status: $HTTP_STATUS)"
+            sleep 2
+          done
+
+          echo "❌ CD Smoke test failed — app not ready in time"
+          exit 1
+              
