@@ -25,7 +25,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@09a7688d3b55cf0e976497ff046b70949eeaccfd
         with:
-          ruby-version: '3.2.3'
+          ruby-version: '3.3.2'
           bundler-cache: true
           working-directory: ruby-sinatra
 
@@ -176,11 +176,19 @@ jobs:
             exit 1
           fi
 
+      - name: Create E2E database
+        run: |
+          docker compose -f docker-compose.dev.yml exec -T db \
+            psql -U monkknows -c "CREATE DATABASE monkknows_e2e;" || true
+          
+          sleep 2
+
       # Resets DB to ensure a clean state for E2E tests
       - name: Reset database and run migrations
         run: |
           docker compose -f docker-compose.dev.yml exec -T \
             -e RACK_ENV=e2e \
+            -e DB_NAME=monkknows_e2e \
             web bundle exec rake db:drop db:create db:migrate
 
           docker compose -f docker-compose.dev.yml exec -T \
