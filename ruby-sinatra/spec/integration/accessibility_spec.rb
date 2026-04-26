@@ -81,7 +81,8 @@ RSpec.describe 'Accessibility' do
     before { get '/weather' }
 
     it 'has aria-hidden on decorative SVGs' do
-      expect(last_response.body).to include('aria-hidden="true"')
+      expect(last_response.body).to include('<svg class="wx-detail-icon"')
+      expect(last_response.body).to match(/<svg[^>]+aria-hidden="true"/)
     end
   end
 end
