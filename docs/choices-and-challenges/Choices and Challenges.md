@@ -2348,6 +2348,73 @@ Sofies logging-system bruger en separat SQLite-database via `LoggingBase`. Ved c
 - `__dir__` er `nil` i ERB/YAML-kontekst — brug aldrig `__dir__` i `database.yml`. Relative stier eller ENV-variabler er sikrere
 - Smoke tests i CD pipelinen fangede fejlen — uden dem ville vi først opdage det manuelt
 
+------
+
+## Tilgængelighed / Accessibility (Issue #242)
+
+### Context
+
+AAAAA!-gruppen gennemgik sitet og identificerede adskillige WCAG 2.1 Level AA-overtrædelser. Da projektet kører under Anders' simulator, som automatisk klikker på sitet og er afhængig af specifikke HTML-IDs (`id="search-input"`, `id="nav-login"` m.fl.), måtte rettelser ikke bryde disse kontrakter.
+
+## Session-cookies virker ikke bag nginx SSL-terminering
+
+Rette de kritiske tilgængelighedsfejl uden at ændre i den eksisterende HTML-struktur (IDs, class-navne, `name`-attributter, JavaScript-funktionsnavne) — og uden at tilføje nye routes eller backend-logik.
+
+Et særligt opmærksomhedspunkt var den custom language-dropdown, som er implementeret med `<button>` + `<ul>` i stedet for et native `<select>` (arvet fra Flask-versionen). Et sådant custom widget kræver ARIA-attributter for at være tilgængeligt for screen readers.
+
+Anders' simulator rapporterede daglige `e2e_error:can_log_in`-fejl: simulatoren kunne logge ind (200 OK fra `/api/login`) men fandt aldrig `#nav-logout`-linket på `/` efterfølgende — dvs. sessionen gik tabt mellem login-kaldet og næste sideload.
+
+14 problemer rettet (10 i initial PR, 4 efter code review):
+
+1. `lang="en"` tilføjet til `<html>` i `layout.erb`
+2. `role="status" aria-live="polite"` tilføjet til toast-notifikationen i `layout.erb`
+3. `<label for="...">` tilføjet til alle form-inputs i `login.erb` og `register.erb`
+4. Email-felt ændret til `type="email"` på register-formularen
+5. `role="search"` og visuelt skjult label (`.sr-only`) tilføjet til søgeformularen i `index.erb`
+6. `aria-expanded`, `aria-haspopup="listbox"`, `role="listbox"` tilføjet til custom dropdown i `index.erb`
+7. `aria-hidden="true"` og `focusable="false"` tilføjet til dekorative vejr-SVGs i `weather.erb`
+8. 3 kontrastfejl rettet i `style.css`:
+   - `#888` → `#666` (søgeresultater på lys baggrund: 3.72:1 → 4.88:1)
+   - `#888` → `#bbb` (footer-tekst på mørk baggrund: 4.03:1 → 8.68:1)
+   - `#5e81ac` → `#3d5a82` (vejrkort på blå baggrund: 3.08:1 → 5.27:1)
+9. `:focus-visible` outline tilføjet for keyboard-navigation
+10. `.sr-only` utility-klasse tilføjet til CSS
+11. Toast-elementet med `aria-live="polite"` pakket i en persistent wrapper — `display:none` på live-region-elementet selv forhindrer mange screen readers i at tracke opdateringer
+12. `clip: rect(0,0,0,0)` i `.sr-only` erstattet med `clip-path: inset(50%)` (deprecated CSS-property)
+13. `▾`-pilen i custom dropdown-knap lagt i `<span aria-hidden="true">` — tekst-glyffen blev annonceret af screen readers; `selectLanguage()` opdaterer nu kun text-noden fremfor `textContent` på hele knappen, så span bevares
+14. WeatherService-fejl logges nu med `logger.warn` — den stumme rescue gjorde API-fejl usynlige i produktion
+
+**Bevidste fravalg:**
+- `id="nav-logout"` beholdes på et `<a>`-element (ikke `<button>`) — simulatoren forventer dette ID på et anker-element
+- `reset_password.erb` ikke rettet — uden for issue-scope, markeret som fremtidig task
+- Ingen `<nav aria-label>` ARIA-landmark — lavt impact, udskudt
+- Custom listbox mangler fuld ARIA keyboard-interaktion (piltaster, Escape-tast) — WAI-ARIA APG kræver det teknisk for `role="listbox"`, men implementeringen kræver betydelig JS og er ikke en del af dette sprint; dropdown er en enkeltvalg-kontrol med kun ét reelt valg (English) og udgør et lavt impact-fravalg
+- Custom dropdown bruger `aria-label="Select language"` på knappen (ikke combobox-pattern med `role="combobox"`) — den eksisterende `aria-label` giver tilstrækkeligt accessible name; fuld combobox-implementering er ude af scope
+
+**Resultat:** Lighthouse Accessibility-score steg til **100/100** (verificeret 23. april 2026):
+
+![Lighthouse Accessibility 100/100](lighthouse-accessibility-100.png)
+
+### Fordele
+
+- Meningsfuld forbedring for screen reader- og keyboard-brugere uden at bryde simulatorkontrakten
+- Kontrastforbedringer hjælper alle brugere under skarpt lys
+- Tilgængelighed er nu testbar i CI via rack-test integration-tests (ingen browser nødvendig)
+- `.sr-only` er en genanvendelig utility-klasse til fremtidige behov
+
+### Ulemper
+
+- Custom dropdown ARIA-pattern er mere skrøbeligt end et native `<select>` — fremtidige JS-ændringer skal manuelt holde `aria-expanded` synkroniseret
+- Kontrastrettelserne i vejrkortet giver en lidt mørkere blå tone, som afviger fra det originale design
+
+### Læring
+
+- Tilgængelighed kan TDD-testes med rack-test på HTML-struktur — dette passer direkte ind i det eksisterende CI-flow
+- Simulatorkontrakter og tilgængelighed behøver ikke kollidere: IDs og `name`-attributter (API-kontrakten) er adskilt fra `label`/ARIA-attributter (tilgængelighed)
+- Kontrastforhold beregnes med WCAG's relative luminans-formel — man kan ikke vurdere kontrast visuelt med sikkerhed
+- Krydstjek mod legacy Flask-koden bekræftede at simulatoren bruger IDs, ikke CSS class-navne
+
+------
 
 ## Session-cookies virker ikke bag nginx SSL-terminering
 
@@ -2386,6 +2453,3 @@ Tilføjet `proxy_set_header X-Forwarded-Proto $scheme;` til `location /`-blokken
 - Fejlen var usynlig fra app-laget (200 OK, ingen exception) — den krævede inspektion af response-headers for at afsløre at `Set-Cookie` manglede
 
 **Læring:**
-
-
-------
