@@ -47,7 +47,7 @@ services:
     # Overrides CMD in Dockerfile to use rerun for hot-reloading
     command: >
       sh -c "bundle exec rake db:create
-      && (bundle exec rake db:schema:load || true)
+      && (RACK_ENV=development SKIP_TEST_DATABASE=1 bundle exec rake db:schema:load || true)
       && bundle exec rake db:migrate
       && (ruby db/migrate_to_tsvector.rb || true)
       && { bundle exec rackup config.ru -p 4567 -o 0.0.0.0 &
