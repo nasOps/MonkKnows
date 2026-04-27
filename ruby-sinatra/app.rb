@@ -438,6 +438,13 @@ class WhoknowsApp < Sinatra::Base
         return if last && now - last < ACTIVITY_THROTTLE_SECONDS
 
         ACTIVITY_THROTTLE[user_id] = now
+        # Opportunistic eviction: if the cache grows past 10k entries (well
+        # above our user count) prune anything older than the throttle window.
+        # Worst case: an evicted-too-early user gets one extra write.
+        if ACTIVITY_THROTTLE.size > 10_000
+          cutoff = now - ACTIVITY_THROTTLE_SECONDS
+          ACTIVITY_THROTTLE.delete_if { |_, t| t < cutoff }
+        end
       end
 
       begin

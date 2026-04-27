@@ -92,13 +92,13 @@
     },
     {
       "id": 21,
-      "title": "Churn (Users − MAU)",
+      "title": "Inactive Users (≥30d, proxy for churn)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
       "targets": [
         {
           "expr": "app_users_total{job=\"monkknows\"} - app_active_users_30d{job=\"monkknows\"}",
-          "legendFormat": "Churned users"
+          "legendFormat": "Inactive users"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short" } }
