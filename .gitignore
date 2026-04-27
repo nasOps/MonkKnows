@@ -97,3 +97,14 @@ backups/
 **/*.sqlite3-journal
 **/*.sqlite3-shm
 **/*.sqlite3-wal
+
+# ---- Claude setup (personal) ----
+docs/sofie-claude-setup.md
+.claude
+known_hosts_combined.txt
+
+# ---- Specs (personal planning notes) ----
+docs/specs/**
+
+# ---- Ruby coverage reports ----
+ruby-sinatra/coverage/
