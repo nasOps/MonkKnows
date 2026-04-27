@@ -46,6 +46,14 @@ class WeatherService
     end
 
     response = call_api(city, api_key)
+
+    unless response.is_a?(Net::HTTPSuccess)
+      ERRORS.increment(labels: { error_type: "http_#{response.code}" })
+      return @cache if @cache
+
+      raise "Weather API error: #{response.code}"
+    end
+
     @cache = parse_response(response)
     @cached_at = Time.now
     @cache
@@ -59,13 +67,7 @@ class WeatherService
     response = nil
     duration = Benchmark.realtime { response = Net::HTTP.get_response(uri) }
     DURATION.observe(duration)
-
-    return response if response.is_a?(Net::HTTPSuccess)
-
-    ERRORS.increment(labels: { error_type: "http_#{response.code}" })
-    return @cache if @cache
-
-    raise "Weather API error: #{response.code}"
+    response
   end
 
   def self.parse_response(response)
