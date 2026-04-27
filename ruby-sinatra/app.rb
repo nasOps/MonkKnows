@@ -64,6 +64,12 @@ class WhoknowsApp < Sinatra::Base
     docstring: 'Total number of unhandled exceptions, labeled by path and error class',
     labels: %i[path error_class]
   )
+  RESPONSE_SIZE = PROMETHEUS.histogram(
+    :app_response_size_bytes,
+    docstring: 'Response body size in bytes, labeled by path',
+    labels: [:path],
+    buckets: [128, 512, 2_048, 8_192, 32_768, 131_072, 524_288, 2_097_152]
+  )
 
   # In-memory throttle cache for user activity writes — at most one
   # user_activity_logs row per user per ACTIVITY_THROTTLE_SECONDS.
@@ -146,6 +152,11 @@ class WhoknowsApp < Sinatra::Base
   after do
     # Calcutes request duration in milliseconds with 2 decimal places
     duration = ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
+
+    # Observe response size for every request (heavy endpoints become visible
+    # in the dashboard's response_size p95 panel)
+    size = response.content_length
+    RESPONSE_SIZE.observe(size, labels: { path: request.path_info }) if size
 
     # Fetches the search query from params and normalizes it (nil if empty)
     query = params[:q].to_s.strip
