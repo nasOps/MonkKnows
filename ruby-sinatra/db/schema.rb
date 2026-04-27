@@ -10,9 +10,21 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_04_24_095720) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_27_100001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "exception_logs", force: :cascade do |t|
+    t.string "path"
+    t.string "http_method"
+    t.string "error_class"
+    t.text "error_message"
+    t.string "first_frame"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_exception_logs_on_created_at"
+    t.index ["error_class"], name: "index_exception_logs_on_error_class"
+  end
 
   create_table "pages", primary_key: "title", id: :text, force: :cascade do |t|
     t.text "url", null: false
@@ -33,6 +45,15 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_24_095720) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["created_at"], name: "index_search_logs_on_created_at"
+  end
+
+  create_table "user_activity_logs", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "path"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_user_activity_logs_on_created_at"
+    t.index ["user_id", "created_at"], name: "index_user_activity_logs_on_user_id_and_created_at"
   end
 
   create_table "users", force: :cascade do |t|
