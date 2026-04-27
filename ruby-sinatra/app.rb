@@ -77,6 +77,19 @@ class WhoknowsApp < Sinatra::Base
   ACTIVITY_THROTTLE_MUTEX = Mutex.new
   ACTIVITY_THROTTLE_SECONDS = 5 * 60
 
+  # Allow-list of app routes — used to bound Prometheus label cardinality.
+  # Anything outside this set (404 scanners, /wp-admin/*, /.env etc.) collapses
+  # into 'other', so EXCEPTIONS_TOTAL{path=...} and RESPONSE_SIZE{path=...}
+  # don't accumulate one series per scanner-path forever.
+  KNOWN_PATHS = %w[
+    / /api/search /api/login /api/register /api/logout /api/weather
+    /health /hello /login /register /weather /logout /metrics
+  ].freeze
+
+  def self.normalize_path(path)
+    KNOWN_PATHS.include?(path) ? path : 'other'
+  end
+
   # Update gauges every 60 seconds in a background thread.
   # Lives outside Puma's request path so DB queries don't add request latency.
   unless ENV['RACK_ENV'] == 'test'
@@ -156,7 +169,7 @@ class WhoknowsApp < Sinatra::Base
     # Observe response size for every request (heavy endpoints become visible
     # in the dashboard's response_size p95 panel)
     size = response.content_length
-    RESPONSE_SIZE.observe(size, labels: { path: request.path_info }) if size
+    RESPONSE_SIZE.observe(size, labels: { path: self.class.normalize_path(request.path_info) }) if size
 
     # Fetches the search query from params and normalizes it (nil if empty)
     query = params[:q].to_s.strip
@@ -452,7 +465,9 @@ class WhoknowsApp < Sinatra::Base
     @exception_class = err.class.name
     first_frame = err.backtrace&.first&.sub(%r{^.*/(?=[^/]+:[0-9]+)}, '')
 
-    EXCEPTIONS_TOTAL.increment(labels: { path: request.path_info, error_class: @exception_class })
+    EXCEPTIONS_TOTAL.increment(
+      labels: { path: self.class.normalize_path(request.path_info), error_class: @exception_class }
+    )
 
     begin
       ExceptionLog.create(
