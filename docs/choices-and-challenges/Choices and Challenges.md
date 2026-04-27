@@ -2452,4 +2452,191 @@ Tilføjet `proxy_set_header X-Forwarded-Proto $scheme;` til `location /`-blokken
 - SSL-terminerende reverse proxies skal altid forwarde `X-Forwarded-Proto` til backenden, ellers er sikre cookies ubrugelige
 - Fejlen var usynlig fra app-laget (200 OK, ingen exception) — den krævede inspektion af response-headers for at afsløre at `Set-Cookie` manglede
 
-**Læring:**
+------
+
+## E2E-test fejl ved DB-startup-rækkefølge i CI (PR #264)
+
+### Context
+
+Sofie åbnede PR #264 (`migration-sqliteDB`) med titlen "Migration sqlite db" for at fixe Playwright E2E-tests der fejlede i CI med:
+
+```
+PG::ConnectionBad: connection to server at "172.18.0.2", port 5432 failed:
+FATAL: database "monkknows_e2e" does not exist
+ActiveRecord::NoDatabaseError: We could not find your database: monkknows_e2e
+```
+
+Den oprindelige CI-flow startede `web` og `db` parallelt via `docker compose up -d --build`, og forsøgte at oprette `monkknows_e2e` databasen *efter* `web` allerede var startet — race condition hvor app'en crashede før DB'en eksisterede.
+
+### Challenge
+
+PR'en blandede flere problemer som tog tid at unravle:
+
+1. **Stille fejl i `psql`-kommandoen.** CI-stepet kørte:
+   ```yaml
+   docker compose ... exec -T db \
+     psql -U monkknows -c "CREATE DATABASE monkknows_e2e;" || true
+   ```
+   `psql` defaulter til at connecte til en database der hedder samme som brugeren (`monkknows`) når `-d` mangler. Den eksisterende DB hed `monkknows_dev` — så psql fejlede med `database "monkknows" does not exist`, og `|| true` skjulte fejlen. CREATE DATABASE blev aldrig kørt.
+
+2. **Compose mangler `db:create`.** `docker-compose.dev.yml` startede `web` med `(rake db:schema:load || true) && rake db:migrate` — ingen `db:create`. Selv hvis psql-stepet blev fjernet, ville web crashe fordi DB'en ikke fandtes.
+
+3. **`DB_NAME` defineret tre steder.** Værdien `monkknows_e2e` blev sat i `.env`, som inline shell-prefix på `up -d web`, og i compose som `${DB_NAME:-monkknows_dev}`. Skrøbeligt — divergens ville være lydløs.
+
+4. **Scope-blanding.** PR'en indeholdt også `schema.rb`-ændring der tilføjede `tsv` tsvector-kolonne + GIN index `idx_pages_tsv` på `pages`. Den ændring hører til FTS-arbejdet (PR #235), ikke E2E-fixen. Verificeret på prod (VM2): tsvector er allerede live — alle 51 pages har `tsv` populated.
+
+5. **Misvisende PR-titel.** "Migration sqlite db" beskrev ikke at PR'en fixer E2E-DB-startup-rækkefølge. CodeRabbit's title-check fangede det som inconclusive.
+
+### Choice
+
+**Beslutning: bevare PR #264 og fixe i compose-laget i stedet for at re-arkitekte CI.**
+
+Sofie havde allerede commits af værdi på branchen (Promise.all-pattern i Playwright-test, failure-only debug-logs). Vi rettede de tre kerneproblemer direkte ved at flytte DB-oprettelse ind i compose-startup, så CI ikke længere skal orkestrere DB-livscyklus eksplicit.
+
+### Resolution (commit 9c5a593, 27/4-2026)
+
+**Ændringer i `docker-compose.dev.yml`:**
+
+```diff
+  command: >
+-   sh -c "(bundle exec rake db:schema:load || true)
++   sh -c "bundle exec rake db:create
+    && bundle exec rake db:migrate
+    && (ruby db/migrate_to_tsvector.rb || true)
+```
+
+`rake db:create` er idempotent — opretter DB hvis den mangler, no-op hvis den findes. Erstatter den fragile `db:schema:load || true`-kombo der maskerede manglende DB.
+
+**Ændringer i `.github/workflows/ci.yml`:**
+
+Tre trin (`Start database`, `Create E2E database`, `Start app`) blev kollapset til ét. Den fejlende `psql -U monkknows -c "CREATE DATABASE ..."`-kommando blev slettet — den var grunden til hele bug'en.
+
+```diff
+- # At first only start the DB
+- - name: Start database
+-   run: docker compose -f docker-compose.dev.yml up -d --wait db
+-
+- # Create DB before app is running
+- - name: Create E2E database
+-   run: |
+-     docker compose -f docker-compose.dev.yml exec -T db \
+-       psql -U monkknows -c "CREATE DATABASE monkknows_e2e;" || true
+-
+- # Run app after DB is created
+- - name: Start app
+-   run: |
+-     DB_NAME=monkknows_e2e docker compose -f docker-compose.dev.yml up -d --build web
++ # Start db + web in one go: depends_on with service_healthy ensures
++ # db is ready before web boots, and web's startup runs db:create + db:migrate.
++ - name: Start app
++   run: DB_NAME=monkknows_e2e docker compose -f docker-compose.dev.yml up -d --wait --build
+```
+
+`Wait for app` curl-loop'en er bibeholdt fordi `web`-servicen ikke har en healthcheck — `--wait` returnerer derfor så snart containeren kører, ikke når puma faktisk lytter. Curl-pollet på `/health` sikrer at app'en er klar før Playwright kører.
+
+**Ikke-ændret i denne fix:**
+
+- `DB_NAME` står stadig både i `.env` og som inline shell-prefix. Compose's `${DB_NAME:-monkknows_dev}`-substitution læses fra shell ved compose-parse-tid, ikke fra `env_file` — så inline-prefix er nødvendigt. Ikke et bug, men dokumenteret nu.
+- Tsvector schema-ændringen i `schema.rb` blev i samme PR. Den er allerede live på prod (verificeret: alle 51 pages har `tsv` populated på VM2), og `schema.rb` skal matche prod for at fremtidige `db:schema:load`-kald virker.
+- PR-titel ændret til `fix: ensure E2E database exists before app startup` så CodeRabbit's title-check passerer.
+
+### Iterationer & lessons learned
+
+Resolutionen tog **tre commits** før CI blev grøn. Den faktiske rejse er værd at dokumentere fordi den afslørede skjult teknisk gæld i codebasen.
+
+**Iteration 1 — `9c5a593`: kollaps og forenkling.** Erstattede `(rake db:schema:load || true)` med `rake db:create` i compose, kollapset CI's tre startup-trin (Start database, Create E2E database, Start app) til ét `up -d --wait --build`. Fejlen flyttede sig: ny PG-fejl på Reset-stepet:
+
+```
+PG::ObjectInUse: ERROR: database "monkknows_e2e" is being accessed by other users
+DETAIL: There is 1 other session using the database.
+```
+
+Den oprindelige Reset (`db:drop db:create db:migrate`) virkede tidligere kun fordi DB'en ikke fandtes (intet at droppe = intet at fejle på). Med korrekt DB-oprettelse holdt puma åbne connections, og PostgreSQL nægter at droppe en DB med aktive sessions.
+
+**Iteration 2 — `8cebca6`: fjerne det redundante.** Slettede hele Reset-stepet. Compose's web-startup gør allerede præcis det samme (`db:create + db:migrate + migrate_to_tsvector`) mod en frisk `pgdata`-volume per CI-kørsel. Reset var defensivt mod leftover state der per definition ikke kan eksistere i CI. Tests kom nu helt igennem til Playwright-eksekvering: 2 passerede, 3 fejlede (login.spec, register.spec, search.spec — alle på API-niveau).
+
+**Iteration 3 — `4b3c447`: roden.** `grep ruby-sinatra/db/migrate/*.rb` afslørede at der findes præcis ÉN migrationsfil: `20260424095720_create_search_logs.rb`. **`users` og `pages`-tabellerne lever udelukkende i `schema.rb`** — der er aldrig skrevet migrations for dem (legacy fra Python→Ruby-rewrite). Da iteration 1 erstattede `db:schema:load` med `db:create`, kom DB'en op med kun `search_logs`-tabellen. Web startede healthy fordi puma ikke tjekker tabel-eksistens proaktivt — fejlen blev først synlig når testene ramte `/api/register` og `/`-routen.
+
+Fix: tilføj `db:create` *før* `db:schema:load` (som blev restoreret). En enkelt linje i compose:
+
+```diff
+  command: >
+    sh -c "bundle exec rake db:create
++   && (bundle exec rake db:schema:load || true)
+    && bundle exec rake db:migrate
+    && (ruby db/migrate_to_tsvector.rb || true)
+```
+
+### Læring
+
+- **`|| true` skjuler fejl** — psql-stepet fejlede stille i 2+ uger fordi `|| true` swallowed exit-code. Symptomet (DB findes ikke) optrådte 2 minutter senere i en helt anden container. Vi beholder `|| true` på `migrate_to_tsvector` (idempotens) men ikke på CRUD der *skal* lykkes.
+- **`psql -U <user>` uden `-d` connecter til DB med samme navn som brugeren.** Specifér altid `-d` ved scripted brug. Default-adfærden er en gotcha der koster CI-tid.
+- **Docker compose's `--wait` returnerer så snart container er "running"** — ikke når processen lytter. Hvis service mangler `healthcheck:`, har du brug for ekstern polling (curl-loop på `/health`). Vores `web` har ingen healthcheck — opfølgnings-issue.
+- **Compose's `${VAR:-default}`-substitution læses fra shell, ikke fra `env_file`.** CodeRabbit foreslog at fjerne inline `DB_NAME=` shell-prefix og lade `.env` være single source — det ville have brudt CI fordi compose ikke ser shell-vars derfra. Værd at huske ved fremtidige refaktoreringer.
+- **`db:migrate` ≠ `db:schema:load`.** På Rails-projekter med komplette migrations er forskellen kun teoretisk. På denne codebase (legacy Python-rewrite med kun én migration) er `schema.rb` den eneste kilde til de fleste tabeller. Hvis `db:schema:load` fjernes, kommer DB'en op tom på alt undtagen `search_logs`. Synlig som tom GitHub Actions-fejl, ikke som compose-fejl.
+- **Iteration som debug-strategi virker.** Tre commits, tre forskellige fejl, tre lag der pegede ind mod kernen. Hver iteration eliminerede én klasse af fejl og afslørede den næste. Force-push til ren commit-historik ville have skjult denne læring.
+
+### Synliggjort teknisk gæld (ikke fixet i denne PR)
+
+1. **Manglende migrations** for `users` og `pages`. Codebasen er afhængig af `db:schema:load` for opbygning, hvilket gør `db:migrate` på en frisk DB ufuldstændig. Bør skrives `CreateUsers` og `CreatePages`-migrations som opfølgnings-issue.
+2. **`web` mangler healthcheck** i compose. `--wait` er ikke pålideligt uden — vi kompenserer med curl-poll i CI.
+3. **`playwright.config.js` er stripped** — kun `baseURL`. Mangler `webServer`, `retries: process.env.CI ? 2 : 0`, `trace: 'on-first-retry'`, `globalSetup`. Et separat issue om Playwright-modning er værd at oprette.
+
+### Læring
+
+- `|| true` skjuler fejl der manifesterer sig længere fremme i pipelinen. Kun acceptabelt på kommandoer hvor failure er forventet (fx idempotent cleanup) — *ikke* på setup-trin.
+- `psql -U <user>` uden `-d` connecter til en database med samme navn som brugeren. Specifér altid `-d` ved scripted brug.
+- Docker compose service-startup-rækkefølge styres af `depends_on` med `condition: service_healthy` — opbyg ordering der, ikke i CI-jobs.
+- Én PR = ét scope. Schema-doc-ændringer (allerede live på prod) blandet med workflow-fix gør reviews dyrere og blokerer merges.
+- CodeRabbit-reviews er værd at læse — de fangede alle tre kerneproblemer (redundant DB-creation, DB_NAME-divergens, stale commented-out kode) før vi gjorde.
+- Trunk-based development hos os: PRs targeter `main` direkte. Et hint i Claude's gitStatus foreslog `development` som base — det er forkert.
+
+------
+
+## Logging DB-migration: SQLite → PostgreSQL (gennemført 26/4-2026)
+
+### Context
+
+Logging-systemet (search_logs) skrev til en separat SQLite-database på VM1 (`/opt/whoknows/data/logging/logging.sqlite3`). Plot-server-stress-testen ugen før eksamen forventes at generere betydelig samtidig skrivelast, og SQLite's single-writer-lock var en risiko for at blive flaskehals i den selvsamme observability vi byggede op til at vise dem.
+
+### Challenge
+
+Tre bevægende dele:
+
+1. **SQLite single-writer-lock under stress.** Puma multi-worker setup med flere processer der skriver til `search_logs` ved hver request — kun én writer ad gangen i SQLite gør det til en bottleneck under last.
+2. **Datamigration uden tab.** 3377 eksisterende search-log-rækker skulle flyttes til PostgreSQL uden at miste data, og uden at appen skulle stoppes længere end nødvendigt.
+3. **Idempotens.** Migrationen kører ved hver container-start. Den må ikke duplikere rækker hvis den kører igen, og må ikke crashe hvis kildefilen mangler.
+
+### Choice
+
+**Beslutning:** Rake-task `data:migrate_logs` i `lib/tasks/migrate_logs.rake` der gør tre ting i transaktionel rækkefølge:
+
+1. Læs alle rows fra SQLite (`SQLite3::Database#execute`)
+2. Indsæt i PostgreSQL via `SearchLog.create!` (samme `monkknows` DB som hovedapp'en, schema `public`)
+3. Omdøb kildefilen `logging.sqlite3` → `logging.sqlite3.bak` med `File.rename` så ingen skriver til den igen
+
+Beskyttelsesmekanismer:
+
+```ruby
+unless File.exist?(sqlite_path)
+  puts "No SQLite file found at #{sqlite_path}"
+  next  # ingen kildedata = ikke noget at migrere
+end
+
+if SearchLog.exists?
+  puts 'Already migrated — skipping'
+  next  # PG har allerede data = migration er kørt
+end
+```
+
+**Eksekvering:** Kørt 2026-04-26 11:04:30 UTC. WAL flushede 9 sekunder senere (clean shutdown). Container redeployet 13:38 — siden da kører tasken som no-op ved hver start (`No SQLite file found at /app/db/logging/logging.sqlite3`).
+
+**Verificering:** 3377 rows i `search_logs` på Postgres VM2. Backup `.bak`-filen ligger stadig på VM1 i `/opt/whoknows/data/logging/` (491K) som sikkerhedsnet.
+
+### Læring
+
+- `File.rename` bevarer inode og dermed `Birth`-timestamp på Linux ext4 — så `.bak`-filen "ser ud" til at være født før den blev døbt om. Stat-output viste `Birth: 2026-04-21` (oprindelig oprettelse) men `Modify: 2026-04-26 11:04` (rename-tidspunkt).
+- Idempotent migration der kører ved hver start er sikrere end engangs-script: hvis container restart sker midt i en deploy, fortsætter migrationen automatisk — eller skipper hvis den allerede er færdig.
+- Stub-filer i kildekoden bør ikke have samme navn som produktionsfiler. `/app/db/logging.sqlite3.bak` (12K, anden sha256) ligger committet i repo'et og blev ved deploy lagt ind i container-image'et — kan forveksles med den rigtige backup på VM1's volume mount.
+- Tre logging-tabeller var planlagt (`search_logs`, `user_activity_logs`, `exception_logs`) — kun `search_logs` er bygget. De to andre kan nu bygges direkte på PG uden den dobbelte abstraktion `LoggingBase` der var nødvendig for SQLite-separation.
+- Backup-strategi forenkles: `db_backup.sh` på VM1 til SQLite-logs er nu redundant. Logs er dækket af pg_dump-backup på VM2 (daglig 03:00 → kopi til VM1 offsite).

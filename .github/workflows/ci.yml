@@ -156,10 +156,15 @@ jobs:
           echo "SESSION_SECRET=${{ secrets.SESSION_SECRET || 'ci_test_secret_key_not_for_production_use_1234567890' }}" > ruby-sinatra/.env
           echo "OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY || 'dummy_key_for_ci' }}" >> ruby-sinatra/.env
           echo "RACK_ENV=e2e" >> ruby-sinatra/.env
+          echo "DB_NAME=monkknows_e2e" >> ruby-sinatra/.env
 
-      - name: Start app with Docker Compose
-        run: docker compose -f docker-compose.dev.yml up -d --build
+      # Start db + web in one go: depends_on with service_healthy ensures
+      # db is ready before web boots, and web's startup runs db:create + db:migrate.
+      - name: Start app
+        run: DB_NAME=monkknows_e2e docker compose -f docker-compose.dev.yml up -d --wait --build
 
+      # Web has no healthcheck, so --wait only confirms the container is running.
+      # Poll /health to confirm puma is actually listening before we run tests.
       - name: Wait for app
         run: |
           healthy=0
@@ -176,24 +181,14 @@ jobs:
             exit 1
           fi
 
-      - name: Create E2E database
-        run: |
-          docker compose -f docker-compose.dev.yml exec -T db \
-            psql -U monkknows -c "CREATE DATABASE monkknows_e2e;" || true
-          
-          sleep 2
+      - name: Debug logs
+        if: failure()
+        run: docker compose -f docker-compose.dev.yml logs web
 
-      # Resets DB to ensure a clean state for E2E tests
-      - name: Reset database and run migrations
-        run: |
-          docker compose -f docker-compose.dev.yml exec -T \
-            -e RACK_ENV=e2e \
-            -e DB_NAME=monkknows_e2e \
-            web bundle exec rake db:drop db:create db:migrate
-
-          docker compose -f docker-compose.dev.yml exec -T \
-            -e RACK_ENV=e2e \
-            web ruby db/migrate_to_tsvector.rb
+      # No explicit reset step: compose's web startup already runs
+      # rake db:create + db:migrate + migrate_to_tsvector against a
+      # fresh pgdata volume on every CI run. db:drop here would fail
+      # anyway because puma holds open connections to monkknows_e2e.
 
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f

@@ -26,8 +26,13 @@ jobs:
           echo "SESSION_SECRET=$(openssl rand -hex 32)" > ruby-sinatra/.env
           echo "OPENWEATHER_API_KEY=dummy_key_for_ci" >> ruby-sinatra/.env
 
-      - name: Start app with Docker Compose
-        run: docker compose -f docker-compose.dev.yml up -d --build
+      # Start DB first and wait for it to be healthy
+      - name: Start database
+        run: docker compose -f docker-compose.dev.yml up -d --wait db
+
+      # Start web after DB is ready
+      - name: Start app
+        run: docker compose -f docker-compose.dev.yml up -d --build web
 
       - name: Wait for app to be ready
         run: |

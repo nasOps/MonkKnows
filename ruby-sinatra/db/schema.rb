@@ -19,6 +19,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_24_095720) do
     t.text "language", default: "en", null: false
     t.datetime "last_updated", precision: nil
     t.text "content", null: false
+    t.tsvector "tsv"
+    t.index ["tsv"], name: "idx_pages_tsv", using: :gin
   end
 
   create_table "search_logs", force: :cascade do |t|
