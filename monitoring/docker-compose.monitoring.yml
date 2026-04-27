@@ -9,9 +9,25 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=90d'
+    extra_hosts:
+      # Required to reach node_exporter (host network mode) on the same VM
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.50
+
+  node_exporter:
+    image: prom/node-exporter:v1.8.2
+    pid: host
+    network_mode: host
+    volumes:
+      - /:/rootfs:ro,rslave
+    command:
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.10
 
   grafana:
     image: grafana/grafana:11.6.0

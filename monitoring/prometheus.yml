@@ -10,3 +10,17 @@ scrape_configs:
       - targets: ['monkknows.dk']
         labels:
           environment: 'production'
+
+  # Host metrics from node_exporter on both VMs (port 9100)
+  # VM2 is reached via host network on the same machine; VM1 via public IP
+  # (Azure NSG must permit VM2 -> VM1:9100).
+  - job_name: 'node'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+        labels:
+          host: 'vm2'
+          role: 'db-monitoring'
+      - targets: ['4.225.161.111:9100']
+        labels:
+          host: 'vm1'
+          role: 'app'
