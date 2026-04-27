@@ -44,13 +44,63 @@ class WhoknowsApp < Sinatra::Base
     docstring: 'Total number of searches that returned no results',
     labels: []
   )
+  SEARCH_RESULT_COUNT = PROMETHEUS.histogram(
+    :app_search_result_count,
+    docstring: 'Distribution of result counts returned by searches',
+    labels: [],
+    buckets: [0, 1, 2, 5, 10, 20, 50, 100]
+  )
+  ACTIVE_USERS_1D = PROMETHEUS.gauge(
+    :app_active_users_1d, docstring: 'Distinct users active in the last 24h (DAU)', labels: []
+  )
+  ACTIVE_USERS_7D = PROMETHEUS.gauge(
+    :app_active_users_7d, docstring: 'Distinct users active in the last 7 days (WAU)', labels: []
+  )
+  ACTIVE_USERS_30D = PROMETHEUS.gauge(
+    :app_active_users_30d, docstring: 'Distinct users active in the last 30 days (MAU)', labels: []
+  )
+  EXCEPTIONS_TOTAL = PROMETHEUS.counter(
+    :app_exceptions_total,
+    docstring: 'Total number of unhandled exceptions, labeled by path and error class',
+    labels: %i[path error_class]
+  )
+  RESPONSE_SIZE = PROMETHEUS.histogram(
+    :app_response_size_bytes,
+    docstring: 'Response body size in bytes, labeled by path',
+    labels: [:path],
+    buckets: [128, 512, 2_048, 8_192, 32_768, 131_072, 524_288, 2_097_152]
+  )
 
-  # Update user count gauge every 60 seconds in a background thread
+  # In-memory throttle cache for user activity writes — at most one
+  # user_activity_logs row per user per ACTIVITY_THROTTLE_SECONDS.
+  ACTIVITY_THROTTLE = {} # rubocop:disable Style/MutableConstant
+  ACTIVITY_THROTTLE_MUTEX = Mutex.new
+  ACTIVITY_THROTTLE_SECONDS = 5 * 60
+
+  # Allow-list of app routes — used to bound Prometheus label cardinality.
+  # Anything outside this set (404 scanners, /wp-admin/*, /.env etc.) collapses
+  # into 'other', so EXCEPTIONS_TOTAL{path=...} and RESPONSE_SIZE{path=...}
+  # don't accumulate one series per scanner-path forever.
+  KNOWN_PATHS = %w[
+    / /api/search /api/login /api/register /api/logout /api/weather
+    /health /hello /login /register /weather /logout /metrics
+  ].freeze
+
+  def self.normalize_path(path)
+    KNOWN_PATHS.include?(path) ? path : 'other'
+  end
+
+  # Update gauges every 60 seconds in a background thread.
+  # Lives outside Puma's request path so DB queries don't add request latency.
   unless ENV['RACK_ENV'] == 'test'
     Thread.new do
       loop do
         ActiveRecord::Base.connection_pool.with_connection do
           USERS_TOTAL.set(User.count)
+          now = Time.now
+          ACTIVE_USERS_1D.set(UserActivityLog.where('created_at > ?', now - 86_400).distinct.count(:user_id))
+          ACTIVE_USERS_7D.set(UserActivityLog.where('created_at > ?', now - (7 * 86_400)).distinct.count(:user_id))
+          ACTIVE_USERS_30D.set(UserActivityLog.where('created_at > ?', now - (30 * 86_400)).distinct.count(:user_id))
         end
       rescue StandardError => e
         warn "Prometheus gauge error: #{e.message}"
@@ -91,6 +141,7 @@ class WhoknowsApp < Sinatra::Base
     request.env['sinatra.route_start_time'] = Time.now
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
+    track_user_activity
 
     # Parse JSON body og merge ind i params
     # Begrænset til POST requests da GET aldrig sender JSON body
@@ -115,23 +166,28 @@ class WhoknowsApp < Sinatra::Base
     # Calcutes request duration in milliseconds with 2 decimal places
     duration = ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
 
+    # Observe response size for every request (heavy endpoints become visible
+    # in the dashboard's response_size p95 panel)
+    size = response.content_length
+    RESPONSE_SIZE.observe(size, labels: { path: self.class.normalize_path(request.path_info) }) if size
+
     # Fetches the search query from params and normalizes it (nil if empty)
     query = params[:q].to_s.strip
     query = nil if query.empty?
 
-    # Saves the logging from search queries (from routes "/" and "/api/search") to SQLite DB
+    # Saves the logging from search queries (from routes "/" and "/api/search") to PG
     if query && ['/', '/api/search'].include?(request.path_info)
+      SEARCH_RESULT_COUNT.observe(@result_count) if @result_count
       begin
         SearchLog.create(
-          query: query, # Saves to DB
-          path: request.path_info, # Search from the user
-          http_method: request.request_method, # Should only be GET
-          status: response.status, # HTTP status to analyse successful vs failed searches
-          # Logs unique users
-          ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15], # Salted hash of IP address
-          duration_ms: duration # Search duration is logged to analyse performance and find slow queries
+          query: query,
+          path: request.path_info,
+          http_method: request.request_method,
+          status: response.status,
+          ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15],
+          duration_ms: duration,
+          result_count: @result_count
         )
-        # Prevents app from crashing if logging fails - logs the error message instead
       rescue StandardError => e
         logger.error("Failed to log search: #{e.message}")
       end
@@ -142,10 +198,15 @@ class WhoknowsApp < Sinatra::Base
       method: request.request_method,
       path: request.path_info,
       status: response.status,
-      ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15], # Salted hash of IP address
+      ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15],
       user: session[:user_id] ? Digest::SHA256.hexdigest(session[:user_id].to_s)[0..7] : nil,
       duration_ms: ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2),
-      query: (params[:q].strip if params[:q] && !params[:q].strip.empty?)
+      query: (params[:q].strip if params[:q] && !params[:q].strip.empty?),
+      user_agent: request.user_agent,
+      referer: request.referer,
+      response_size: response.content_length,
+      result_count: @result_count,
+      exception: @exception_class
     }.compact
     logger.info(log_data.to_json)
   end
@@ -168,6 +229,7 @@ class WhoknowsApp < Sinatra::Base
                else
                  []
                end
+    @result_count = @results.length if @q && !@q.strip.empty?
 
     erb :index
   end
@@ -228,6 +290,7 @@ class WhoknowsApp < Sinatra::Base
       SEARCHES_TOTAL.increment
       search_results = Page.search(q, language: language)
       SEARCH_ZERO_RESULTS.increment if search_results.empty?
+      @result_count = search_results.length
 
       status 200
       {
@@ -360,6 +423,36 @@ class WhoknowsApp < Sinatra::Base
     def logged_in?
       !current_user.nil?
     end
+
+    # Writes one user_activity_logs row per user per ACTIVITY_THROTTLE_SECONDS.
+    # No-op if not logged in or if a row was already written within the window.
+    # In-memory cache is per-process; with N puma workers we get at most N
+    # writes per user per window — acceptable noise for DAU/WAU/MAU accuracy.
+    def track_user_activity
+      return unless @current_user
+
+      user_id = @current_user.id
+      now = Time.now
+      ACTIVITY_THROTTLE_MUTEX.synchronize do
+        last = ACTIVITY_THROTTLE[user_id]
+        return if last && now - last < ACTIVITY_THROTTLE_SECONDS
+
+        ACTIVITY_THROTTLE[user_id] = now
+        # Opportunistic eviction: if the cache grows past 10k entries (well
+        # above our user count) prune anything older than the throttle window.
+        # Worst case: an evicted-too-early user gets one extra write.
+        if ACTIVITY_THROTTLE.size > 10_000
+          cutoff = now - ACTIVITY_THROTTLE_SECONDS
+          ACTIVITY_THROTTLE.delete_if { |_, t| t < cutoff }
+        end
+      end
+
+      begin
+        UserActivityLog.create(user_id: user_id, path: request.path_info)
+      rescue StandardError => e
+        logger.error("Failed to log user activity: #{e.message}")
+      end
+    end
   end
 
   ################################################################################
@@ -374,6 +467,26 @@ class WhoknowsApp < Sinatra::Base
   error do
     content_type :json
     status 500
+
+    err = env['sinatra.error']
+    @exception_class = err.class.name
+    first_frame = err.backtrace&.first&.sub(%r{^.*/(?=[^/]+:[0-9]+)}, '')
+
+    EXCEPTIONS_TOTAL.increment(
+      labels: { path: self.class.normalize_path(request.path_info), error_class: @exception_class }
+    )
+
+    begin
+      ExceptionLog.create(
+        path: request.path_info,
+        http_method: request.request_method,
+        error_class: @exception_class,
+        error_message: err.message&.slice(0, 500),
+        first_frame: first_frame
+      )
+    rescue StandardError => e
+      logger.error("Failed to log exception: #{e.message}")
+    end
   end
 
   run! if app_file == $PROGRAM_NAME

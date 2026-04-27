@@ -2640,3 +2640,50 @@ end
 - Stub-filer i kildekoden bør ikke have samme navn som produktionsfiler. `/app/db/logging.sqlite3.bak` (12K, anden sha256) ligger committet i repo'et og blev ved deploy lagt ind i container-image'et — kan forveksles med den rigtige backup på VM1's volume mount.
 - Tre logging-tabeller var planlagt (`search_logs`, `user_activity_logs`, `exception_logs`) — kun `search_logs` er bygget. De to andre kan nu bygges direkte på PG uden den dobbelte abstraktion `LoggingBase` der var nødvendig for SQLite-separation.
 - Backup-strategi forenkles: `db_backup.sh` på VM1 til SQLite-logs er nu redundant. Logs er dækket af pg_dump-backup på VM2 (daglig 03:00 → kopi til VM1 offsite).
+
+------
+
+## node_exporter eksponering: NSG-only vs TLS+auth (PR #269)
+
+### Context
+
+Pillar 5 i monitoring-spec'en kræver host-metrics fra begge VMs. Vi deployerer `prom/node-exporter` på VM1 (app-host) og VM2 (db+monitoring-host), og Prometheus på VM2 skal scrape begge på port 9100.
+
+VM2 → VM2 er let (`host.docker.internal:9100` via host-gateway). VM2 → VM1 går over public Azure-bagbone fordi de to VMs ikke deler en VNet.
+
+### Challenge
+
+CodeRabbit's review af PR #269 flaggede dette som **major security concern**: node_exporter eksponerer CPU/RAM/disk/netværks-tællere over plain HTTP. Hvis Azure NSG-reglen tilfældigt skubbes (rule reorder, bredere CIDR, "allow-any" debug-regel der ikke bliver tilbagerullet), eksponeres metrics offentligt. Aqua Security har dokumenteret at "When Prometheus servers or exporters are connected to the public internet without authentication, they introduce a significant risk."
+
+Standard mitigation er enten:
+1. Privat VNet/peering eller WireGuard tunnel mellem VM1 og VM2, bind node_exporter til den interface
+2. `--web.config.file` på node_exporter med TLS-cert + bcrypt basic auth, og `scheme: https` + `basic_auth` i Prometheus scrape-config
+
+### Choice
+
+**Beslutning: NSG-only access, dokumenteret som bevidst skole-projekt-tradeoff.**
+
+NSG-reglen er sat med `Source: 20.91.203.235` (VM2's eksakte public IP) — ikke `Internet` eller `Any`. Threat-modellen for vores setup:
+
+- **Hvad eksponeres ved NSG-misconfig:** CPU-load, fri RAM, disk-plads, netværks-tællere. Ingen brugerdata, ingen credentials, ingen secrets.
+- **Hvad det ikke giver adgang til:** App'en (port 4567 internt), nginx (port 80/443), DB (kun VM2), SSH (port 22).
+- **Realistisk angriber:** Hvis port 9100 åbnes utilsigtet, kan en scanner hente metrics — det vil afsløre at vi er en lille app på en svag VM (898MB RAM på VM2, basal traffic-mønster). Ikke et exploit i sig selv, men information disclosure.
+
+### Fordele
+
+- Ingen TLS-cert at vedligeholde (Let's Encrypt-fornyelse ville være en separat opsætning for node_exporter)
+- Ingen secrets-fil at distribuere (basic auth-creds ville skulle live på begge VMs)
+- 2 minutters arbejde fra Sofie (én NSG-regel) i stedet for ~1 times TLS-opsætning
+- Konsistent med eksisterende setup: vi har ikke en private VNet eller WireGuard-tunnel for noget andet, så at indføre det kun for node_exporter er overkill
+
+### Ulemper
+
+- Defense-in-depth er svagere — én Azure-fejl væk fra public exposure
+- Hardkodet IP `4.225.161.111` i `prometheus.yml` er skrøbelig (Azure dynamic-SKU public IPs kan rotere ved dealloc). Ikke et akut problem fordi vi ikke har deallocated VM1, men værd at vide.
+- Hvis vi senere tilføjer flere exporters (postgres_exporter, blackbox_exporter osv.) skal hver enkelt have separate NSG-regler — TLS+auth ville skalere bedre
+
+### Læring
+
+- "Public IP + NSG" er ikke nok i et reelt produktions-setup, men det er pragmatisk for school-scope hvor data ikke er følsomt. Den vigtige del er at have **truffet beslutningen bevidst** — ikke at fikse det er kun et problem hvis man troede man havde noget bedre.
+- Spec'en kunne med fordel inkludere security-overvejelser fra start. Vi tilføjede dem post-hoc fordi CodeRabbit pegede på det. Følges op i en senere iteration: dokumenter threat-model-implikationer per pillar.
+- Hvis vi får tid til en runde efter Mandatory II: vælg én af mitigeringerne (sandsynligvis `--web.config.file` med basic auth — billigste at implementere uden infrastrukturændring).

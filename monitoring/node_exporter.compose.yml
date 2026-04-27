@@ -1,0 +1,23 @@
+# Sidecar compose for VM1 (app host) — exposes host metrics on :9100
+# for Prometheus on VM2 to scrape.
+#
+# Deploy manually on VM1 (no CD workflow yet — see issue #266 et al.):
+#   scp node_exporter.compose.yml adminuser@4.225.161.111:/opt/whoknows/monitoring/
+#   ssh adminuser@4.225.161.111 'cd /opt/whoknows/monitoring && docker compose -f node_exporter.compose.yml up -d'
+#
+# Azure NSG must permit VM2's IP (20.91.203.235) to VM1:9100. Or open 9100
+# inbound (the metrics are non-sensitive — CPU/memory/disk/network counters).
+
+services:
+  node_exporter:
+    image: prom/node-exporter:v1.8.2
+    pid: host
+    network_mode: host
+    volumes:
+      - /:/rootfs:ro,rslave
+    command:
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.10

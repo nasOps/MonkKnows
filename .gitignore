@@ -101,3 +101,12 @@ backups/
 
 # ---- Claude Code (local, personal) ----
 CLAUDE.md
+docs/sofie-claude-setup.md
+.claude
+known_hosts_combined.txt
+
+# ---- Specs (personal planning notes) ----
+docs/specs/**
+
+# ---- Ruby coverage reports ----
+ruby-sinatra/coverage/

@@ -1,8 +1,8 @@
 {
   "id": null,
   "uid": "monkknows-telemetry",
-  "title": "MonkKnows User Telemetry",
-  "tags": ["monkknows"],
+  "title": "MonkKnows — User Telemetry",
+  "tags": ["monkknows", "product"],
   "timezone": "browser",
   "refresh": "30s",
   "time": {
@@ -11,78 +11,50 @@
   },
   "panels": [
     {
-      "id": 5,
+      "id": 1,
       "title": "Total Registered Users",
       "type": "stat",
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
       "targets": [
-        {
-          "expr": "app_users_total{job=\"monkknows\"}",
-          "legendFormat": "Users"
-        }
+        { "expr": "app_users_total{job=\"monkknows\"}", "legendFormat": "Users" }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        }
-      }
+      "fieldConfig": { "defaults": { "unit": "short" } }
     },
     {
-      "id": 6,
+      "id": 2,
       "title": "Total Searches",
       "type": "stat",
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
       "targets": [
-        {
-          "expr": "app_searches_total{job=\"monkknows\"}",
-          "legendFormat": "Searches"
-        }
+        { "expr": "app_searches_total{job=\"monkknows\"}", "legendFormat": "Searches" }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        }
-      }
+      "fieldConfig": { "defaults": { "unit": "short" } }
     },
     {
-      "id": 7,
+      "id": 3,
       "title": "Zero-Result Searches",
       "type": "stat",
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
       "targets": [
-        {
-          "expr": "app_search_zero_results_total{job=\"monkknows\"}",
-          "legendFormat": "No results"
-        }
+        { "expr": "app_search_zero_results_total{job=\"monkknows\"}", "legendFormat": "No results" }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        }
-      }
+      "fieldConfig": { "defaults": { "unit": "short" } }
     },
     {
-      "id": 1,
-      "title": "Request Rate per Endpoint (app routes)",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 4,
+      "title": "Active Users (24h)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
       "targets": [
-        {
-          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path=~\"/|/api/search|/api/login|/api/register|/api/logout|/api/weather|/health|/hello|/login|/register|/weather|/logout\"}[5m])) by (path)",
-          "legendFormat": "{{path}}"
-        }
+        { "expr": "app_active_users_1d{job=\"monkknows\"}", "legendFormat": "DAU" }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps"
-        }
-      }
+      "fieldConfig": { "defaults": { "unit": "short" } }
     },
     {
-      "id": 2,
+      "id": 10,
       "title": "Logins per Hour",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "targets": [
         {
           "expr": "sum(increase(http_server_requests_total{job=\"monkknows\",path=\"/api/login\",code=\"200\"}[1h]))",
@@ -93,91 +65,64 @@
           "legendFormat": "Failed logins"
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        }
-      }
+      "fieldConfig": { "defaults": { "unit": "short" } }
     },
     {
-      "id": 8,
+      "id": 11,
       "title": "Searches per Hour",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        { "expr": "increase(app_searches_total{job=\"monkknows\"}[1h])", "legendFormat": "Searches" },
+        { "expr": "increase(app_search_zero_results_total{job=\"monkknows\"}[1h])", "legendFormat": "Zero results" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "id": 20,
+      "title": "Active Users — DAU / WAU / MAU",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "targets": [
-        {
-          "expr": "increase(app_searches_total{job=\"monkknows\"}[1h])",
-          "legendFormat": "Searches"
-        },
-        {
-          "expr": "increase(app_search_zero_results_total{job=\"monkknows\"}[1h])",
-          "legendFormat": "Zero results"
-        }
+        { "expr": "app_active_users_1d{job=\"monkknows\"}",  "legendFormat": "DAU (1d)" },
+        { "expr": "app_active_users_7d{job=\"monkknows\"}",  "legendFormat": "WAU (7d)" },
+        { "expr": "app_active_users_30d{job=\"monkknows\"}", "legendFormat": "MAU (30d)" }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        }
-      }
+      "fieldConfig": { "defaults": { "unit": "short" } }
     },
     {
-      "id": 3,
-      "title": "Error Rate: 4xx vs 5xx",
+      "id": 21,
+      "title": "Inactive Users (≥30d, proxy for churn)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",code=~\"4..\"}[5m]))",
-          "legendFormat": "4xx (minor)"
-        },
-        {
-          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",code=~\"5..\"}[5m]))",
-          "legendFormat": "5xx (breaking)"
+          "expr": "app_users_total{job=\"monkknows\"} - app_active_users_30d{job=\"monkknows\"}",
+          "legendFormat": "Inactive users"
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps"
-        }
-      }
+      "fieldConfig": { "defaults": { "unit": "short" } }
     },
     {
-      "id": 4,
-      "title": "Request Latency (p50, p95)",
+      "id": 22,
+      "title": "Search Result Count Distribution (p50 / p95 / p99)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket{job=\"monkknows\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(app_search_result_count_bucket{job=\"monkknows\"}[1h])) by (le))",
           "legendFormat": "p50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket{job=\"monkknows\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(app_search_result_count_bucket{job=\"monkknows\"}[1h])) by (le))",
           "legendFormat": "p95"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        }
-      }
-    },
-    {
-      "id": 9,
-      "title": "Bot/Scanner Traffic (non-app routes)",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
-      "targets": [
+        },
         {
-          "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path!~\"/|/api/search|/api/login|/api/register|/api/logout|/api/weather|/health|/hello|/login|/register|/weather|/logout\"}[5m])) by (path)",
-          "legendFormat": "{{path}}"
+          "expr": "histogram_quantile(0.99, sum(rate(app_search_result_count_bucket{job=\"monkknows\"}[1h])) by (le))",
+          "legendFormat": "p99"
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps"
-        }
-      }
+      "fieldConfig": { "defaults": { "unit": "short" } }
     }
   ]
 }
