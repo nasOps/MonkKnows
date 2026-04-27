@@ -44,6 +44,12 @@ class WhoknowsApp < Sinatra::Base
     docstring: 'Total number of searches that returned no results',
     labels: []
   )
+  SEARCH_RESULT_COUNT = PROMETHEUS.histogram(
+    :app_search_result_count,
+    docstring: 'Distribution of result counts returned by searches',
+    labels: [],
+    buckets: [0, 1, 2, 5, 10, 20, 50, 100]
+  )
 
   # Update user count gauge every 60 seconds in a background thread
   unless ENV['RACK_ENV'] == 'test'
@@ -119,19 +125,19 @@ class WhoknowsApp < Sinatra::Base
     query = params[:q].to_s.strip
     query = nil if query.empty?
 
-    # Saves the logging from search queries (from routes "/" and "/api/search") to SQLite DB
+    # Saves the logging from search queries (from routes "/" and "/api/search") to PG
     if query && ['/', '/api/search'].include?(request.path_info)
+      SEARCH_RESULT_COUNT.observe(@result_count) if @result_count
       begin
         SearchLog.create(
-          query: query, # Saves to DB
-          path: request.path_info, # Search from the user
-          http_method: request.request_method, # Should only be GET
-          status: response.status, # HTTP status to analyse successful vs failed searches
-          # Logs unique users
-          ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15], # Salted hash of IP address
-          duration_ms: duration # Search duration is logged to analyse performance and find slow queries
+          query: query,
+          path: request.path_info,
+          http_method: request.request_method,
+          status: response.status,
+          ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15],
+          duration_ms: duration,
+          result_count: @result_count
         )
-        # Prevents app from crashing if logging fails - logs the error message instead
       rescue StandardError => e
         logger.error("Failed to log search: #{e.message}")
       end
@@ -168,6 +174,7 @@ class WhoknowsApp < Sinatra::Base
                else
                  []
                end
+    @result_count = @results.length if @q && !@q.strip.empty?
 
     erb :index
   end
@@ -228,6 +235,7 @@ class WhoknowsApp < Sinatra::Base
       SEARCHES_TOTAL.increment
       search_results = Page.search(q, language: language)
       SEARCH_ZERO_RESULTS.increment if search_results.empty?
+      @result_count = search_results.length
 
       status 200
       {
