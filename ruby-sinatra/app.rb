@@ -50,13 +50,33 @@ class WhoknowsApp < Sinatra::Base
     labels: [],
     buckets: [0, 1, 2, 5, 10, 20, 50, 100]
   )
+  ACTIVE_USERS_1D = PROMETHEUS.gauge(
+    :app_active_users_1d, docstring: 'Distinct users active in the last 24h (DAU)', labels: []
+  )
+  ACTIVE_USERS_7D = PROMETHEUS.gauge(
+    :app_active_users_7d, docstring: 'Distinct users active in the last 7 days (WAU)', labels: []
+  )
+  ACTIVE_USERS_30D = PROMETHEUS.gauge(
+    :app_active_users_30d, docstring: 'Distinct users active in the last 30 days (MAU)', labels: []
+  )
 
-  # Update user count gauge every 60 seconds in a background thread
+  # In-memory throttle cache for user activity writes — at most one
+  # user_activity_logs row per user per ACTIVITY_THROTTLE_SECONDS.
+  ACTIVITY_THROTTLE = {} # rubocop:disable Style/MutableConstant
+  ACTIVITY_THROTTLE_MUTEX = Mutex.new
+  ACTIVITY_THROTTLE_SECONDS = 5 * 60
+
+  # Update gauges every 60 seconds in a background thread.
+  # Lives outside Puma's request path so DB queries don't add request latency.
   unless ENV['RACK_ENV'] == 'test'
     Thread.new do
       loop do
         ActiveRecord::Base.connection_pool.with_connection do
           USERS_TOTAL.set(User.count)
+          now = Time.now
+          ACTIVE_USERS_1D.set(UserActivityLog.where('created_at > ?', now - 86_400).distinct.count(:user_id))
+          ACTIVE_USERS_7D.set(UserActivityLog.where('created_at > ?', now - (7 * 86_400)).distinct.count(:user_id))
+          ACTIVE_USERS_30D.set(UserActivityLog.where('created_at > ?', now - (30 * 86_400)).distinct.count(:user_id))
         end
       rescue StandardError => e
         warn "Prometheus gauge error: #{e.message}"
@@ -97,6 +117,7 @@ class WhoknowsApp < Sinatra::Base
     request.env['sinatra.route_start_time'] = Time.now
     @current_user = nil
     @current_user = User.find_by(id: session[:user_id]) if session[:user_id]
+    track_user_activity
 
     # Parse JSON body og merge ind i params
     # Begrænset til POST requests da GET aldrig sender JSON body
@@ -372,6 +393,29 @@ class WhoknowsApp < Sinatra::Base
 
     def logged_in?
       !current_user.nil?
+    end
+
+    # Writes one user_activity_logs row per user per ACTIVITY_THROTTLE_SECONDS.
+    # No-op if not logged in or if a row was already written within the window.
+    # In-memory cache is per-process; with N puma workers we get at most N
+    # writes per user per window — acceptable noise for DAU/WAU/MAU accuracy.
+    def track_user_activity
+      return unless @current_user
+
+      user_id = @current_user.id
+      now = Time.now
+      ACTIVITY_THROTTLE_MUTEX.synchronize do
+        last = ACTIVITY_THROTTLE[user_id]
+        return if last && now - last < ACTIVITY_THROTTLE_SECONDS
+
+        ACTIVITY_THROTTLE[user_id] = now
+      end
+
+      begin
+        UserActivityLog.create(user_id: user_id, path: request.path_info)
+      rescue StandardError => e
+        logger.error("Failed to log user activity: #{e.message}")
+      end
     end
   end
 
