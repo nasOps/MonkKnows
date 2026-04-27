@@ -59,6 +59,11 @@ class WhoknowsApp < Sinatra::Base
   ACTIVE_USERS_30D = PROMETHEUS.gauge(
     :app_active_users_30d, docstring: 'Distinct users active in the last 30 days (MAU)', labels: []
   )
+  EXCEPTIONS_TOTAL = PROMETHEUS.counter(
+    :app_exceptions_total,
+    docstring: 'Total number of unhandled exceptions, labeled by path and error class',
+    labels: %i[path error_class]
+  )
 
   # In-memory throttle cache for user activity writes — at most one
   # user_activity_logs row per user per ACTIVITY_THROTTLE_SECONDS.
@@ -431,6 +436,24 @@ class WhoknowsApp < Sinatra::Base
   error do
     content_type :json
     status 500
+
+    err = env['sinatra.error']
+    @exception_class = err.class.name
+    first_frame = err.backtrace&.first&.sub(%r{^.*/(?=[^/]+:[0-9]+)}, '')
+
+    EXCEPTIONS_TOTAL.increment(labels: { path: request.path_info, error_class: @exception_class })
+
+    begin
+      ExceptionLog.create(
+        path: request.path_info,
+        http_method: request.request_method,
+        error_class: @exception_class,
+        error_message: err.message&.slice(0, 500),
+        first_frame: first_frame
+      )
+    rescue StandardError => e
+      logger.error("Failed to log exception: #{e.message}")
+    end
   end
 
   run! if app_file == $PROGRAM_NAME
