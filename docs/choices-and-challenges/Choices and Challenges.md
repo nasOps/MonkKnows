@@ -2536,10 +2536,51 @@ Tre trin (`Start database`, `Create E2E database`, `Start app`) blev kollapset t
 
 **Ikke-ændret i denne fix:**
 
-- `Reset database`-trinet bevares (`db:drop db:create db:migrate`) — defensivt, garanterer ren state mellem CI-kørsler.
 - `DB_NAME` står stadig både i `.env` og som inline shell-prefix. Compose's `${DB_NAME:-monkknows_dev}`-substitution læses fra shell ved compose-parse-tid, ikke fra `env_file` — så inline-prefix er nødvendigt. Ikke et bug, men dokumenteret nu.
 - Tsvector schema-ændringen i `schema.rb` blev i samme PR. Den er allerede live på prod (verificeret: alle 51 pages har `tsv` populated på VM2), og `schema.rb` skal matche prod for at fremtidige `db:schema:load`-kald virker.
 - PR-titel ændret til `fix: ensure E2E database exists before app startup` så CodeRabbit's title-check passerer.
+
+### Iterationer & lessons learned
+
+Resolutionen tog **tre commits** før CI blev grøn. Den faktiske rejse er værd at dokumentere fordi den afslørede skjult teknisk gæld i codebasen.
+
+**Iteration 1 — `9c5a593`: kollaps og forenkling.** Erstattede `(rake db:schema:load || true)` med `rake db:create` i compose, kollapset CI's tre startup-trin (Start database, Create E2E database, Start app) til ét `up -d --wait --build`. Fejlen flyttede sig: ny PG-fejl på Reset-stepet:
+
+```
+PG::ObjectInUse: ERROR: database "monkknows_e2e" is being accessed by other users
+DETAIL: There is 1 other session using the database.
+```
+
+Den oprindelige Reset (`db:drop db:create db:migrate`) virkede tidligere kun fordi DB'en ikke fandtes (intet at droppe = intet at fejle på). Med korrekt DB-oprettelse holdt puma åbne connections, og PostgreSQL nægter at droppe en DB med aktive sessions.
+
+**Iteration 2 — `8cebca6`: fjerne det redundante.** Slettede hele Reset-stepet. Compose's web-startup gør allerede præcis det samme (`db:create + db:migrate + migrate_to_tsvector`) mod en frisk `pgdata`-volume per CI-kørsel. Reset var defensivt mod leftover state der per definition ikke kan eksistere i CI. Tests kom nu helt igennem til Playwright-eksekvering: 2 passerede, 3 fejlede (login.spec, register.spec, search.spec — alle på API-niveau).
+
+**Iteration 3 — `4b3c447`: roden.** `grep ruby-sinatra/db/migrate/*.rb` afslørede at der findes præcis ÉN migrationsfil: `20260424095720_create_search_logs.rb`. **`users` og `pages`-tabellerne lever udelukkende i `schema.rb`** — der er aldrig skrevet migrations for dem (legacy fra Python→Ruby-rewrite). Da iteration 1 erstattede `db:schema:load` med `db:create`, kom DB'en op med kun `search_logs`-tabellen. Web startede healthy fordi puma ikke tjekker tabel-eksistens proaktivt — fejlen blev først synlig når testene ramte `/api/register` og `/`-routen.
+
+Fix: tilføj `db:create` *før* `db:schema:load` (som blev restoreret). En enkelt linje i compose:
+
+```diff
+  command: >
+    sh -c "bundle exec rake db:create
++   && (bundle exec rake db:schema:load || true)
+    && bundle exec rake db:migrate
+    && (ruby db/migrate_to_tsvector.rb || true)
+```
+
+### Læring
+
+- **`|| true` skjuler fejl** — psql-stepet fejlede stille i 2+ uger fordi `|| true` swallowed exit-code. Symptomet (DB findes ikke) optrådte 2 minutter senere i en helt anden container. Vi beholder `|| true` på `migrate_to_tsvector` (idempotens) men ikke på CRUD der *skal* lykkes.
+- **`psql -U <user>` uden `-d` connecter til DB med samme navn som brugeren.** Specifér altid `-d` ved scripted brug. Default-adfærden er en gotcha der koster CI-tid.
+- **Docker compose's `--wait` returnerer så snart container er "running"** — ikke når processen lytter. Hvis service mangler `healthcheck:`, har du brug for ekstern polling (curl-loop på `/health`). Vores `web` har ingen healthcheck — opfølgnings-issue.
+- **Compose's `${VAR:-default}`-substitution læses fra shell, ikke fra `env_file`.** CodeRabbit foreslog at fjerne inline `DB_NAME=` shell-prefix og lade `.env` være single source — det ville have brudt CI fordi compose ikke ser shell-vars derfra. Værd at huske ved fremtidige refaktoreringer.
+- **`db:migrate` ≠ `db:schema:load`.** På Rails-projekter med komplette migrations er forskellen kun teoretisk. På denne codebase (legacy Python-rewrite med kun én migration) er `schema.rb` den eneste kilde til de fleste tabeller. Hvis `db:schema:load` fjernes, kommer DB'en op tom på alt undtagen `search_logs`. Synlig som tom GitHub Actions-fejl, ikke som compose-fejl.
+- **Iteration som debug-strategi virker.** Tre commits, tre forskellige fejl, tre lag der pegede ind mod kernen. Hver iteration eliminerede én klasse af fejl og afslørede den næste. Force-push til ren commit-historik ville have skjult denne læring.
+
+### Synliggjort teknisk gæld (ikke fixet i denne PR)
+
+1. **Manglende migrations** for `users` og `pages`. Codebasen er afhængig af `db:schema:load` for opbygning, hvilket gør `db:migrate` på en frisk DB ufuldstændig. Bør skrives `CreateUsers` og `CreatePages`-migrations som opfølgnings-issue.
+2. **`web` mangler healthcheck** i compose. `--wait` er ikke pålideligt uden — vi kompenserer med curl-poll i CI.
+3. **`playwright.config.js` er stripped** — kun `baseURL`. Mangler `webServer`, `retries: process.env.CI ? 2 : 0`, `trace: 'on-first-retry'`, `globalSetup`. Et separat issue om Playwright-modning er værd at oprette.
 
 ### Læring
 
