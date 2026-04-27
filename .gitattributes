@@ -1,1 +1,5 @@
 entrypoint.sh text eol=lf
+* text=auto
+*.rb text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf

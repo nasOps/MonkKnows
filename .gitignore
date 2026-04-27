@@ -85,6 +85,7 @@ cython_debug/
 # ---- Ruby / Sinatra ----
 ruby-sinatra/vendor/
 ruby-sinatra/.bundle/
+ruby-sinatra/coverage/
 
 # ---- Node / Playwright ----
 node_modules/
@@ -98,7 +99,8 @@ backups/
 **/*.sqlite3-shm
 **/*.sqlite3-wal
 
-# ---- Claude setup (personal) ----
+# ---- Claude Code (local, personal) ----
+CLAUDE.md
 docs/sofie-claude-setup.md
 .claude
 known_hosts_combined.txt

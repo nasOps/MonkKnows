@@ -2348,33 +2348,295 @@ Sofies logging-system bruger en separat SQLite-database via `LoggingBase`. Ved c
 - `__dir__` er `nil` i ERB/YAML-kontekst — brug aldrig `__dir__` i `database.yml`. Relative stier eller ENV-variabler er sikrere
 - Smoke tests i CD pipelinen fangede fejlen — uden dem ville vi først opdage det manuelt
 
+------
+
+## Tilgængelighed / Accessibility (Issue #242)
+
+### Context
+
+AAAAA!-gruppen gennemgik sitet og identificerede adskillige WCAG 2.1 Level AA-overtrædelser. Da projektet kører under Anders' simulator, som automatisk klikker på sitet og er afhængig af specifikke HTML-IDs (`id="search-input"`, `id="nav-login"` m.fl.), måtte rettelser ikke bryde disse kontrakter.
+
+## Session-cookies virker ikke bag nginx SSL-terminering
+
+Rette de kritiske tilgængelighedsfejl uden at ændre i den eksisterende HTML-struktur (IDs, class-navne, `name`-attributter, JavaScript-funktionsnavne) — og uden at tilføje nye routes eller backend-logik.
+
+Et særligt opmærksomhedspunkt var den custom language-dropdown, som er implementeret med `<button>` + `<ul>` i stedet for et native `<select>` (arvet fra Flask-versionen). Et sådant custom widget kræver ARIA-attributter for at være tilgængeligt for screen readers.
+
+Anders' simulator rapporterede daglige `e2e_error:can_log_in`-fejl: simulatoren kunne logge ind (200 OK fra `/api/login`) men fandt aldrig `#nav-logout`-linket på `/` efterfølgende — dvs. sessionen gik tabt mellem login-kaldet og næste sideload.
+
+14 problemer rettet (10 i initial PR, 4 efter code review):
+
+1. `lang="en"` tilføjet til `<html>` i `layout.erb`
+2. `role="status" aria-live="polite"` tilføjet til toast-notifikationen i `layout.erb`
+3. `<label for="...">` tilføjet til alle form-inputs i `login.erb` og `register.erb`
+4. Email-felt ændret til `type="email"` på register-formularen
+5. `role="search"` og visuelt skjult label (`.sr-only`) tilføjet til søgeformularen i `index.erb`
+6. `aria-expanded`, `aria-haspopup="listbox"`, `role="listbox"` tilføjet til custom dropdown i `index.erb`
+7. `aria-hidden="true"` og `focusable="false"` tilføjet til dekorative vejr-SVGs i `weather.erb`
+8. 3 kontrastfejl rettet i `style.css`:
+   - `#888` → `#666` (søgeresultater på lys baggrund: 3.72:1 → 4.88:1)
+   - `#888` → `#bbb` (footer-tekst på mørk baggrund: 4.03:1 → 8.68:1)
+   - `#5e81ac` → `#3d5a82` (vejrkort på blå baggrund: 3.08:1 → 5.27:1)
+9. `:focus-visible` outline tilføjet for keyboard-navigation
+10. `.sr-only` utility-klasse tilføjet til CSS
+11. Toast-elementet med `aria-live="polite"` pakket i en persistent wrapper — `display:none` på live-region-elementet selv forhindrer mange screen readers i at tracke opdateringer
+12. `clip: rect(0,0,0,0)` i `.sr-only` erstattet med `clip-path: inset(50%)` (deprecated CSS-property)
+13. `▾`-pilen i custom dropdown-knap lagt i `<span aria-hidden="true">` — tekst-glyffen blev annonceret af screen readers; `selectLanguage()` opdaterer nu kun text-noden fremfor `textContent` på hele knappen, så span bevares
+14. WeatherService-fejl logges nu med `logger.warn` — den stumme rescue gjorde API-fejl usynlige i produktion
+
+**Bevidste fravalg:**
+- `id="nav-logout"` beholdes på et `<a>`-element (ikke `<button>`) — simulatoren forventer dette ID på et anker-element
+- `reset_password.erb` ikke rettet — uden for issue-scope, markeret som fremtidig task
+- Ingen `<nav aria-label>` ARIA-landmark — lavt impact, udskudt
+- Custom listbox mangler fuld ARIA keyboard-interaktion (piltaster, Escape-tast) — WAI-ARIA APG kræver det teknisk for `role="listbox"`, men implementeringen kræver betydelig JS og er ikke en del af dette sprint; dropdown er en enkeltvalg-kontrol med kun ét reelt valg (English) og udgør et lavt impact-fravalg
+- Custom dropdown bruger `aria-label="Select language"` på knappen (ikke combobox-pattern med `role="combobox"`) — den eksisterende `aria-label` giver tilstrækkeligt accessible name; fuld combobox-implementering er ude af scope
+
+**Resultat:** Lighthouse Accessibility-score steg til **100/100** (verificeret 23. april 2026):
+
+![Lighthouse Accessibility 100/100](lighthouse-accessibility-100.png)
+
+### Fordele
+
+- Meningsfuld forbedring for screen reader- og keyboard-brugere uden at bryde simulatorkontrakten
+- Kontrastforbedringer hjælper alle brugere under skarpt lys
+- Tilgængelighed er nu testbar i CI via rack-test integration-tests (ingen browser nødvendig)
+- `.sr-only` er en genanvendelig utility-klasse til fremtidige behov
+
+### Ulemper
+
+- Custom dropdown ARIA-pattern er mere skrøbeligt end et native `<select>` — fremtidige JS-ændringer skal manuelt holde `aria-expanded` synkroniseret
+- Kontrastrettelserne i vejrkortet giver en lidt mørkere blå tone, som afviger fra det originale design
+
+### Læring
+
+- Tilgængelighed kan TDD-testes med rack-test på HTML-struktur — dette passer direkte ind i det eksisterende CI-flow
+- Simulatorkontrakter og tilgængelighed behøver ikke kollidere: IDs og `name`-attributter (API-kontrakten) er adskilt fra `label`/ARIA-attributter (tilgængelighed)
+- Kontrastforhold beregnes med WCAG's relative luminans-formel — man kan ikke vurdere kontrast visuelt med sikkerhed
+- Krydstjek mod legacy Flask-koden bekræftede at simulatoren bruger IDs, ikke CSS class-navne
+
+------
+
+## Session-cookies virker ikke bag nginx SSL-terminering
+
+### Context
+
+Anders' simulator rapporterede daglige `e2e_error:can_log_in`-fejl: simulatoren kunne logge ind (200 OK fra `/api/login`) men fandt aldrig `#nav-logout`-linket på `/` efterfølgende — dvs. sessionen gik tabt mellem login-kaldet og næste sideload.
 
 ### Challenge
 
+Login-endpointet returnerede 200 og autentificering virkede korrekt — men der var ingen `Set-Cookie`-header i svaret. Det betød at browseren/simulatoren aldrig modtog en session-cookie, og at alle efterfølgende requests var anonyme.
+
+Rodårsagen: Nginx terminerer SSL og forwarter requests til Sinatra over intern HTTP (`proxy_pass http://web:4567`). Rack's session-middleware (`Rack::Session::Cookie`) har `secure: true` i produktion, og **Rack sætter ikke en secure session-cookie hvis den ikke kan se at forbindelsen er HTTPS** — den tjekker `request.ssl?`, som checker `HTTP_X_FORWARDED_PROTO`. Fordi nginx ikke forwardede denne header, troede Rack at forbindelsen var plain HTTP og droppede cookien lydløst.
+
+Dette har sandsynligvis været brudt siden HTTPS blev sat op, og forklarer alle simulator-login-fejl siden da.
 
 ### Choice
 
-**Beslutning:**
+Tilføjet `proxy_set_header X-Forwarded-Proto $scheme;` til `location /`-blokken i `nginx.conf`. Med denne header sætter Rack `rack.url_scheme = 'https'`, `request.ssl?` returnerer true, og session-cookien skrives korrekt.
 
-**Implementering:**
+**Bevidst fravalg:** Vi validerer ikke at `X-Forwarded-Proto` kun kan komme fra en betroet proxy (f.eks. via IP-whitelist). I vores setup er Sinatra-containeren kun tilgængelig via Docker-netværket (ikke eksponeret udadtil), så spoofing-risikoen er minimal.
 
-```
+### Fordele
 
-```
+- Session-cookies sættes nu korrekt — login virker for alle brugere og simulatoren
+- En-linje fix i nginx.conf, ingen app-kode-ændringer nødvendige
+- Standard løsning på et velkendt reverse-proxy + SSL-terminering problem
 
-**Rationale:**
+### Ulemper
 
+- `X-Forwarded-Proto` er ikke cryptografisk verificeret — men intern Docker-netværksisolering mitigerer risikoen
 
+### Læring
 
-**Fordele:**
-
-
-
-**Ulemper:**
-
--
-
-**Læring:**
-
+- `secure: true` på Rack session-cookies er ikke kun et browser-hint — Rack sætter slet ikke cookien hvis den ikke ser HTTPS, selvom autentificeringen ellers lykkes
+- SSL-terminerende reverse proxies skal altid forwarde `X-Forwarded-Proto` til backenden, ellers er sikre cookies ubrugelige
+- Fejlen var usynlig fra app-laget (200 OK, ingen exception) — den krævede inspektion af response-headers for at afsløre at `Set-Cookie` manglede
 
 ------
+
+## E2E-test fejl ved DB-startup-rækkefølge i CI (PR #264)
+
+### Context
+
+Sofie åbnede PR #264 (`migration-sqliteDB`) med titlen "Migration sqlite db" for at fixe Playwright E2E-tests der fejlede i CI med:
+
+```
+PG::ConnectionBad: connection to server at "172.18.0.2", port 5432 failed:
+FATAL: database "monkknows_e2e" does not exist
+ActiveRecord::NoDatabaseError: We could not find your database: monkknows_e2e
+```
+
+Den oprindelige CI-flow startede `web` og `db` parallelt via `docker compose up -d --build`, og forsøgte at oprette `monkknows_e2e` databasen *efter* `web` allerede var startet — race condition hvor app'en crashede før DB'en eksisterede.
+
+### Challenge
+
+PR'en blandede flere problemer som tog tid at unravle:
+
+1. **Stille fejl i `psql`-kommandoen.** CI-stepet kørte:
+   ```yaml
+   docker compose ... exec -T db \
+     psql -U monkknows -c "CREATE DATABASE monkknows_e2e;" || true
+   ```
+   `psql` defaulter til at connecte til en database der hedder samme som brugeren (`monkknows`) når `-d` mangler. Den eksisterende DB hed `monkknows_dev` — så psql fejlede med `database "monkknows" does not exist`, og `|| true` skjulte fejlen. CREATE DATABASE blev aldrig kørt.
+
+2. **Compose mangler `db:create`.** `docker-compose.dev.yml` startede `web` med `(rake db:schema:load || true) && rake db:migrate` — ingen `db:create`. Selv hvis psql-stepet blev fjernet, ville web crashe fordi DB'en ikke fandtes.
+
+3. **`DB_NAME` defineret tre steder.** Værdien `monkknows_e2e` blev sat i `.env`, som inline shell-prefix på `up -d web`, og i compose som `${DB_NAME:-monkknows_dev}`. Skrøbeligt — divergens ville være lydløs.
+
+4. **Scope-blanding.** PR'en indeholdt også `schema.rb`-ændring der tilføjede `tsv` tsvector-kolonne + GIN index `idx_pages_tsv` på `pages`. Den ændring hører til FTS-arbejdet (PR #235), ikke E2E-fixen. Verificeret på prod (VM2): tsvector er allerede live — alle 51 pages har `tsv` populated.
+
+5. **Misvisende PR-titel.** "Migration sqlite db" beskrev ikke at PR'en fixer E2E-DB-startup-rækkefølge. CodeRabbit's title-check fangede det som inconclusive.
+
+### Choice
+
+**Beslutning: bevare PR #264 og fixe i compose-laget i stedet for at re-arkitekte CI.**
+
+Sofie havde allerede commits af værdi på branchen (Promise.all-pattern i Playwright-test, failure-only debug-logs). Vi rettede de tre kerneproblemer direkte ved at flytte DB-oprettelse ind i compose-startup, så CI ikke længere skal orkestrere DB-livscyklus eksplicit.
+
+### Resolution (commit 9c5a593, 27/4-2026)
+
+**Ændringer i `docker-compose.dev.yml`:**
+
+```diff
+  command: >
+-   sh -c "(bundle exec rake db:schema:load || true)
++   sh -c "bundle exec rake db:create
+    && bundle exec rake db:migrate
+    && (ruby db/migrate_to_tsvector.rb || true)
+```
+
+`rake db:create` er idempotent — opretter DB hvis den mangler, no-op hvis den findes. Erstatter den fragile `db:schema:load || true`-kombo der maskerede manglende DB.
+
+**Ændringer i `.github/workflows/ci.yml`:**
+
+Tre trin (`Start database`, `Create E2E database`, `Start app`) blev kollapset til ét. Den fejlende `psql -U monkknows -c "CREATE DATABASE ..."`-kommando blev slettet — den var grunden til hele bug'en.
+
+```diff
+- # At first only start the DB
+- - name: Start database
+-   run: docker compose -f docker-compose.dev.yml up -d --wait db
+-
+- # Create DB before app is running
+- - name: Create E2E database
+-   run: |
+-     docker compose -f docker-compose.dev.yml exec -T db \
+-       psql -U monkknows -c "CREATE DATABASE monkknows_e2e;" || true
+-
+- # Run app after DB is created
+- - name: Start app
+-   run: |
+-     DB_NAME=monkknows_e2e docker compose -f docker-compose.dev.yml up -d --build web
++ # Start db + web in one go: depends_on with service_healthy ensures
++ # db is ready before web boots, and web's startup runs db:create + db:migrate.
++ - name: Start app
++   run: DB_NAME=monkknows_e2e docker compose -f docker-compose.dev.yml up -d --wait --build
+```
+
+`Wait for app` curl-loop'en er bibeholdt fordi `web`-servicen ikke har en healthcheck — `--wait` returnerer derfor så snart containeren kører, ikke når puma faktisk lytter. Curl-pollet på `/health` sikrer at app'en er klar før Playwright kører.
+
+**Ikke-ændret i denne fix:**
+
+- `DB_NAME` står stadig både i `.env` og som inline shell-prefix. Compose's `${DB_NAME:-monkknows_dev}`-substitution læses fra shell ved compose-parse-tid, ikke fra `env_file` — så inline-prefix er nødvendigt. Ikke et bug, men dokumenteret nu.
+- Tsvector schema-ændringen i `schema.rb` blev i samme PR. Den er allerede live på prod (verificeret: alle 51 pages har `tsv` populated på VM2), og `schema.rb` skal matche prod for at fremtidige `db:schema:load`-kald virker.
+- PR-titel ændret til `fix: ensure E2E database exists before app startup` så CodeRabbit's title-check passerer.
+
+### Iterationer & lessons learned
+
+Resolutionen tog **tre commits** før CI blev grøn. Den faktiske rejse er værd at dokumentere fordi den afslørede skjult teknisk gæld i codebasen.
+
+**Iteration 1 — `9c5a593`: kollaps og forenkling.** Erstattede `(rake db:schema:load || true)` med `rake db:create` i compose, kollapset CI's tre startup-trin (Start database, Create E2E database, Start app) til ét `up -d --wait --build`. Fejlen flyttede sig: ny PG-fejl på Reset-stepet:
+
+```
+PG::ObjectInUse: ERROR: database "monkknows_e2e" is being accessed by other users
+DETAIL: There is 1 other session using the database.
+```
+
+Den oprindelige Reset (`db:drop db:create db:migrate`) virkede tidligere kun fordi DB'en ikke fandtes (intet at droppe = intet at fejle på). Med korrekt DB-oprettelse holdt puma åbne connections, og PostgreSQL nægter at droppe en DB med aktive sessions.
+
+**Iteration 2 — `8cebca6`: fjerne det redundante.** Slettede hele Reset-stepet. Compose's web-startup gør allerede præcis det samme (`db:create + db:migrate + migrate_to_tsvector`) mod en frisk `pgdata`-volume per CI-kørsel. Reset var defensivt mod leftover state der per definition ikke kan eksistere i CI. Tests kom nu helt igennem til Playwright-eksekvering: 2 passerede, 3 fejlede (login.spec, register.spec, search.spec — alle på API-niveau).
+
+**Iteration 3 — `4b3c447`: roden.** `grep ruby-sinatra/db/migrate/*.rb` afslørede at der findes præcis ÉN migrationsfil: `20260424095720_create_search_logs.rb`. **`users` og `pages`-tabellerne lever udelukkende i `schema.rb`** — der er aldrig skrevet migrations for dem (legacy fra Python→Ruby-rewrite). Da iteration 1 erstattede `db:schema:load` med `db:create`, kom DB'en op med kun `search_logs`-tabellen. Web startede healthy fordi puma ikke tjekker tabel-eksistens proaktivt — fejlen blev først synlig når testene ramte `/api/register` og `/`-routen.
+
+Fix: tilføj `db:create` *før* `db:schema:load` (som blev restoreret). En enkelt linje i compose:
+
+```diff
+  command: >
+    sh -c "bundle exec rake db:create
++   && (bundle exec rake db:schema:load || true)
+    && bundle exec rake db:migrate
+    && (ruby db/migrate_to_tsvector.rb || true)
+```
+
+### Læring
+
+- **`|| true` skjuler fejl** — psql-stepet fejlede stille i 2+ uger fordi `|| true` swallowed exit-code. Symptomet (DB findes ikke) optrådte 2 minutter senere i en helt anden container. Vi beholder `|| true` på `migrate_to_tsvector` (idempotens) men ikke på CRUD der *skal* lykkes.
+- **`psql -U <user>` uden `-d` connecter til DB med samme navn som brugeren.** Specifér altid `-d` ved scripted brug. Default-adfærden er en gotcha der koster CI-tid.
+- **Docker compose's `--wait` returnerer så snart container er "running"** — ikke når processen lytter. Hvis service mangler `healthcheck:`, har du brug for ekstern polling (curl-loop på `/health`). Vores `web` har ingen healthcheck — opfølgnings-issue.
+- **Compose's `${VAR:-default}`-substitution læses fra shell, ikke fra `env_file`.** CodeRabbit foreslog at fjerne inline `DB_NAME=` shell-prefix og lade `.env` være single source — det ville have brudt CI fordi compose ikke ser shell-vars derfra. Værd at huske ved fremtidige refaktoreringer.
+- **`db:migrate` ≠ `db:schema:load`.** På Rails-projekter med komplette migrations er forskellen kun teoretisk. På denne codebase (legacy Python-rewrite med kun én migration) er `schema.rb` den eneste kilde til de fleste tabeller. Hvis `db:schema:load` fjernes, kommer DB'en op tom på alt undtagen `search_logs`. Synlig som tom GitHub Actions-fejl, ikke som compose-fejl.
+- **Iteration som debug-strategi virker.** Tre commits, tre forskellige fejl, tre lag der pegede ind mod kernen. Hver iteration eliminerede én klasse af fejl og afslørede den næste. Force-push til ren commit-historik ville have skjult denne læring.
+
+### Synliggjort teknisk gæld (ikke fixet i denne PR)
+
+1. **Manglende migrations** for `users` og `pages`. Codebasen er afhængig af `db:schema:load` for opbygning, hvilket gør `db:migrate` på en frisk DB ufuldstændig. Bør skrives `CreateUsers` og `CreatePages`-migrations som opfølgnings-issue.
+2. **`web` mangler healthcheck** i compose. `--wait` er ikke pålideligt uden — vi kompenserer med curl-poll i CI.
+3. **`playwright.config.js` er stripped** — kun `baseURL`. Mangler `webServer`, `retries: process.env.CI ? 2 : 0`, `trace: 'on-first-retry'`, `globalSetup`. Et separat issue om Playwright-modning er værd at oprette.
+
+### Læring
+
+- `|| true` skjuler fejl der manifesterer sig længere fremme i pipelinen. Kun acceptabelt på kommandoer hvor failure er forventet (fx idempotent cleanup) — *ikke* på setup-trin.
+- `psql -U <user>` uden `-d` connecter til en database med samme navn som brugeren. Specifér altid `-d` ved scripted brug.
+- Docker compose service-startup-rækkefølge styres af `depends_on` med `condition: service_healthy` — opbyg ordering der, ikke i CI-jobs.
+- Én PR = ét scope. Schema-doc-ændringer (allerede live på prod) blandet med workflow-fix gør reviews dyrere og blokerer merges.
+- CodeRabbit-reviews er værd at læse — de fangede alle tre kerneproblemer (redundant DB-creation, DB_NAME-divergens, stale commented-out kode) før vi gjorde.
+- Trunk-based development hos os: PRs targeter `main` direkte. Et hint i Claude's gitStatus foreslog `development` som base — det er forkert.
+
+------
+
+## Logging DB-migration: SQLite → PostgreSQL (gennemført 26/4-2026)
+
+### Context
+
+Logging-systemet (search_logs) skrev til en separat SQLite-database på VM1 (`/opt/whoknows/data/logging/logging.sqlite3`). Plot-server-stress-testen ugen før eksamen forventes at generere betydelig samtidig skrivelast, og SQLite's single-writer-lock var en risiko for at blive flaskehals i den selvsamme observability vi byggede op til at vise dem.
+
+### Challenge
+
+Tre bevægende dele:
+
+1. **SQLite single-writer-lock under stress.** Puma multi-worker setup med flere processer der skriver til `search_logs` ved hver request — kun én writer ad gangen i SQLite gør det til en bottleneck under last.
+2. **Datamigration uden tab.** 3377 eksisterende search-log-rækker skulle flyttes til PostgreSQL uden at miste data, og uden at appen skulle stoppes længere end nødvendigt.
+3. **Idempotens.** Migrationen kører ved hver container-start. Den må ikke duplikere rækker hvis den kører igen, og må ikke crashe hvis kildefilen mangler.
+
+### Choice
+
+**Beslutning:** Rake-task `data:migrate_logs` i `lib/tasks/migrate_logs.rake` der gør tre ting i transaktionel rækkefølge:
+
+1. Læs alle rows fra SQLite (`SQLite3::Database#execute`)
+2. Indsæt i PostgreSQL via `SearchLog.create!` (samme `monkknows` DB som hovedapp'en, schema `public`)
+3. Omdøb kildefilen `logging.sqlite3` → `logging.sqlite3.bak` med `File.rename` så ingen skriver til den igen
+
+Beskyttelsesmekanismer:
+
+```ruby
+unless File.exist?(sqlite_path)
+  puts "No SQLite file found at #{sqlite_path}"
+  next  # ingen kildedata = ikke noget at migrere
+end
+
+if SearchLog.exists?
+  puts 'Already migrated — skipping'
+  next  # PG har allerede data = migration er kørt
+end
+```
+
+**Eksekvering:** Kørt 2026-04-26 11:04:30 UTC. WAL flushede 9 sekunder senere (clean shutdown). Container redeployet 13:38 — siden da kører tasken som no-op ved hver start (`No SQLite file found at /app/db/logging/logging.sqlite3`).
+
+**Verificering:** 3377 rows i `search_logs` på Postgres VM2. Backup `.bak`-filen ligger stadig på VM1 i `/opt/whoknows/data/logging/` (491K) som sikkerhedsnet.
+
+### Læring
+
+- `File.rename` bevarer inode og dermed `Birth`-timestamp på Linux ext4 — så `.bak`-filen "ser ud" til at være født før den blev døbt om. Stat-output viste `Birth: 2026-04-21` (oprindelig oprettelse) men `Modify: 2026-04-26 11:04` (rename-tidspunkt).
+- Idempotent migration der kører ved hver start er sikrere end engangs-script: hvis container restart sker midt i en deploy, fortsætter migrationen automatisk — eller skipper hvis den allerede er færdig.
+- Stub-filer i kildekoden bør ikke have samme navn som produktionsfiler. `/app/db/logging.sqlite3.bak` (12K, anden sha256) ligger committet i repo'et og blev ved deploy lagt ind i container-image'et — kan forveksles med den rigtige backup på VM1's volume mount.
+- Tre logging-tabeller var planlagt (`search_logs`, `user_activity_logs`, `exception_logs`) — kun `search_logs` er bygget. De to andre kan nu bygges direkte på PG uden den dobbelte abstraktion `LoggingBase` der var nødvendig for SQLite-separation.
+- Backup-strategi forenkles: `db_backup.sh` på VM1 til SQLite-logs er nu redundant. Logs er dækket af pg_dump-backup på VM2 (daglig 03:00 → kopi til VM1 offsite).
