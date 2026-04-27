@@ -148,10 +148,15 @@ class WhoknowsApp < Sinatra::Base
       method: request.request_method,
       path: request.path_info,
       status: response.status,
-      ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15], # Salted hash of IP address
+      ip: Digest::SHA256.hexdigest("#{Date.today}#{request.ip}")[0..15],
       user: session[:user_id] ? Digest::SHA256.hexdigest(session[:user_id].to_s)[0..7] : nil,
       duration_ms: ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2),
-      query: (params[:q].strip if params[:q] && !params[:q].strip.empty?)
+      query: (params[:q].strip if params[:q] && !params[:q].strip.empty?),
+      user_agent: request.user_agent,
+      referer: request.referer,
+      response_size: response.content_length,
+      result_count: @result_count,
+      exception: @exception_class
     }.compact
     logger.info(log_data.to_json)
   end
