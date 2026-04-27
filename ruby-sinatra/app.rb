@@ -357,10 +357,8 @@ class WhoknowsApp < Sinatra::Base
       status 200
       { statusCode: 200, message: 'You were successfully registered' }.to_json
     else
-      # .errors.full_messages.first gives the first validation-error
-      # e.g. "You have to enter a username"
       status 422
-      { detail: [{ loc: ['body'], msg: user.errors.full_messages.first, type: 'value_error' }] }.to_json
+      { detail: [{ loc: ['body'], msg: user.errors.first&.message, type: 'value_error' }] }.to_json
     end
   end
 
