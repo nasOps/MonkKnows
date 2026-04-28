@@ -26,27 +26,8 @@ jobs:
           echo "SESSION_SECRET=$(openssl rand -hex 32)" > ruby-sinatra/.env
           echo "OPENWEATHER_API_KEY=dummy_key_for_ci" >> ruby-sinatra/.env
 
-      # Start DB first and wait for it to be healthy
-      - name: Start database
-        run: docker compose -f docker-compose.dev.yml up -d --wait db
-
-      # Start web after DB is ready
       - name: Start app
-        run: docker compose -f docker-compose.dev.yml up -d --build web
-
-      - name: Wait for app to be ready
-        run: |
-          echo "Waiting for app to be ready..."
-          for i in $(seq 1 30); do
-            if curl -s -o /dev/null -w "%{http_code}" http://localhost:4567/health | grep -q "200"; then
-              echo "App is ready!"
-              exit 0
-            fi
-            echo "Attempt $i: not ready yet, waiting 2s..."
-            sleep 2
-          done
-          echo "App did not start in time"
-          exit 1
+        run: docker compose -f docker-compose.dev.yml up -d --build --wait web
 
       - name: Run OWASP ZAP Baseline Scan
         run: |
