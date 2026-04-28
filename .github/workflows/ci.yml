@@ -157,24 +157,6 @@ jobs:
       - name: Start app
         run: DB_NAME=monkknows_e2e docker compose -f docker-compose.dev.yml up -d --wait --build
 
-      # Web has no healthcheck, so --wait only confirms the container is running.
-      # Poll /health to confirm puma is actually listening before we run tests.
-      - name: Wait for app
-        run: |
-          healthy=0
-          for i in $(seq 1 45); do
-            if curl -s http://localhost:4567/health | grep -q ok; then
-              echo "✅ App ready"
-              healthy=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$healthy" -ne 1 ]; then
-            echo "❌ App did not become ready in time"
-            exit 1
-          fi
-
       - name: Debug logs
         if: failure()
         run: docker compose -f docker-compose.dev.yml logs web
