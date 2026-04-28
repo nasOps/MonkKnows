@@ -84,6 +84,7 @@ class WhoknowsApp < Sinatra::Base
   KNOWN_PATHS = %w[
     / /api/search /api/login /api/register /api/logout /api/weather
     /health /hello /login /register /weather /logout /metrics
+    /api/search-logs/top /api/pages
   ].freeze
 
   def self.normalize_path(path)
@@ -147,7 +148,7 @@ class WhoknowsApp < Sinatra::Base
     # Begrænset til POST requests da GET aldrig sender JSON body
     next unless request.post? && request.content_type&.include?('application/json')
 
-    request.body.rewind
+    request.body.rewind if request.body.respond_to?(:rewind)
     begin
       json_body = JSON.parse(request.body.read, symbolize_names: false)
       if json_body.is_a?(Hash)
@@ -391,6 +392,71 @@ class WhoknowsApp < Sinatra::Base
   end
 
   # /api/reset-password removed — force_password_reset column dropped in PostgreSQL migration
+
+  # GET /api/search-logs/top - Top search terms (used by crawler)
+  # OpenAPI: operationId "top_search_logs_api_search_logs_top_get"
+  get '/api/search-logs/top' do
+    content_type :json
+
+    limit = params[:limit].to_i
+    limit = 10 if limit <= 0
+    limit = [limit, 50].min
+
+    top = SearchLog
+          .group(:query)
+          .order(Arel.sql('COUNT(*) DESC'))
+          .limit(limit)
+          .pluck(:query)
+
+    status 200
+    { data: top }.to_json
+  end
+
+  # POST /api/pages - Batch upsert scraped pages (used by crawler)
+  # OpenAPI: operationId "batch_upsert_pages_api_pages_post"
+  post '/api/pages' do
+    content_type :json
+
+    expected_key = ENV.fetch('CRAWLER_API_KEY', nil)
+    if expected_key
+      provided = request.env['HTTP_AUTHORIZATION']&.delete_prefix('Bearer ')
+      unless provided == expected_key
+        status 401
+        return { error: 'Unauthorized' }.to_json
+      end
+    end
+
+    pages = params['pages']
+
+    unless pages.is_a?(Array) && !pages.empty?
+      status 422
+      return { error: "'pages' must be a non-empty array" }.to_json
+    end
+
+    records = pages.filter_map do |p|
+      next unless !p['title'].to_s.strip.empty? &&
+                  !p['url'].to_s.strip.empty? &&
+                  !p['content'].to_s.strip.empty?
+
+      {
+        title: p['title'].strip,
+        url: p['url'].strip,
+        language: p['language'] || 'en',
+        content: p['content'].strip,
+        last_updated: Time.now
+      }
+    end
+
+    if records.empty?
+      status 422
+      return { error: 'No valid pages in payload' }.to_json
+    end
+
+    Page.upsert_all(records, unique_by: :title)
+
+    status 200
+    { inserted: records.length }.to_json
+  end
 
   # GET /api/logout - User logout
   # OpenAPI: operationId "logout_api_logout_get"

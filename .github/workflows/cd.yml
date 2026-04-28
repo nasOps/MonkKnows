@@ -100,6 +100,7 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ secrets.DB_NAME }}
+          CRAWLER_API_KEY: ${{ secrets.CRAWLER_API_KEY }}
         run: |
           printf 'SESSION_SECRET=%s\n' "$SESSION_SECRET" > .env
           printf 'OPENWEATHER_API_KEY=%s\n' "$OPENWEATHER_API_KEY" >> .env
@@ -107,6 +108,7 @@ jobs:
           printf 'DB_USER=%s\n' "$DB_USER" >> .env
           printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD" >> .env
           printf 'DB_NAME=%s\n' "$DB_NAME" >> .env
+          printf 'CRAWLER_API_KEY=%s\n' "$CRAWLER_API_KEY" >> .env
 
       - name: Transfer .env to server
         run: |
