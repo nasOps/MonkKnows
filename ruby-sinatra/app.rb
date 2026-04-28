@@ -398,6 +398,15 @@ class WhoknowsApp < Sinatra::Base
   get '/api/search-logs/top' do
     content_type :json
 
+    expected_key = ENV.fetch('CRAWLER_API_KEY', nil)
+    if expected_key
+      provided = request.env['HTTP_AUTHORIZATION']&.delete_prefix('Bearer ')
+      unless provided == expected_key
+        status 401
+        return { error: 'Unauthorized' }.to_json
+      end
+    end
+
     limit = params[:limit].to_i
     limit = 10 if limit <= 0
     limit = [limit, 50].min
@@ -418,6 +427,11 @@ class WhoknowsApp < Sinatra::Base
     content_type :json
 
     expected_key = ENV.fetch('CRAWLER_API_KEY', nil)
+    if expected_key.nil? && ENV.fetch('RACK_ENV', 'development') == 'production'
+      status 500
+      return { error: 'CRAWLER_API_KEY is not configured' }.to_json
+    end
+
     if expected_key
       provided = request.env['HTTP_AUTHORIZATION']&.delete_prefix('Bearer ')
       unless provided == expected_key
@@ -434,7 +448,8 @@ class WhoknowsApp < Sinatra::Base
     end
 
     records = pages.filter_map do |p|
-      next unless !p['title'].to_s.strip.empty? &&
+      next unless p.is_a?(Hash) &&
+                  !p['title'].to_s.strip.empty? &&
                   !p['url'].to_s.strip.empty? &&
                   !p['content'].to_s.strip.empty?
 
@@ -451,6 +466,8 @@ class WhoknowsApp < Sinatra::Base
       status 422
       return { error: 'No valid pages in payload' }.to_json
     end
+
+    records = records.uniq { |r| r[:title] }
 
     Page.upsert_all(records, unique_by: :title)
 

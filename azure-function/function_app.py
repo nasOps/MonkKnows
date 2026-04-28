@@ -1,6 +1,8 @@
 import logging
 import os
 import re
+import time
+from urllib.parse import quote
 
 import azure.functions as func
 import requests
@@ -62,6 +64,7 @@ def run_crawler() -> int:
                 pages.append(page)
         except Exception as e:
             logging.warning("Failed to scrape %s: %s", url, e)
+        time.sleep(1)
 
     if pages:
         _post_pages(pages)
@@ -97,7 +100,7 @@ def _fetch_top_search_terms(limit: int = 10) -> list[str]:
 
 
 def _wikipedia_url(term: str, lang: str = "en") -> str:
-    encoded = term.strip().replace(" ", "_").capitalize()
+    encoded = quote(term.strip().replace(" ", "_"), safe="")
     return f"https://{lang}.wikipedia.org/wiki/{encoded}"
 
 
