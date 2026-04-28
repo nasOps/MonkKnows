@@ -32,7 +32,7 @@ bundle install
 |---|---|
 | `app.rb` | Hoved-`WhoknowsApp` Sinatra-klasse — alle routes, before-filters, søgelog |
 | `config.ru` | Rack entry point — monterer Prometheus middleware, derefter appen |
-| `entrypoint.sh` | Docker-opstart: opretter SQLite logging-DB, starter derefter `rackup` |
+| `entrypoint.sh` | Docker-opstart: venter på PostgreSQL, kører db:migrate, opretter SQLite logging-DB, starter `rackup` |
 | `Dockerfile` | Multi-stage build med `libpq-dev`, HEALTHCHECK, `CMD entrypoint.sh` |
 | `Gemfile` | Dependency-deklarationer (Sinatra, ActiveRecord, bcrypt, pg, prometheus-client…) |
 | `Rakefile` | Rake task-loader (db:migrate osv.) |
@@ -112,7 +112,7 @@ ruby db/migrate_to_tsvector.rb          # tsvector FTS-indeks (PostgreSQL)
 | `migrate_logs.rake` | Rake task der migrerer gamle logdata til nye ActiveRecord log-tabeller |
 
 ```bash
-bundle exec rake migrate_logs
+bundle exec rake data:migrate_logs
 ```
 
 ### `spec/`
