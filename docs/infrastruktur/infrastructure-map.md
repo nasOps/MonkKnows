@@ -1,6 +1,6 @@
 # MonkKnows Infrastructure Map
 
-_Sidst opdateret: 2026-04-23 (live survey via SSH)_
+_Sidst opdateret: 2026-04-30 (deploy MTTR investigation)_
 
 ---
 
@@ -134,7 +134,7 @@ Curler `http://localhost:4567/health` (5s timeout). Ved fejl: `systemctl restart
 `sqlite3 .backup` (WAL-safe) af `/opt/whoknows/data/whoknows.db` → `/opt/whoknows/backups/whoknows_TIMESTAMP.db`. Beholder 7 nyeste. Kører dagligt 03:00.
 
 **`/opt/whoknows/scripts/auto_deploy.sh`** (root, oprettet 2026-03-17)
-`docker compose pull` hvert 5. min. Hvis output indeholder "Pull complete": `docker compose up -d --no-build`. Alternativ til CD-pipelinens push-baserede deploy. Sidst aktiv: 2026-04-08.
+`docker compose pull` hvert 5. min. Hvis output indeholder "Pull complete": `docker compose up -d --no-build`. Alternativ til CD-pipelinens push-baserede deploy. **Status pr. 2026-04-30:** kører stadig hvert 5. min men fejler stille — host har ikke GHCR-auth-token, så pull returnerer `401 Unauthorized` (observeret 2026-04-30 10:40:05 UTC under deploy af PR #275, hvor det racet med CD'ens egen SSH-deploy).
 
 **`/usr/local/bin/monitor_logs.sh`** (root, oprettet 2026-03-19)
 Scanner `app-web-1`-logs siden sidste kørsel for `HTTP [45]xx` / `Error` / `error`. Ved match: sender Discord-webhook-alert. **Webhook-URL er hardcoded i scriptet.**
@@ -185,12 +185,72 @@ To serier med 7-dages rolling retention:
 ### Dead Code / Kendte problemer
 
 **`whoknows.service`** (systemd, `/etc/systemd/system/whoknows.service`):
-- Status: `failed` (disabled), sidst fejlet 2026-04-23 10:30 UTC (5 retries brugt op)
+- Status: `disabled` ved boot, men **kickes hver 5. min** af `health_check.sh` cron som kalder `systemctl restart whoknows` når den fejler at curle `localhost:4567/health` (porten findes kun inde i Docker-containerens netværk, så cronens curl rammer den aldrig).
 - Oprindelse: uge 3 rbenv-baseret direkte Sinatra-start
-- Hvorfor det fejler: appen kører nu i Docker; unit forsøger at starte ny instans på port 4567 + bruger gammel `DB_PATH`-env (SQLite, ikke Postgres)
-- Handling: bibeholdes bevidst, slettes ikke uden eksplicit godkendelse
+- Hvorfor unit'en fejler: appen kører nu i Docker; unit'en kører `bundle exec rackup` fra `/home/adminuser/.rbenv/` hvor dev-gems (`guard`, `pry`, `listen`, `ffi`…) ikke er installeret → fejler med `Bundler::GemNotFound`. Hver kick = 5 hurtige restart-forsøg før systemd rate-limiter slår ind (`StartLimitBurst`).
+- Bekræftet d. 2026-04-30 (10:40, 10:45, 10:50, 11:00 UTC — burst-mønstret ramte midt i CD-deployet og bidrog til ressource-konkurrence, se "Deploy MTTR observation" nedenfor).
+- Handling: bibeholdes bevidst, slettes ikke uden eksplicit godkendelse. Cleanup-runbook: `docs/runbooks/cleanup-legacy-host.md`.
 
 **Ruby-version mismatch:** CI pinner Ruby 3.2.3; kørende container-image bruger Ruby 3.2.11 (nyere patch).
+
+### Deploy MTTR observation (2026-04-30)
+
+PR #275 deploy'ede succesfuldt, men CD-pipelinens production smoke test markerede deployet rødt. App-containeren var 502 i ~8 minutter før Puma bandt sig til port 4567. Ingen kode-fejl — ren cold-start anomali.
+
+**Tidslinje (UTC):**
+
+| Tid | Hændelse |
+|---|---|
+| 10:38:33 | PR #275 merget → CD startede |
+| 10:40:01 | `auto_deploy.sh` cron kørte → `docker compose pull` fejlede med GHCR 401 (host mangler auth) |
+| 10:40:01–10:40:08 | `health_check.sh` cron kickede `whoknows.service` → 5 burst-restarts, alle fejlede med `Bundler::GemNotFound` |
+| 10:41:14 | Ny app-container startede (efter CD's SSH-deploy) |
+| 10:41:19 | `entrypoint.sh` printede "Running migrations..." |
+| 10:41:26 | CD smoke test begyndte at curle `https://monkknows.dk/` |
+| 10:42:42 | **Smoke test gav op efter 30 forsøg × 2s = 60s** → CD rød |
+| 10:45:01–10:45:08 | Endnu en `whoknows.service` burst (5 restart-forsøg under cold load) |
+| 10:49:10 | `bundle exec rake db:migrate` færdig efter **7m 51s** |
+| 10:49:14 | Puma bandt til port 4567, app begyndte at svare 200 |
+
+**Målte baselines (live på samme container, varm):**
+
+| Operation | Tid (varm) |
+|---|---|
+| `bundle exec rake db:migrate` (no-op) | ~2s |
+| `bundle exec ruby -e "puts :ok"` | ~815ms |
+| 100× PG round-trip VM1→VM2 | ~910ms (~9ms hver) |
+| `rake -T` (loader Rakefile + miljø) | ~1.8s |
+| Forrige succesfulde deploy (PR #269, 27/4) — smoke test | **5s** |
+
+**Hvad det IKKE var:**
+
+- ❌ Memory pressure (cgroup peak: 163 MiB / 256 MiB limit, ingen OOM, ingen `memory.events`)
+- ❌ Manglende gems (`bundle check` siger satisfied)
+- ❌ PG locks eller langsom DB (ingen rows i `pg_locks WHERE NOT granted`)
+- ❌ Eksterne API-kald i init (`config/environment.rb` er kun `Bundler.require`)
+- ❌ Pending migrations (schema_migrations matcher disk)
+- ❌ App.rb crash fra #275 (Rakefile loader ikke `app.rb`)
+
+**Mest sandsynlige årsag:**
+
+First-time disk page-in af 64 MB bundle-layer (~80 gems → tusindvis af små `.rb`-reads) på 1-vCPU/847 MiB-host, kombineret med ressource-konkurrence fra `whoknows.service` crash-loop-bursts der præcist ramte deploy-vinduet (10:40 og 10:45). Forrige deploys har klaret cold-load på sekunder — så det er en sammensat anomali, ikke kronisk.
+
+**Bidragende host-side rod:**
+
+Det at `whoknows.service` overhovedet bliver kicked hver 5. min er et symptom på misalignment efter Docker-migrationen — health-check'et curler en port der ikke findes på hosten, og "fix"-handlingen restarter en service der ikke længere er meningen at køre. Cleanup: se `docs/runbooks/cleanup-legacy-host.md`.
+
+### Deploy improvements (overvejes — ikke implementeret)
+
+Inspireret af MTTR-analyse fra Andreas2 (kollega) + investigation 2026-04-30:
+
+| # | Tiltag | Effort | Effekt | Vurdering |
+|---|---|---|---|---|
+| 1 | Tilføj `healthcheck` til `docker-compose.prod.yml` (samme mønster som PR #274 indførte til dev) + brug `docker compose up -d --wait` i CD-deploy-step | ~15 min | Deploy blokerer indtil container er healthy. Smoke test rammer kun en faktisk klar app. Ægte fail-fast via Docker. | **Anbefalet quick-win** |
+| 2 | Øg smoke test-timeout fra 60s → 300s+ | ~5 min | Maskerer langsomme deploys i stedet for at fejle dem. Kombineret med #1 er det gratis safety. | Lavt værd alene |
+| 3 | Kør `rake db:migrate` som separat one-off container i CD før `up -d` | ~30 min | Gammel container fortsætter med at betjene trafik mens migrationer kører. Reducerer **bruger-synlig** nedetid. | Godt læringspoint, men løser ikke dominant cost (gem cold-load sker stadig) |
+| 4 | Blue-green deploy via Traefik/Caddy med to compose-projekter | flere timer | Nul nedetid, ægte fail-fast. | For tungt til kursusprojekt |
+
+Bemærk: option 3's hovedgevinst er ikke "migrations er hurtigere" — `rake db:migrate` tager 2s varm. Gevinsten er at swap'en udskydes til ny container er warm-loaded, så brugere ser ikke 502.
 
 ---
 
