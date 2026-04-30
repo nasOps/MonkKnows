@@ -98,6 +98,7 @@ backups/
 **/*.sqlite3-journal
 **/*.sqlite3-shm
 **/*.sqlite3-wal
+**/*.sqlite3.bak
 
 # ---- Claude Code (local, personal) ----
 CLAUDE.md
