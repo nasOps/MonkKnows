@@ -119,23 +119,17 @@ jobs:
           echo "RACK_ENV=development" >> ruby-sinatra/.env
 
       - name: Start app with Docker Compose
-        run: docker compose -f docker-compose.dev.yml up -d --build
+        run: docker compose -f docker-compose.dev.yml up -d --build --wait
 
       - name: Run smoke test with cURL
         run: |
-          URL="http://localhost:4567/"
-          echo "Waiting for app to be ready..."
-          for i in $(seq 1 46); do
-            HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" $URL 2>/dev/null || echo "000")
-            if [ "$HTTP_STATUS" -eq 200 ]; then
-              echo "✅ CI Smoke test passed (status: $HTTP_STATUS)"
-              exit 0
-            fi
-            echo "Attempt $i: not ready yet (status: $HTTP_STATUS), waiting 2s..."
-            sleep 2
-          done
-          echo "❌ CI Smoke test failed — app did not respond with 200 within 92s"
-          exit 1
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:4567/)
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ CI Smoke test passed (status: $HTTP_STATUS)"
+          else
+            echo "❌ CI Smoke test failed (status: $HTTP_STATUS)"
+            exit 1
+          fi
 
       - name: Tear down app
         if: always()
@@ -162,24 +156,6 @@ jobs:
       # db is ready before web boots, and web's startup runs db:create + db:migrate.
       - name: Start app
         run: DB_NAME=monkknows_e2e docker compose -f docker-compose.dev.yml up -d --wait --build
-
-      # Web has no healthcheck, so --wait only confirms the container is running.
-      # Poll /health to confirm puma is actually listening before we run tests.
-      - name: Wait for app
-        run: |
-          healthy=0
-          for i in $(seq 1 45); do
-            if curl -s http://localhost:4567/health | grep -q ok; then
-              echo "✅ App ready"
-              healthy=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$healthy" -ne 1 ]; then
-            echo "❌ App did not become ready in time"
-            exit 1
-          fi
 
       - name: Debug logs
         if: failure()
