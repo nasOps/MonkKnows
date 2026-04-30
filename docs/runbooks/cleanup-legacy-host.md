@@ -1,10 +1,12 @@
 # Cleanup: Legacy host-services på App-VM
 
-_Oprettet: 2026-04-30_
+_Oprettet: 2026-04-30 — **udført samme dag kl. ~11:23 UTC**_
 
-Efter Docker-migrationen kører appen udelukkende i containere, men der er stadig pre-Docker host-services tilbage på App-VM'en. De udfører intet meningsfuldt arbejde længere, og under CD-deploy af PR #275 (2026-04-30) bidrog de målbart til en 8-minutters cold-start anomali — se "Deploy MTTR observation" i [`docs/infrastruktur/infrastructure-map.md`](../infrastruktur/infrastructure-map.md).
+> **Status:** ✅ Eksekveret 2026-04-30. `whoknows.service` er masked (unit-fil flyttet til `whoknows.service.disabled-2026-04-30`), og de to broken cron-entries er fjernet. Crontab-backup ligger i `/root/crontab-backup-2026-04-30.txt` på App-VM. Beholdt som reference + rollback-procedure.
 
-Denne runbook fjerner dem. Kommandoer skal køres manuelt over SSH; intet i denne fil bliver kørt automatisk.
+Efter Docker-migrationen kører appen udelukkende i containere, men der var stadig pre-Docker host-services tilbage på App-VM'en. De udførte intet meningsfuldt arbejde længere, og under CD-deploy af PR #275 (2026-04-30) bidrog de målbart til en 8-minutters cold-start anomali — se "Deploy MTTR observation" i [`docs/infrastruktur/infrastructure-map.md`](../infrastruktur/infrastructure-map.md).
+
+Denne runbook fjerner dem. Kommandoer skulle køres manuelt over SSH; intet i denne fil bliver kørt automatisk.
 
 ---
 
@@ -43,39 +45,35 @@ Forventet output: `app-web-1` `Up X (healthy)`, monkknows.dk → `HTTP 200`.
 
 `disable` er ikke nok: `health_check.sh` kalder `systemctl restart whoknows`, og `restart` ignorerer `disable`. `mask` peger unit-filen til `/dev/null` så den ikke kan startes overhovedet.
 
+**Vigtig:** Hvis unit-filen ligger som regulær fil i `/etc/systemd/system/`, fejler `mask` med "File already exists". Den skal flyttes først:
+
 ```bash
 ssh -i ~/.ssh/id_rsa adminuser@4.225.161.111 << 'EOF'
-sudo systemctl stop whoknows.service
-sudo systemctl disable whoknows.service
+set -e
+sudo systemctl stop whoknows.service || true
+sudo systemctl disable whoknows.service || true
+sudo mv /etc/systemd/system/whoknows.service /etc/systemd/system/whoknows.service.disabled-$(date +%Y-%m-%d)
+sudo systemctl daemon-reload
 sudo systemctl mask whoknows.service
 sudo systemctl status whoknows.service --no-pager
 EOF
 ```
 
-Forventet output: `Loaded: masked (Reason: Unit whoknows.service is masked.)`. Active: `inactive (dead)`.
+Forventet output: `Loaded: masked (Reason: Unit whoknows.service is masked.)`.
 
 ---
 
 ## Step 2 — Fjern de to cron-entries
 
-Cron'en ligger i root's crontab. Fjern de to linjer der refererer `health_check.sh` og `auto_deploy.sh`.
+Cron'en ligger i root's crontab. Backup først, så filtrér de to linjer der refererer `health_check.sh` og `auto_deploy.sh`:
 
 ```bash
-# Tag backup af crontab først
-ssh -i ~/.ssh/id_rsa adminuser@4.225.161.111 'sudo crontab -l > /tmp/crontab-backup-$(date +%Y%m%d).txt && sudo crontab -l'
-```
-
-Slet de to linjer manuelt:
-
-```bash
-ssh -t -i ~/.ssh/id_rsa adminuser@4.225.161.111 'sudo crontab -e'
-```
-
-Linjer der skal fjernes:
-
-```cron
-*/5 * * * * /opt/whoknows/scripts/health_check.sh >> /var/log/whoknows/health_check.log 2>&1
-*/5 * * * * /opt/whoknows/scripts/auto_deploy.sh >> /var/log/whoknows/deploy.log 2>&1
+ssh -i ~/.ssh/id_rsa adminuser@4.225.161.111 'sudo bash -c "
+set -e
+crontab -l > /root/crontab-backup-$(date +%Y-%m-%d).txt
+grep -vE \"health_check\\.sh|auto_deploy\\.sh\" /root/crontab-backup-$(date +%Y-%m-%d).txt | crontab -
+crontab -l
+"'
 ```
 
 Linjer der **beholdes**:

@@ -128,6 +128,10 @@ jobs:
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/whoknows/app/nginx.conf
 
       # CD-CD
+      # --wait blocks until web service reports healthy (per healthcheck in
+      # docker-compose.prod.yml). --wait-timeout is the cap; if the container
+      # never becomes healthy within it, the deploy step fails fast with
+      # the real reason (unlike a fixed-duration smoke-test poll loop).
       - name: Deploy on server
         run: |
           ssh -i ~/.ssh/ssh_key \
@@ -135,7 +139,7 @@ jobs:
             set -euo pipefail
             cd /opt/whoknows/app
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 600
           EOF
 
   # --- Post-deploy verification ---
@@ -146,24 +150,16 @@ jobs:
     needs: deploy
 
     steps:
+      # Deploy step's --wait already verified the container is healthy. Smoke
+      # test now just confirms the public URL through nginx + TLS works end to end.
       - name: Run smoke test on production
         run: |
           URL="https://monkknows.dk"
-
-          echo "Waiting for app to be ready..."
-
-          for i in $(seq 1 30); do
-            HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" -L $URL || echo "000")
-
-            if [ "$HTTP_STATUS" = "200" ]; then
-              echo "✅ CD Smoke test passed (status: $HTTP_STATUS)"
-              exit 0
-            fi
-
-            echo "Attempt $i: not ready (status: $HTTP_STATUS)"
-            sleep 2
-          done
-
-          echo "❌ CD Smoke test failed — app not ready in time"
-          exit 1
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" -L --max-time 10 "$URL" || echo "000")
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ CD Smoke test passed (status: $HTTP_STATUS)"
+          else
+            echo "❌ CD Smoke test failed (status: $HTTP_STATUS)"
+            exit 1
+          fi
               
