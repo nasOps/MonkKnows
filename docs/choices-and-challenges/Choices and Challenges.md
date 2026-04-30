@@ -1,7 +1,7 @@
 # Choices and Challenges
 
 **Written by:** Andreas, Nima & Sofie
- **Updated:** 20th April 2026
+ **Updated:** 30th April 2026
 
 ------
 
@@ -2772,3 +2772,106 @@ App-laget skriver til PostgreSQL. Azure Function har aldrig direkte databaseadga
 - Tekniske platformsbegrænsninger kan legitimere at revidere tidligere aftaler. Begrundelsen ("Python er officielt understøttet i Azure Functions, Ruby kræver custom handler") er konkret og afvejet.
 - API-medieret kommunikation frem for direkte DB-adgang er den rigtige enterprise-arkitektur: crawleren kan udskiftes, skaleres eller flyttes uden at røre databaselaget. Det er et bevidst design-valg, ikke blot convenience.
 - Hvis vi får tid til en runde efter Mandatory II: vælg én af mitigeringerne (sandsynligvis `--web.config.file` med basic auth — billigste at implementere uden infrastrukturændring).
+
+------
+
+## Deploy MTTR — fail-fast via Docker healthcheck frem for separat migrations-step
+
+### Context
+
+Ved deploy af PR #275 (30. april 2026) markerede CD-pipelinen deployet rødt selvom appen rent faktisk endte som healthy. Production smoke testen ventede 30 forsøg × 2 sekunder = 60 sekunder før den gav op. Den nye container havde 502 i ~8 minutter (cold gem-load anomali), så smoke testen fejlede længe før appen var klar. Forrige deploy (PR #269 d. 27. april) havde til sammenligning klaret cold-load på ~5 sekunder.
+
+Andreas2 lavede efterfølgende en MTTR-analyse med fire muligheder for at adressere symptomet. Vi skulle vælge én at implementere før Mandatory II.
+
+### Challenge
+
+De fire muligheder havde forskellige trade-offs:
+
+1. **Øg smoke test-timeout fra 60s → 300s+.** ~5 minutters arbejde. Maskerer problemet i stedet for at løse det — ægte fejl ville stadig vente 5 min på rødt resultat.
+2. **Tilføj Docker healthcheck til `docker-compose.prod.yml` + brug `up -d --wait` i CD.** ~15 minutters arbejde. Pipelinen blokerer indtil containeren er healthy, smoke testen rammer kun en faktisk klar app.
+3. **Kør `rake db:migrate` som separat one-off container i CD før `up -d`.** ~30 minutters arbejde. Den klassiske DevOps-løsning: gammel container fortsætter med at servere mens migrationer kører.
+4. **Blue-green deploy via Traefik/Caddy med to compose-projekter.** Flere timer. Nul nedetid. For tungt til kursusprojekt.
+
+Andreas2's første anbefaling var option #3 fordi det er det "rigtige" DevOps-mønster og giver et godt læringspoint. Diskussionen handlede om hvorvidt vi skulle vælge det "akademisk korrekte" svar eller det der faktisk fixer problemet.
+
+Investigation viste at præmissen bag option #3 ikke holdt: `rake db:migrate` på den live container tager 2 sekunder når caches er varme. Den dominerende cost under cold deploy er `Bundler.require` der loader ~80 gems fra cold disk — og det sker i den nye web-container uanset om migrationer er trukket ud i et separat step. Option #3's reelle gevinst er derfor ikke "migrationer er hurtigere", men at swap'en udskydes så brugere ikke ser 502 — hvilket option #1 ALTSÅ også løser fordi `--wait` blokerer indtil healthy.
+
+### Choice
+
+**Beslutning: Option #1 — Docker healthcheck på prod compose + `up -d --wait --wait-timeout 600` i CD.**
+
+Tilføjede samme healthcheck-blok som PR #274 indførte til `docker-compose.dev.yml`, med `start_period: 300s` for at give buffer til cold gem-load. Smoke testen blev simplificeret fra 30-attempt-poll-loop til én curl efter `--wait` returnerer.
+
+Option #3 blev oprettet som issue [#276](https://github.com/nasOps/MonkKnows/issues/276) til efter Mandatory II. Den er stadig værd at lave, men ikke nu.
+
+**Fordele:**
+
+- Fail-fast på den rigtige måde: Docker bekræfter healthy via `/health`, ikke en arbitrær timer
+- Fungerer for både hurtige (5s) og langsomme (8 min) deploys uden falske negatives
+- Ægte fejl (container starter aldrig) fanges efter healthcheck-buffer (~7.5 min) i stedet for 60s
+- Lille indsats: ~15 min, samme mønster vi allerede bruger i dev compose
+
+**Ulemper:**
+
+- Reducerer ikke bruger-synlig nedetid under cold-start anomalier — gammel container dræbes før ny er healthy. Issue #276 dækker det.
+- Loser ikke root cause for cold gem-load. Det er en separat optimering vi ikke har prioritet til nu.
+
+**Læring:**
+
+- "Det rigtige DevOps-svar" er ikke altid det rigtige svar for et konkret problem. Option #3 er et anerkendt mønster, men det løser ikke det vi havde galt: en CD der gættede på timing.
+- Fail-fast kommer i mange former. En Docker healthcheck er fail-fast for "har containeren bundet sig til porten?". En 60s timer er fail-fast for "ja eller nej, klar nu?". Førstnævnte er korrekt, sidstnævnte er en gætteleg.
+- At afvise et godt råd kræver et bedre råd plus målinger. Vi havde målte baselines (warm rake = 2s, PG round-trip = 9ms, forrige deploy = 5s), så vi kunne argumentere konkret for hvorfor option #1 dækker behovet.
+
+------
+
+## Legacy host-services efter Docker-migration
+
+### Context
+
+App-VM'en kører appen i Docker, men der lå stadig pre-Docker artefakter tilbage på host'en fra rbenv-tiden:
+
+- `whoknows.service` systemd-unit der prøvede at køre `bundle exec rackup` natively
+- `health_check.sh` cron der curled `localhost:4567/health` på host'en og kaldte `systemctl restart whoknows` ved fejl
+- `auto_deploy.sh` cron der prøvede `docker compose pull` hvert 5. minut
+
+De var blevet stående under Docker-migrationen "for safety" — ingen havde lyst til at slette noget der måske var nødvendigt. Infrastructure-map'en kategoriserede dem som "Dead Code" allerede, men de blev bevaret bevidst.
+
+### Challenge
+
+Under PR #275-investigationen fandt vi at de ikke bare var harmløst dead code. De var aktivt skadelige:
+
+- `health_check.sh`-curlen ramte en port der ikke findes på hosten (appen lytter kun inde i Docker-netværket), så den fejlede altid → `systemctl restart whoknows` kørte hver 5. minut → `whoknows.service` startede et bundle-process der fejlede med `Bundler::GemNotFound` (dev-gems ikke installeret i host'ens rbenv) → systemd's rate-limiter slog ind efter 5 hurtige restarts → service blev kicked igen 5 min senere
+- `auto_deploy.sh` fejlede stille med GHCR 401 (host mistede sin auth) og racet med CD-pipelinens egen SSH-deploy
+- En af `whoknows.service` crash-loop-bursts ramte præcis midt i CD-deployet (kl. 10:45 mens cold gem-load kørte) → ressource-konkurrence på en 1-vCPU/847 MiB VM bidrog til den 8-min anomali
+
+Spørgsmålet blev: skal vi slette dem helt, eller blot deaktivere dem så de kan reaktiveres?
+
+### Choice
+
+**Beslutning: Mask service + fjern cron-entries, men bevar filerne.**
+
+Konkret eksekveret 30. april:
+
+1. `whoknows.service` unit-fil flyttet til `/etc/systemd/system/whoknows.service.disabled-2026-04-30` og service'en `mask`'ed (symlink til `/dev/null`). `systemctl restart` kan nu ikke længere starte den.
+2. Root crontab backup'et til `/root/crontab-backup-2026-04-30.txt`. To linjer fjernet: `health_check.sh` og `auto_deploy.sh`.
+3. Beholdt: `db_backup.sh` (dagligt 03:00 — fungerer, backup'er den legacy SQLite-fil) og `monitor_logs.sh` (hvert 5. min — sender Discord-alerts, fungerer, men har separat hardcoded-webhook-issue).
+4. Cleanup-runbook gemt i `docs/runbooks/cleanup-legacy-host.md` med præcise kommandoer + rollback-procedure for hver enkelt ændring.
+
+**Fordele:**
+
+- Stopper cascaden hvor en broken cron kicker en broken service hver 5. minut
+- Frigør CPU+RAM under deploys (især vigtigt på en 1-vCPU/847 MiB VM)
+- Rollback er trivielt: `unmask` service og restore crontab fra backup. Intet er slettet.
+- Cleanup-runbook'en dokumenterer både hvad der blev gjort og hvorfor, så fremtidige ops-personer (eller fremtidige os) ikke skal genskabe ræsonnementet
+
+**Ulemper:**
+
+- Krævede SSH til prod for at eksekvere — ikke et automatisk repo-change. Vi har ingen Ansible/Terraform til at gøre den slags reproducerbart.
+- "Bevaret for rollback" betyder at filerne stadig ligger på host'en og kan forvirre fremtidige operatører hvis de ikke læser navngivnings-suffix'et.
+
+**Læring:**
+
+- Dead code er ikke nødvendigvis harmløst. Det vi troede var en passiv "ligger der bare"-rest, kostede os målbart ressource-budget under et deploy. Dead code burde fjernes når man har bekræftet det er dødt — ikke kategoriseres som "behold for sikkerheds skyld".
+- Migration-rester er en kendt antipattern. Når man flytter fra én infrastruktur til en anden (her: native systemd → Docker), skal cleanup-fasen være lige så bevidst som migration-fasen. Vi havde flagget det i infrastructure-map'en som "Kendt Gap" men aldrig adresseret det før det aktivt brød noget.
+- "Mask" er stærkere end "disable" i systemd. `disable` forhindrer kun start ved boot — `restart` ignorerer den. `mask` peger unit-filen til `/dev/null`, hvilket er den korrekte måde at sikre at en service aldrig starter, uanset hvordan den kaldes.
+- Et runbook med eksplicit rollback gør destructive operations på prod trygge nok at lave under tidspres. Det er hverdagens equivalent til "blue-green for ops-handlinger".
