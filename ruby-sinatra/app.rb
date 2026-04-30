@@ -167,9 +167,12 @@ class WhoknowsApp < Sinatra::Base
     duration = ((Time.now - request.env['sinatra.route_start_time']) * 1000).round(2)
 
     # Observe response size for every request (heavy endpoints become visible
-    # in the dashboard's response_size p95 panel)
-    size = response.content_length
-    RESPONSE_SIZE.observe(size, labels: { path: self.class.normalize_path(request.path_info) }) if size
+    # in the dashboard's response_size p95 panel). response.content_length is
+    # nil in after-hooks because Rack::Response#finish only sets Content-Length
+    # after after-hooks run; compute it from body bytes instead.
+    size = Array(response.body).sum { |chunk| chunk.to_s.bytesize }
+    path_label = self.class.normalize_path(request.path_info)
+    RESPONSE_SIZE.observe(size, labels: { path: path_label }) if size.positive?
 
     # Fetches the search query from params and normalizes it (nil if empty)
     query = params[:q].to_s.strip
@@ -353,6 +356,8 @@ class WhoknowsApp < Sinatra::Base
 
     if user.save
       session[:user_id] = user.id
+      @current_user = user
+      track_user_activity
       # Like Flask's "You were successfully registered..."
       status 200
       { statusCode: 200, message: 'You were successfully registered' }.to_json
@@ -385,6 +390,8 @@ class WhoknowsApp < Sinatra::Base
 
     # Gem bruger-id i session - svarer til Flask's session['user_id'] = user['id']
     session[:user_id] = user.id
+    @current_user = user
+    track_user_activity
 
     status 200
     { statusCode: 200, message: 'You were logged in' }.to_json
