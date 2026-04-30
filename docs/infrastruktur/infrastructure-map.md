@@ -361,6 +361,41 @@ Dagligt 03:00 UTC (05:00 dansk sommertid). **root:** ingen.
 
 ---
 
+## Azure Function (`monkknows-crawler`)
+
+Serverless crawler der scraper og indekserer websider baseret på loggede søgninger.
+
+| Egenskab | Værdi |
+|----------|-------|
+| Navn | `monkknows-crawler` |
+| Resource Group | `whoknows-rg` |
+| Region | Sweden Central |
+| Runtime | Python 3.11 |
+| Hosting plan | Flex Consumption (scale to zero) |
+| Instance size | 512 MB |
+
+### Triggers
+
+| Trigger | Type | Beskrivelse |
+|---------|------|-------------|
+| HTTP POST `/api/crawl` | Manuel | Invokation via Azure Portal eller curl |
+| Timer `0 0 2 * * 0` | Schedule | Søndag 02:00 UTC — aktiveres ved behov |
+
+### Application Settings
+
+| Navn | Beskrivelse |
+|------|-------------|
+| `APP_URL` | `https://monkknows.dk` |
+| `CRAWLER_API_KEY` | Delt hemmelighed med Sinatra-appen |
+
+### Deploy
+
+Deployes via `.github/workflows/deploy-crawler.yml` ved push til `main` (kun ved ændringer i `azure-function/**`) eller `workflow_dispatch`.
+
+Se: `docs/specs/2026-04-28-scraping-indexing-design.md`
+
+---
+
 ## Kendte Gaps / Hygiejne-problemer
 
 > Disse er ikke blokerende, men kandidater til **Choices & Challenges**-dokumentet.

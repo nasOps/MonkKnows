@@ -2686,4 +2686,89 @@ NSG-reglen er sat med `Source: 20.91.203.235` (VM2's eksakte public IP) — ikke
 
 - "Public IP + NSG" er ikke nok i et reelt produktions-setup, men det er pragmatisk for school-scope hvor data ikke er følsomt. Den vigtige del er at have **truffet beslutningen bevidst** — ikke at fikse det er kun et problem hvis man troede man havde noget bedre.
 - Spec'en kunne med fordel inkludere security-overvejelser fra start. Vi tilføjede dem post-hoc fordi CodeRabbit pegede på det. Følges op i en senere iteration: dokumenter threat-model-implikationer per pillar.
+
+------
+
+## Serverless Crawler — Valg af platform
+
+### Context
+
+I forbindelse med Week 3-opgaven (issue #272) skulle vi implementere en web-crawler der scraper og indekserer sider baseret på loggede søgninger. Læreren anbefalede en serverless funktion som den optimale løsning: man betaler kun for køretid, og man undgår at konkurrere om ressourcer med app-serveren.
+
+### Challenge
+
+Vi overvejede tre platforme:
+
+1. **GitHub Actions med `workflow_dispatch` + `schedule`** — simpelt, allerede i vores CI/CD-infrastruktur, men et CI/CD-værktøj der bruges til noget det ikke er designet til. Scheduled runs kan skippes ved høj belastning på GitHub — ingen eksekveringsgaranti.
+2. **Azure Function med Ruby custom handler** — rigtig Azure Function, men Azure Functions understøtter ikke Ruby nativt og kræver en custom handler (en lille HTTP-server Azure kalder ind i), plus separat deploy-pipeline udover vores eksisterende GHCR → SSH-flow.
+3. **Azure Function med Python** — officiel Python-runtime, ingen custom handler, clean deploy via `azure/functions-action`.
+
+### Choice
+
+**Beslutning: Azure Function med Python + GitHub Actions deploy**
+
+Vores eksisterende CD-pipeline (`build → GHCR → SSH`) er til app-containeren. Azure Function deployes via en separat `deploy-crawler.yml` workflow der kun trigges ved ændringer i `azure-function/`. Crawleren kører manuelt (HTTP trigger) nu, og kan sættes til ugentlig schedule (timer trigger) ved at uncommente én linje i `function_app.py`.
+
+**Fordele:**
+
+- Rigtig serverless Azure Function — matcher lærerens anbefaling præcist
+- Betaler kun for faktisk køretid (Flex Consumption plan, scale to zero)
+- Officiel Python-runtime — ingen custom handler boilerplate
+- Adskilt fra app-serveren — konkurrerer ikke om VM1's ressourcer
+- Manuel trigger nu, schedule-klar uden kodeændringer
+
+**Ulemper:**
+
+- Separat deploy-pipeline at vedligeholde
+- Ny Azure-ressource (Function App) at oprette og konfigurere
+- To sprog i repo'et (Ruby + Python)
+
+**Læring:**
+
+- GitHub Actions er et CI/CD-værktøj, ikke en job-runner. Det virker til dette formål, men det rigtige enterprise-værktøj til scheduled/event-driven jobs er en serverless funktion.
+- Runtime-support er afgørende ved valg af serverless platform. Ruby kræver custom handler i Azure Functions — det er et ekstra abstraktionslag der giver fejlmuligheder og vedligeholdelsesbesvær.
+- Crawlerens sprog behøver ikke matche appens sprog, fordi den er fuldt afkoblet — den kommunikerer udelukkende via REST API'et.
+
+------
+
+## Serverless Crawler — Valg af scraping-værktøj og arkitektur
+
+### Context
+
+Gruppen aftalte i Week 1 (issue #204) at bruge Nokogiri (Ruby) som scraping-værktøj. Da vi i Week 3 valgte Azure Functions som platform, og Azure Functions ikke understøtter Ruby nativt, opstod spørgsmålet om vi skulle holde fast i Nokogiri eller skifte sprog.
+
+### Challenge
+
+- **Nokogiri + Ruby custom handler**: Holder Week 1-aftalen, men kræver en WEBrick HTTP-server som custom handler (~25 linjer boilerplate), plus konfigurationsfiler (`host.json`, `function.json`). Mere at vedligeholde og mere der kan gå galt.
+- **BeautifulSoup4 + Python**: Bryder Week 1-aftalen om Nokogiri, men Python er officielt understøttet af Azure Functions. BeautifulSoup4 er funktionelt ækvivalent med Nokogiri til dette formål.
+
+Crawlerens arkitektur var også et valg: direkte databaseadgang fra Azure Function vs. API-medieret kommunikation.
+
+### Choice
+
+**Beslutning: BeautifulSoup4 (Python) + API-medieret arkitektur**
+
+Crawleren kommunikerer udelukkende via appens REST API:
+- `GET /api/search-logs/top` — henter top søgetermer til at bestemme hvad der crawles
+- `POST /api/pages` — batch-upsert af scrapede sider
+
+App-laget skriver til PostgreSQL. Azure Function har aldrig direkte databaseadgang.
+
+**Fordele:**
+
+- Python er officielt understøttet — ingen custom handler
+- BeautifulSoup4 er moden, veldokumenteret og ækvivalent med Nokogiri til HTML-parsing
+- API-medieret arkitektur betyder at crawleren er fuldstændig afkoblet fra databasen
+- `CRAWLER_API_KEY` beskytter `POST /api/pages` mod uautoriseret indeksering
+- Upsert-logik (`upsert_all` på title som primærnøgle) sikrer at crawleren kan køres gentagne gange uden duplikater
+
+**Ulemper:**
+
+- Bryder Week 1-aftalen om Nokogiri
+- To sprog i repo'et
+
+**Læring:**
+
+- Tekniske platformsbegrænsninger kan legitimere at revidere tidligere aftaler. Begrundelsen ("Python er officielt understøttet i Azure Functions, Ruby kræver custom handler") er konkret og afvejet.
+- API-medieret kommunikation frem for direkte DB-adgang er den rigtige enterprise-arkitektur: crawleren kan udskiftes, skaleres eller flyttes uden at røre databaselaget. Det er et bevidst design-valg, ikke blot convenience.
 - Hvis vi får tid til en runde efter Mandatory II: vælg én af mitigeringerne (sandsynligvis `--web.config.file` med basic auth — billigste at implementere uden infrastrukturændring).
