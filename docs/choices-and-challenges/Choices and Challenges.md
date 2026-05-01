@@ -1,7 +1,7 @@
 # Choices and Challenges
 
 **Written by:** Andreas, Nima & Sofie
- **Updated:** 30th April 2026
+ **Updated:** 1st May 2026
 
 ------
 
@@ -2875,3 +2875,70 @@ Konkret eksekveret 30. april:
 - Migration-rester er en kendt antipattern. Når man flytter fra én infrastruktur til en anden (her: native systemd → Docker), skal cleanup-fasen være lige så bevidst som migration-fasen. Vi havde flagget det i infrastructure-map'en som "Kendt Gap" men aldrig adresseret det før det aktivt brød noget.
 - "Mask" er stærkere end "disable" i systemd. `disable` forhindrer kun start ved boot — `restart` ignorerer den. `mask` peger unit-filen til `/dev/null`, hvilket er den korrekte måde at sikre at en service aldrig starter, uanset hvordan den kaldes.
 - Et runbook med eksplicit rollback gør destructive operations på prod trygge nok at lave under tidspres. Det er hverdagens equivalent til "blue-green for ops-handlinger".
+
+------
+
+## Semantic Versioning — milestone-bumps frem for streng semver
+
+### Context
+
+Vi har tagget syv releases siden v1.0.0 (Ruby Sinatra Migration Complete, 25. februar 2026):
+
+- v1.1.0 — Critical Security Fixes (Fase 1)
+- v1.2.0 — Trunk-Based Development Transition (Fase 2)
+- v1.3.0 — Security, Search & Production Hardening
+- v2.0.0 — PostgreSQL Migration, Serverless Crawler & Deploy Hardening (1. maj 2026)
+
+Hvert tag har markeret en sprint-leverance eller intern milepæl, ikke en formel kontrakt-ændring i appens API.
+
+### Challenge
+
+Streng semver foreskriver:
+
+- **MAJOR** = breaking change (fjernet endpoint, ændret response-struktur, ændret signatur, fjernet DB-kolonne klienter forventer)
+- **MINOR** = bagudkompatibel tilføjelse (nyt endpoint, ny valgfri parameter)
+- **PATCH** = bagudkompatibel bug fix
+
+Ved gennemgang af alle 122 merged PRs siden projektets start mod disse kriterier:
+
+| Tag vi shippede | Hvad det reelt indeholdt | Hvad streng semver havde foreskrevet |
+|---|---|---|
+| v1.1.0 | Sikkerhedsfixes (bcrypt-migration, headers) — ingen API-removals | PATCH eller mindre MINOR — ikke nødvendigvis sin egen MINOR-bump |
+| v1.2.0 | Trunk-based dev transition — workflow-skift, ingen kode-eksternt-synlig ændring | Ingen version-bump |
+| v1.3.0 | FTS5 search ranking (MINOR), DB-indekser (intern), thread safety (PATCH), forced password reset (transient breaking — kolonne droppet senere) | MINOR for FTS5, ellers PATCH/intern |
+| v2.0.0 | 2 nye endpoints (`/api/search-logs/top`, `/api/pages`), PG-migration (intern, schema bevaret), monitoring, accessibility, CI/CD-forbedringer | MINOR — pure tilføjelser, ingen breaking changes |
+
+Den eneste reelle MAJOR-kandidat siden v1.0.0 var PR #222 (forced password reset), der returnerede 403 for tidligere-200 endpoints for flaggede brugere. Det er lærebogs-MAJOR. Men `force_password_reset`-kolonnen blev droppet igen — det var en sikkerhedshændelses-respons, ikke et permanent kontrakt-skift.
+
+Streng semver ville placere os på **~v1.3.0** i dag, ikke v2.0.0.
+
+### Choice
+
+**Beslutning: Bevar de eksisterende tags og fortsæt fra v2.0.0 fremad efter milestone-mønsteret.**
+
+Vi rollbacker ikke v2.0.0 → v1.3.0. Tagget er pushed, deployet er kørt grønt, og retroaktiv rename ville skabe mere forvirring end klarhed.
+
+**Fremad** anvender vi følgende heuristik:
+
+- **MAJOR** kun hvis vi rent faktisk fjerner eller ændrer adfærden af et eksisterende endpoint på en måde der bryder den simulator/scrapere bruger
+- **MINOR** ved tilføjede endpoints eller features synlige i `/metrics` / API
+- **PATCH** ved bug fixes
+- **Milestone-bumps** (sprint-leverancer, eksamens-aflevering) markeres med GitHub releases + tagging-konvention, men vi vælger PATCH/MINOR-niveau efter det faktiske indhold — ikke efter milestone-størrelse
+
+**Fordele:**
+
+- Ingen retroaktiv churn — eksisterende tags og deploy-historie forbliver konsistent
+- Eksplicit anerkendelse af afvigelsen er mere brugbar i en eksamenssammenhæng end at have lavet det "rigtigt" uden refleksion
+- Fremadrettet praksis matcher streng semver
+
+**Ulemper:**
+
+- Vores versionsnumre kommunikerer ikke kontrakt-stabilitet før dette dokument-punkt. En fremtidig konsumet kunne ikke have brugt vores SemVer til afhængigheds-styring.
+- "v2.0.0" som milestone-marker er irreversibel og lever videre i release-historikken.
+
+**Læring:**
+
+- Semver er en kommunikations-kontrakt med konsumenter, ikke en milestone-skala. Hvis ingen eksterne konsumenter bruger versionsnummeret, er konsekvensen af afvigelse mest selvforvirring — men det er stadig dårlig vane.
+- "Vi har gjort meget arbejde" er ikke et semver-argument. Mængden af PRs siden sidste tag siger intet om hvorvidt API-kontrakten er ændret.
+- Den rigtige måde at versionere er at lade OpenAPI-specen være primær sandhedskilde: bump version når specen ændres bagudkompatibelt (MINOR) eller bryder (MAJOR), bug-fixes ellers. Det er en strammere kobling end milestone-tagging og giver versionsnummeret reel betydning.
+- Forced password reset (#222) burde have været vores første post-v1.0.0 MAJOR. At det blev bundlet ind i v1.3.0 viser hvor let det er at tabe semver-disciplin når man tænker i sprints frem for kontrakter.
