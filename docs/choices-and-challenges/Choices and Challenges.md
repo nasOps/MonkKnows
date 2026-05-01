@@ -2941,4 +2941,50 @@ Vi rollbacker ikke v2.0.0 → v1.3.0. Tagget er pushed, deployet er kørt grønt
 - Semver er en kommunikations-kontrakt med konsumenter, ikke en milestone-skala. Hvis ingen eksterne konsumenter bruger versionsnummeret, er konsekvensen af afvigelse mest selvforvirring — men det er stadig dårlig vane.
 - "Vi har gjort meget arbejde" er ikke et semver-argument. Mængden af PRs siden sidste tag siger intet om hvorvidt API-kontrakten er ændret.
 - Den rigtige måde at versionere er at lade OpenAPI-specen være primær sandhedskilde: bump version når specen ændres bagudkompatibelt (MINOR) eller bryder (MAJOR), bug-fixes ellers. Det er en strammere kobling end milestone-tagging og giver versionsnummeret reel betydning.
+
+## Performance Optimization — Database Indexes (Issue #282)
+
+### Problem
+
+Ved gennemgang af database-queries blev to problemer identificeret:
+
+**1. `search_logs.query` — sequential scan ved `GROUP BY`**
+
+`GET /api/search-logs/top` kører:
+
+```sql
+SELECT query FROM search_logs GROUP BY query ORDER BY COUNT(*) DESC LIMIT 10
+```
+
+Uden index laver PostgreSQL et fuldt sequential scan + hash aggregate + sort på en tabel der vokser med hvert søgekald. Indexet på `created_at` (oprettet i den originale migration) hjælper ikke denne query.
+
+**2. `pages`-tabelens indexes var ikke i AR-migrationssystemet**
+
+`db/add_indexes.rb` tilføjede tre indexes (`idx_pages_language`, `idx_pages_url`, `idx_pages_last_updated`) på `pages`-tabellen som rå SQL, men scriptet:
+- Var ikke en ActiveRecord-migration og lå ikke i `db/migrate/`
+- Blev aldrig kaldt automatisk — hverken i docker-compose, CI/CD eller rake-tasks
+- Brugte `sqlite_master` til verifikation, som ikke eksisterer i PostgreSQL
+- Var dermed dead code: indexes eksisterede muligvis på produktion fra tidligere, men oprettedes aldrig i et frisk miljø
+
+### Valgte optimeringer
+
+**`search_logs.query` — B-tree index tilføjet** (`db/migrate/20260501000000_add_index_to_search_logs_query.rb`)
+
+Et B-tree index lader PostgreSQL gruppere via index-scan frem for sequential scan. Da tabellen vokser kontinuerligt med hvert søgekald, er gevinsten stigende over tid.
+
+### Fravalgte optimeringer
+
+**`idx_pages_language`** — fravalgt.
+
+`WHERE language = ?` indgår i alle søgeforespørgsler, men søgningen bruger primært GIN-indexet på `tsv`-kolonnen (`idx_pages_tsv`). PostgreSQL bruger GIN-indexet til at finde sider der matcher søgetermen og filtrerer derefter på `language`. GIN-indexet er allerede meget selektivt, så et separat `language`-index ville ikke blive brugt i praksis. Et partial index (fx kun `language = 'en'`) hjælper netop den case med flest rækker, hvor PostgreSQL under alle omstændigheder overvejer sequential scan.
+
+**`idx_pages_url`** — fravalgt.
+
+URL-kolonnen bruges ikke i nogen `WHERE`- eller `ORDER BY`-clause i application-koden. Indexet giver ingen målbar gevinst.
+
+**`idx_pages_last_updated`** — fravalgt.
+
+`last_updated` sættes ved insert/update men bruges aldrig som filter eller sorteringskolonne i queries. Et index her ville udelukkende tilføje overhead på skrivninger uden at hjælpe læsning.
+
+`db/add_indexes.rb` er dead code og kan slettes.
 - Forced password reset (#222) burde have været vores første post-v1.0.0 MAJOR. At det blev bundlet ind i v1.3.0 viser hvor let det er at tabe semver-disciplin når man tænker i sprints frem for kontrakter.
