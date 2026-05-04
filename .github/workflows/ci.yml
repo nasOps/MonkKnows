@@ -73,6 +73,7 @@ jobs:
         with:
           dockerfile: ruby-sinatra/Dockerfile
 
+# Analyses source code and reports (metrics) to SonarCloud and Quality Gates in GitHub
   sonarcloud:
     name: SonarCloud
     runs-on: ubuntu-latest
