@@ -5,7 +5,7 @@
 **Er vi enige i fundene?** Ja.
 **Hvad har vi rettet?** Alle fund ved introduktionen af toolet.
 **Hvad har vi ignoreret?** Ingenting.
-**Hvorfor?** —
+**Hvorfor?** SQL injection og lignende sårbarheder i kildekoden er uacceptable — selv i et skoleprojekt.
 
 # bundler-audit
 *Tjekker Gemfile.lock mod kendte CVEs i Ruby-gems.*
@@ -13,7 +13,7 @@
 **Er vi enige i fundene?** Ja.
 **Hvad har vi rettet?** Alle fund.
 **Hvad har vi ignoreret?** Ingenting.
-**Hvorfor?** —
+**Hvorfor?** Kendte sårbarheder i afhængigheder er uacceptable — vi ønsker ikke at køre deprecated gems med kendte CVEs i produktion.
 
 # CodeRabbit
 *AI-drevet code review — kommenterer automatisk på alle PRs.*
