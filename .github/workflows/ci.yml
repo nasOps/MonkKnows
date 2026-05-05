@@ -191,7 +191,7 @@ jobs:
       - name: Install Playwright
         run: |
           cd ruby-sinatra/spec/e2e
-          npm ci
+          npm ci # NOSONAR - dependencies are pinned in package-lock.json to known, trusted versions
           npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
