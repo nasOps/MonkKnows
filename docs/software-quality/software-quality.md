@@ -66,6 +66,8 @@ Trivy scanner Docker-imaget for kendte CVEs inden det pushes til GHCR. Vi har ko
 
 OWASP ZAP kører en passiv baseline-scan mod den kørende applikation og rapporterer manglende sikkerhedsheaders og lignende. Vi er overordnet enige i fundene. Scanneren er konfigureret til ikke at fejle CI (`-I`), da den primært bruges til overblik. Vi har adresseret de mest kritiske headers og accepteret de resterende informationelle advarsler.
 
+CF-workflowet producerer følgende advarsel: `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02` kører på Node.js 20, som er deprecated i GitHub Actions og fjernes fra runneren den 16. september 2026. Vi ser bevidst bort fra dette, da projektsimulationen afsluttes inden da.
+
 # RuboCop
 Har opsnappet mange potentielle problemer i koden, og har været en uvurderlig hjælp til at holde koden ren og konsistent. Vi har aktivt lempet på nogle regler i konfigurationen (eks. metodelængde), da Ruby er et helt nyt programmeringssprog. 
 Det var en balancegang mellem at følge best practices og pragmatik, men set i bakspejlet (efter vi for sent introducerede SonarCloud) kan vi se, at vores kompleksitet er steget deraf. Det uddybes nærmere i afsnittet om SonarCloud.
