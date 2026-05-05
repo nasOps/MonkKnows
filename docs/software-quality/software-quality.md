@@ -36,6 +36,8 @@ CodeRabbit gennemgår automatisk alle PRs og kommenterer på potentielle problem
 
 **PR #102 – Dokumentation** Tomme sektioner og uafsluttet retrospektiv. Lavprioritets-cleanup der ser ud til at være udsat.
 
+**Grafana eksponeret på offentlig IP** CodeRabbit anbefalede at binde Grafana til `127.0.0.1` og tilgå den via SSH-tunnel. Vi valgte bevidst at beholde den på `0.0.0.0:3000`, da SSH-tunnel tilføjer friktion for alle teammedlemmer i et kortlivet skoleprojekt. Grafana er sikret med krævet login, deaktiveret signup og deaktiveret anonym adgang. I et produktionsmiljø ville vi binde til localhost og placere en nginx reverse proxy med TLS foran.
+
 
 
 ## Mønster
