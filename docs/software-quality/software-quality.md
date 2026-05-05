@@ -3,9 +3,9 @@
 *Statisk sikkerhedsscanner til Ruby — analyserer kildekoden for SQL injection, XSS og lignende.*
 
 **Er vi enige i fundene?** Ja.
-**Hvad har vi rettet?** Alle legitime advarsler.
-**Hvad har vi ignoreret?** Falske positive omkring mass assignment og dynamiske queries.
-**Hvorfor?** Brakeman er kendt for falske positive i disse scenarier; vi vurderede dem ikke som reelle sårbarheder i vores kontekst.
+**Hvad har vi rettet?** Alle fund ved introduktionen af toolet.
+**Hvad har vi ignoreret?** Ingenting.
+**Hvorfor?** —
 
 # bundler-audit
 *Tjekker Gemfile.lock mod kendte CVEs i Ruby-gems.*
