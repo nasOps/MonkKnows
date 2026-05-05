@@ -15,7 +15,7 @@ Cyklomatisk kompleksitet tæller antallet af uafhængige stier gennem koden — 
 
 `POST /api/pages` illustrerer problemet: routen indeholder fem separate forgreningspunkter (autentificering, to valideringer, filtrering og duplikatfjernelse), der hver tilføjer en ny sti gennem koden. Det samlede tal for `app.rb` afspejler derudover at mange routes og forretningslogik er samlet ét sted — et klassisk Sinatra-mønster.
 
-Opdeling i mindre controllers eller service-objekter ville reducere tallet, men er nedprioriteret inden for projektets tidsramme.
+Sinatra pålægger ingen struktur for opdeling af routes og forretningslogik — i modsætning til Rails, der tvinger én controller per resource. Vi valgte bevidst at samle al logik i `app.rb`, da applikationen var lille og en fladere struktur virkede passende. Vi blev opmærksomme på kompleksitetsmålingerne for sent i forløbet til at en større omstrukturering var realistisk.
 
 ## Kognitiv kompleksitet
 
