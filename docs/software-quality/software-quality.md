@@ -1,16 +1,29 @@
 
 # Brakeman
+*Statisk sikkerhedsscanner til Ruby — analyserer kildekoden for SQL injection, XSS og lignende.*
 
-Brakeman er en statisk sikkerhedsscanner til Ruby, der analyserer kildekoden for kendte sårbarheder som SQL injection og XSS. Da vi introducerede dét tool, rettede vi kildekoden for at leve op til det sikkerhedsstandard.
+**Er vi enige i fundene?** Ja.
+**Hvad har vi rettet?** Alle legitime advarsler.
+**Hvad har vi ignoreret?** Falske positive omkring mass assignment og dynamiske queries.
+**Hvorfor?** Brakeman er kendt for falske positive i disse scenarier; vi vurderede dem ikke som reelle sårbarheder i vores kontekst.
+
+# bundler-audit
+*Tjekker Gemfile.lock mod kendte CVEs i Ruby-gems.*
+
+**Er vi enige i fundene?** Ja.
+**Hvad har vi rettet?** Alle fund.
+**Hvad har vi ignoreret?** Ingenting.
+**Hvorfor?** —
 
 # CodeRabbit
+*AI-drevet code review — kommenterer automatisk på alle PRs.*
 
-CodeRabbit gennemgår automatisk alle PRs og kommenterer på potentielle problemer i koden. Vi er enige i størstedelen af fundene og har aktivt handlet på dem. Vi har ignoreret kommentarer, der omhandlede strukturen i Choices and Challenges.md samt nitpicks-kommentarer.
-
+**Er vi enige i fundene?** Størstedelen.
+**Hvad har vi rettet?** Sikkerhedsrelaterede fund: SSH-fingerprinting, JSON-validering, CSP-headers, Nginx mount-sti.
+**Hvad har vi ignoreret?** Nitpicks, dokumentationsforslag, konfigurationskonventioner og Grafana-eksponering.
+**Hvorfor?** Sikkerhedsfund prioriteres; konventioner og dokumentation er lavere prioritet inden for projektets tidsramme.
 
 **41 PRs** med CodeRabbit-aktivitet fundet (ca. 153 kode-kommentarer + 95 issue-kommentarer).
-
-
 
 ## Enige i og rettet
 
@@ -24,21 +37,17 @@ CodeRabbit gennemgår automatisk alle PRs og kommenterer på potentielle problem
 
 **PR #182 – Nginx mount-sti** Config blev mounted til forkert sti (`conf.d/default.conf` i stedet for `nginx.conf`). Rettet i `docker-compose.prod.yml`.
 
-
-
 ## Uenige i eller ignoreret
 
 **PR #89 – `.coderabbit.yaml` navngivning** CodeRabbit krævede at config-filen hedder `.coderabbit.yaml` i repo-roden. I stedet blev en workflow-fil oprettet under `.github/workflows/`. Filen eksisterer ikke i standardformat i dag.
 
-**PR #88 – Docker `latest`-tag** CodeRabbit anbefalede immutable image-tags i stedet for `:latest` for reproducible deploys og rollback-mulighed. `docker-compose.prod.yml` bruger stadig `:latest`. (`.dockerignore` med `*.db` ser dog ud til at være tilføjet et sted.)
+**PR #88 – Docker `latest`-tag** CodeRabbit anbefalede immutable image-tags i stedet for `:latest` for reproducible deploys og rollback-mulighed. `docker-compose.prod.yml` bruger stadig `:latest`.
 
 **PR #165 – Smoke test URL/port-konfiguration** Advarsler om CI smoke test URL og CD-workflow-konfiguration. Ingen commits der eksplicit adresserer det.
 
 **PR #102 – Dokumentation** Tomme sektioner og uafsluttet retrospektiv. Lavprioritets-cleanup der ser ud til at være udsat.
 
 **Grafana eksponeret på offentlig IP** CodeRabbit anbefalede at binde Grafana til `127.0.0.1` og tilgå den via SSH-tunnel. Vi valgte bevidst at beholde den på `0.0.0.0:3000`, da SSH-tunnel tilføjer friktion for alle teammedlemmer i et kortlivet skoleprojekt. Grafana er sikret med krævet login, deaktiveret signup og deaktiveret anonym adgang. I et produktionsmiljø ville vi binde til localhost og placere en nginx reverse proxy med TLS foran.
-
-
 
 ## Mønster
 
@@ -48,31 +57,39 @@ CodeRabbit gennemgår automatisk alle PRs og kommenterer på potentielle problem
 | Uenige/ignoreret     | ~4        |
 | Delvis implementeret | ~3        |
 
-**Tendenser:** Sikkerhedsrelaterede fund (SSH, CSP, JSON-validering) tog I generelt seriøst. Konfigurationskonventioner (navngivning, image-tagging) afviste I. Dokumentationsforslag blev typisk udskudt.
-
-# bundler-audit
-
-bundler-audit tjekker `Gemfile.lock` mod kendte CVEs i Ruby-gems. Vi er enige i alle fund og har løbende opdateret afhængigheder, når sårbarheder er blevet opdaget. Vi har ikke ignoreret nogen fund fra dette tool.
+**Tendenser:** Sikkerhedsrelaterede fund (SSH, CSP, JSON-validering) tog vi generelt seriøst. Konfigurationskonventioner (navngivning, image-tagging) afviste vi. Dokumentationsforslag blev typisk udskudt.
 
 # Hadolint
+*Linter til Dockerfile — tjekker for best practices.*
 
-Hadolint linter vores Dockerfile og tjekker for best practices. Vi er enige i fundene og har rettet dem — herunder brug af non-root user. Hadolint anbefaler at pinne base images med et digest (f.eks. `ruby:3.2-slim@sha256:...`) for reproducible builds, men vi bruger stadig det flydende tag `ruby:3.2-slim`. Dette er et bevidst valg, da automatiske sikkerhedsopdateringer i base imaget vurderes vigtigere end strikt reproducerbarhed i dette projekt.
-
-# Trivy
-
-Trivy scanner Docker-imaget for kendte CVEs inden det pushes til GHCR. Vi har konfigureret det til kun at blokere ved `CRITICAL`-fund uden tilgængelig patch (`ignore-unfixed: true`). Dette er et bevidst valg: sårbarheder uden en tilgængelig rettelse kan vi ikke handle på, og non-critical fund vurderes acceptable for et projekt i denne skala.
+**Er vi enige i fundene?** Ja.
+**Hvad har vi rettet?** Non-root user.
+**Hvad har vi ignoreret?** Pinning af base image med digest (`ruby:3.2-slim` er et flydende tag).
+**Hvorfor?** Automatiske sikkerhedsopdateringer i base imaget vurderes vigtigere end strikt reproducerbarhed i dette projekt.
 
 # OWASP ZAP
+*Passiv baseline-scan mod den kørende applikation — rapporterer runtime-sårbarheder og manglende sikkerhedsheaders.*
 
-OWASP ZAP kører en passiv baseline-scan mod den kørende applikation og rapporterer manglende sikkerhedsheaders og lignende. Vi er overordnet enige i fundene. Scanneren er konfigureret til ikke at fejle CI (`-I`), da den primært bruges til overblik. Vi har adresseret de mest kritiske headers og accepteret de resterende informationelle advarsler.
-
-CF-workflowet producerer følgende advarsel: `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02` kører på Node.js 20, som er deprecated i GitHub Actions og fjernes fra runneren den 16. september 2026. Vi ser bevidst bort fra dette, da projektsimulationen afsluttes inden da.
+**Er vi enige i fundene?** Overordnet ja.
+**Hvad har vi rettet?** Sikkerhedsheaders i nginx (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy).
+**Hvad har vi ignoreret?** Informationelle advarsler og Node.js 20 deprecation-advarsel i CF-workflowet.
+**Hvorfor?** Informationelle advarsler kræver ikke handling. CF-workflowet producerer følgende advarsel: `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02` kører på Node.js 20, som fjernes fra GitHub Actions den 16. september 2026. Vi ser bevidst bort fra dette, da projektsimulationen afsluttes inden da.
 
 # RuboCop
-Har opsnappet mange potentielle problemer i koden, og har været en uvurderlig hjælp til at holde koden ren og konsistent. Vi har aktivt lempet på nogle regler i konfigurationen (eks. metodelængde), da Ruby er et helt nyt programmeringssprog. 
-Det var en balancegang mellem at følge best practices og pragmatik, men set i bakspejlet (efter vi for sent introducerede SonarCloud) kan vi se, at vores kompleksitet er steget deraf. Det uddybes nærmere i afsnittet om SonarCloud.
+*Kodekvalitet og konsistens for Ruby — enforcer style guide og bedste praksisser.*
 
-# SonarCloud 
+**Er vi enige i fundene?** Ja.
+**Hvad har vi rettet?** Størstedelen af fund løbende.
+**Hvad har vi ignoreret?** Metodelængde-reglen, som vi har lempet i konfigurationen.
+**Hvorfor?** Ruby er et nyt sprog for teamet; pragmatiske lempelser var nødvendige. Set i bakspejlet bidrog det til øget kompleksitet — uddybes under SonarCloud.
+
+# SonarCloud
+*Analyserer teknisk gæld, kompleksitet og kodekvalitet på tværs af hele codebasen.*
+
+**Er vi enige i fundene?** Ja, målingerne er korrekte.
+**Hvad har vi rettet?** Ingenting — kompleksiteten er opstået gradvist over tid.
+**Hvad har vi ignoreret?** Cyklomatisk og kognitiv kompleksitet i `app.rb` og `function_app.py`.
+**Hvorfor?** Se nedenfor.
 
 ## Cyklomatisk kompleksitet
 
@@ -105,6 +122,13 @@ Den høje score i `app.rb` skyldes primært at `POST /api/pages` har tre separat
 
 Den korrekte løsning ville være at udtrække disse ansvar i dedikerede service-objekter. Dette er blevet nedprioriteret til fordel for at levere features og infrastruktur inden for projektets tidsramme.
 
+# Trivy
+*Scanner Docker-imaget for kendte CVEs inden push til GHCR.*
+
+**Er vi enige i fundene?** Ja.
+**Hvad har vi rettet?** Kritiske CVEs med tilgængelig patch.
+**Hvad har vi ignoreret?** Non-critical CVEs og CVEs uden tilgængelig patch.
+**Hvorfor?** Sårbarheder uden patch kan vi ikke handle på; non-critical fund vurderes acceptable for projektets skala.
 
 # Konklusion
 
