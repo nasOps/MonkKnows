@@ -98,10 +98,9 @@ Cyklomatisk kompleksitet tæller antallet af uafhængige stier gennem koden — 
 | Fil | Cyklomatisk kompleksitet |
 |-----|--------------------------|
 | `ruby-sinatra/app.rb` | 60 |
-| `azure-function/function_app.py` | 31 |
 | `ruby-sinatra/services/weather_service.rb` | 11 |
 | `scripts/migrate_sqlite_to_pg.rb` | 10 |
-| **Total** | **155** |
+| **Total** | **81** |
 
 `POST /api/pages` illustrerer problemet: routen indeholder fem separate forgreningspunkter (autentificering, to valideringer, filtrering og duplikatfjernelse), der hver tilføjer en ny sti gennem koden. Det samlede tal for `app.rb` afspejler derudover at mange routes og forretningslogik er samlet ét sted — et klassisk Sinatra-mønster.
 
@@ -114,9 +113,8 @@ Kognitiv kompleksitet måler, hvor svær koden er at læse og forstå — i mods
 | Fil | Kognitiv kompleksitet |
 |-----|----------------------|
 | `ruby-sinatra/app.rb` | 71 |
-| `azure-function/function_app.py` | 26 |
 | `scripts/migrate_sqlite_to_pg.rb` | 6 |
-| **Total** | **127** |
+| **Total** | **77** |
 
 Den høje score i `app.rb` skyldes primært at `POST /api/pages` har tre separate ansvar i én route: autentificering, validering og dataindsættelse. `before`/`after`-hooks og `track_user_activity` bidrager yderligere med nestede betingelser og rescue-blokke, der er vokset over tid.
 
@@ -139,7 +137,7 @@ Overordnet ja. Fundene fra RuboCop, Brakeman, Hadolint og bundler-audit var legi
 Sikkerhedssårbarheder fra bundler-audit og Brakeman, Dockerfile-advarsler fra Hadolint, kodestilsproblemer fra RuboCop samt kritiske sikkerhedsfund fra CodeRabbit (SSH-fingerprinting, JSON-validering, CSP-headers).
 
 **Hvad har vi ignoreret?**
-Falske positive fra Brakeman, informationelle advarsler fra OWASP ZAP, non-critical og unfixable CVEs fra Trivy, nitpicks fra CodeRabbit samt den høje kompleksitet i `app.rb` og `function_app.py`.
+Falske positive fra Brakeman, informationelle advarsler fra OWASP ZAP, non-critical og unfixable CVEs fra Trivy, nitpicks fra CodeRabbit samt den høje kompleksitet i `app.rb`.
 
 **Hvorfor?**
 Falske positive og informationelle advarsler kræver ikke handling. Kompleksiteten i `app.rb` var et bevidst valg om en flad struktur tilpasset applikationens størrelse — vi introducerede SonarCloud for sent til at en omstrukturering var realistisk inden for tidsrammen.
