@@ -2347,7 +2347,8 @@ Sofies logging-system bruger en separat SQLite-database via `LoggingBase`. Ved c
 - `BUNDLE_WITHOUT` i Dockerfile gør det kritisk at gems er i den rigtige group
 - `__dir__` er `nil` i ERB/YAML-kontekst — brug aldrig `__dir__` i `database.yml`. Relative stier eller ENV-variabler er sikrere
 - Smoke tests i CD pipelinen fangede fejlen — uden dem ville vi først opdage det manuelt
-
+'
+- '
 ------
 
 ## Tilgængelighed / Accessibility (Issue #242)
