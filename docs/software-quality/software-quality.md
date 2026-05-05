@@ -87,9 +87,9 @@
 *Analyserer teknisk gæld, kompleksitet og kodekvalitet på tværs af hele codebasen.*
 
 **Er vi enige i fundene?** Ja, målingerne er korrekte.
-**Hvad har vi rettet?** Ingenting — kompleksiteten er opstået gradvist over tid.
-**Hvad har vi ignoreret?** Cyklomatisk og kognitiv kompleksitet i `app.rb` og `function_app.py`.
-**Hvorfor?** Se nedenfor.
+**Hvad har vi rettet?** Ingenting.
+**Hvad har vi ignoreret?** Cyklomatisk og kognitiv kompleksitet i `app.rb`.
+**Hvorfor?** Vi introducerede SonarCloud på bagkant, og nåede derfor ikke at omstrukturere koden i separate service-objekter. Se nedenfor.
 
 ## Cyklomatisk kompleksitet
 
@@ -137,7 +137,7 @@ Overordnet ja. Fundene fra RuboCop, Brakeman, Hadolint og bundler-audit var legi
 Sikkerhedssårbarheder fra bundler-audit og Brakeman, Dockerfile-advarsler fra Hadolint, kodestilsproblemer fra RuboCop samt kritiske sikkerhedsfund fra CodeRabbit (SSH-fingerprinting, JSON-validering, CSP-headers).
 
 **Hvad har vi ignoreret?**
-Falske positive fra Brakeman, informationelle advarsler fra OWASP ZAP, non-critical og unfixable CVEs fra Trivy, nitpicks fra CodeRabbit samt den høje kompleksitet i `app.rb`.
+Informationelle advarsler fra OWASP ZAP, non-critical og unfixable CVEs fra Trivy, nitpicks fra CodeRabbit samt den høje kompleksitet i `app.rb`.
 
 **Hvorfor?**
 Falske positive og informationelle advarsler kræver ikke handling. Kompleksiteten i `app.rb` var et bevidst valg om en flad struktur tilpasset applikationens størrelse — vi introducerede SonarCloud for sent til at en omstrukturering var realistisk inden for tidsrammen.
