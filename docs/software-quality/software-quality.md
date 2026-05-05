@@ -13,7 +13,7 @@ Cyklomatisk kompleksitet tæller antallet af uafhængige stier gennem koden — 
 | `scripts/migrate_sqlite_to_pg.rb` | 10 |
 | **Total** | **155** |
 
-Den høje score i `app.rb` skyldes primært at mange routes og forretningslogik er samlet ét sted — et klassisk Sinatra-mønster. Individuelle metoder holder sig under grænsen på 10-15, så kompleksiteten er fordelt frem for koncentreret.
+`POST /api/pages` illustrerer problemet: routen indeholder fem separate forgreningspunkter (autentificering, to valideringer, filtrering og duplikatfjernelse), der hver tilføjer en ny sti gennem koden. Det samlede tal for `app.rb` afspejler derudover at mange routes og forretningslogik er samlet ét sted — et klassisk Sinatra-mønster.
 
 Opdeling i mindre controllers eller service-objekter ville reducere tallet, men er nedprioriteret inden for projektets tidsramme.
 
