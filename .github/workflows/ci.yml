@@ -191,7 +191,7 @@ jobs:
       - name: Install Playwright
         run: |
           cd ruby-sinatra/spec/e2e
-          npm ci --ignore-scripts
+          npm ci
           npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
