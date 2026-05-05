@@ -1,7 +1,7 @@
 
 # Brakeman
 
-Brakeman er en statisk sikkerhedsscanner til Ruby, der analyserer kildekoden for kendte sårbarheder som SQL injection og XSS. Vi er enige i fundene og har rettet de legitime advarsler. Brakeman er kendt for at producere falske positive, særligt around mass assignment og dynamiske queries — disse har vi vurderet og bevidst ignoreret, da de ikke var reelle sårbarheder i vores kontekst.
+Brakeman er en statisk sikkerhedsscanner til Ruby, der analyserer kildekoden for kendte sårbarheder som SQL injection og XSS. Da vi introducerede dét tool, rettede vi kildekoden for at leve op til det sikkerhedsstandard.
 
 # CodeRabbit
 
@@ -56,7 +56,7 @@ bundler-audit tjekker `Gemfile.lock` mod kendte CVEs i Ruby-gems. Vi er enige i 
 
 # Hadolint
 
-Hadolint linter vores Dockerfile og tjekker for best practices. Vi er enige i fundene og har rettet dem — herunder brug af non-root user og pinning af base images. Vi har ikke ignoreret nogen fund.
+Hadolint linter vores Dockerfile og tjekker for best practices. Vi er enige i fundene og har rettet dem — herunder brug af non-root user. Hadolint anbefaler at pinne base images med et digest (f.eks. `ruby:3.2-slim@sha256:...`) for reproducible builds, men vi bruger stadig det flydende tag `ruby:3.2-slim`. Dette er et bevidst valg, da automatiske sikkerhedsopdateringer i base imaget vurderes vigtigere end strikt reproducerbarhed i dette projekt.
 
 # Trivy
 
