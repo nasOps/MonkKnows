@@ -70,6 +70,22 @@ RSpec.describe 'OpenAPI Contract' do
     end
   end
 
+  describe 'GET /api/weather' do
+    before do
+      allow(WeatherService).to receive(:fetch).and_return(
+        { city: 'Copenhagen', temperature: 12.0, condition: 'clear', humidity: 60, wind_speed: 5 }
+      )
+    end
+
+    it 'returns StandardResponse with data object' do
+      get '/api/weather'
+      expect(last_response.status).to eq(200)
+      body = JSON.parse(last_response.body)
+      expect(body).to have_key('data')
+      expect(body['data']).to be_a(Hash)
+    end
+  end
+
   describe 'GET /api/search' do
     it 'returns 422 with statusCode and message when q is missing' do
       get '/api/search'
