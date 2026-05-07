@@ -46,7 +46,7 @@ Nu ved læseren hvad der kører og hvordan det deployes — næste spørgsmål e
 ## 4. Kvalitet & Sikkerhed
 
 Samlet afsnit der samler de tværgående ting:
-- Testing: RSpec (unit/integration), Playwright (E2E), SQLite in-memory vs. PostgreSQL
+- Testing: RSpec (unit/integration), kontrakt-test via `committee`-gem (validerer API-responses mod OpenAPI-spec), Playwright (E2E), SQLite in-memory vs. PostgreSQL
 - Security scanning: Brakeman, bundler-audit, Trivy, OWASP ZAP, SonarCloud
 - Docker: multi-stage build, non-root user
 
