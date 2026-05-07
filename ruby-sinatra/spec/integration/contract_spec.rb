@@ -71,8 +71,13 @@ RSpec.describe 'OpenAPI Contract' do
   end
 
   describe 'GET /api/weather' do
+    before do
+      allow(WeatherService).to receive(:fetch).and_return(
+        { city: 'Copenhagen', temperature: 12.0, condition: 'clear', humidity: 60, wind_speed: 5 }
+      )
+    end
+
     it 'returns StandardResponse with data object' do
-      skip 'OPENWEATHER_API_KEY not set' unless ENV['OPENWEATHER_API_KEY']
       get '/api/weather'
       expect(last_response.status).to eq(200)
       body = JSON.parse(last_response.body)
