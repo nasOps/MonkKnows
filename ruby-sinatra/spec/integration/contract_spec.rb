@@ -70,6 +70,17 @@ RSpec.describe 'OpenAPI Contract' do
     end
   end
 
+  describe 'GET /api/weather' do
+    it 'returns StandardResponse with data object' do
+      skip 'OPENWEATHER_API_KEY not set' unless ENV['OPENWEATHER_API_KEY']
+      get '/api/weather'
+      expect(last_response.status).to eq(200)
+      body = JSON.parse(last_response.body)
+      expect(body).to have_key('data')
+      expect(body['data']).to be_a(Hash)
+    end
+  end
+
   describe 'GET /api/search' do
     it 'returns 422 with statusCode and message when q is missing' do
       get '/api/search'
