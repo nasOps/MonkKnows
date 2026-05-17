@@ -27,6 +27,8 @@ Følgende er **ikke** dækket af denne SLA:
 - Azure Function `monkknows-crawler` (crawling/indexering sker asynkront og er ikke en kernetjeneste)
 - Grafana-dashboardet på VM2 (intern drifts-tool, ikke en brugerfacing tjeneste)
 - Prometheus/metrics-endpoint (intern)
+- `GET /api/search-logs/top` og `POST /api/pages` (interne crawler-endpoints, kræver API-nøgle)
+- `GET /hello` (dev-endpoint uden funktionel betydning)
 
 ---
 
