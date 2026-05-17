@@ -13,7 +13,6 @@ SLA'en dækker følgende endpoints på `https://monkknows.dk`:
 | Endpoint | Beskrivelse |
 |---|---|
 | `GET /` | Forsiden — søgeformular |
-| `GET /search` | Søgeresultater |
 | `GET /api/search` | Søge-API (JSON) |
 | `GET /weather` | Vejrside |
 | `GET /api/weather` | Vejr-API (JSON) |
@@ -40,7 +39,7 @@ Følgende er **ikke** dækket af denne SLA:
 | **Månedlig oppetid** | **95 %** |
 | Tilladt nedetid pr. måned | ~36 timer |
 
-95 % er et bevidst konservativt tal. MonkKnows kører på én enkelt Azure VM (App-VM) uden redundans eller load balancing. Deploy sker via en CD-pipeline der tager appen ned i typisk 30–60 sekunder, og cold-start efter et image-pull kan tage op til 5 minutter. En oppetidsgaranti på 99 % eller derover ville ikke være realistisk eller ærlig for dette setup.
+95 % er et bevidst konservativt tal. MonkKnows kører på én enkelt Azure VM (App-VM) uden redundans eller load balancing. Deploy via CD-pipelinen medfører en genstart af app-containeren; cold-start er konfigureret med op til 300 sekunders start_period før containeren erklæres healthy. En oppetidsgaranti på 99 % eller derover ville ikke være realistisk eller ærlig for dette setup.
 
 Planlagt vedligeholdelse (deploys, certifikatfornyelse, database-migrationer) er **inkluderet** i oppetidsberegningen.
 
@@ -74,7 +73,7 @@ MonkKnows er et skoleprojekt med et team på tre studerende. Der er ingen 24/7-v
 |---|---|
 | **HTTPS / TLS** | Al trafik krypteres via Let's Encrypt (certifikat på `monkknows.dk` + `www.monkknows.dk`). HTTP (port 80) redirecter automatisk til HTTPS via nginx 301. HSTS aktiveret med `max-age=31536000; includeSubDomains`. |
 | **Sikkerhedsheaders** | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera, microphone, geolocation deaktiveret). |
-| **Brute-force-beskyttelse** | `fail2ban` aktiv på App-VM og Monitoring-VM, banner IP'er ved gentagne fejlede SSH-loginforsøg. |
+| **Brute-force-beskyttelse** | `fail2ban` aktiv på App-VM, banner IP'er ved gentagne fejlede SSH-loginforsøg. |
 | **Session-sikkerhed** | Sessions signeres med `SESSION_SECRET` (krævet i produktion — appen starter ikke uden). Cookies sendes kun over HTTPS. |
 | **Databaseadgang** | PostgreSQL på VM2 er kun tilgængeligt fra App-VM's IP-adresse og et privat subnet (pg_hba.conf whitelist). Adgangskode gemt som Docker secret (`chmod 600`). |
 | **Containerisering** | Appen kører som ikke-root bruger i en multi-stage Docker-container. Ressource-limits: 256 MB RAM og 0,5 CPU for app-containeren. |
@@ -97,7 +96,7 @@ MonkKnows er et skoleprojekt med et team på tre studerende. Der er ingen 24/7-v
 | **Datalagring** | Data lagres på Azure VM'er i Sverige (App-VM og Monitoring-VM begge i Gävleborg; Azure Function i Sweden Central). PostgreSQL-data backuppes dagligt med 7-dages retention. |
 | **Dataminimering** | Vi opbevarer ikke mere data end nødvendigt for tjenestens drift. |
 
-MonkKnows er et uddannelsesprojekt og er ikke certificeret efter ISO 27001 eller SOC 2.
+MonkKnows er et uddannelsesprojekt og er ikke certificeret efter ISO 27001.
 
 ---
 
@@ -105,9 +104,9 @@ MonkKnows er et uddannelsesprojekt og er ikke certificeret efter ISO 27001 eller
 
 MonkKnows drives af:
 
-- Andreas Gabel (Gabel1998)
-- Nima Haji Sanaei (hajisan)
-- Sofie Bro (sobr0002)
+- Andreas (Gabel1998)
+- Nima (hajisan)
+- Sofie (sobr0002)
 
 Spørgsmål om denne SLA eller anmodninger om datasletning kan rettes via GitHub Issues på projektets repository.
 
