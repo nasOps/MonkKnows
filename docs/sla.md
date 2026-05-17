@@ -97,7 +97,7 @@ MonkKnows er et skoleprojekt med et team på tre studerende. Der er ingen 24/7-v
 
 | Område | Status |
 |---|---|
-| **GDPR** | MonkKnows registrerer brugerkonti med brugernavn og adgangskode (bcrypt-hashed). Vi opbevarer ikke e-mail, navn eller andre personhenførbare oplysninger ud over brugernavnet. Søgeforespørgsler logges til `logging.sqlite3` uden kobling til specifikke brugere. Brugere kan anmode om sletning af deres konto ved at kontakte teamet (se nedenfor). |
+| **GDPR** | MonkKnows registrerer brugerkonti med brugernavn, e-mailadresse og adgangskode (bcrypt-hashed). E-mailadressen er personhenførbar og opbevares kun for at identificere kontoen. Vi opbevarer ikke navn eller andre oplysninger ud over brugernavn og e-mail. Søgeforespørgsler logges til `logging.sqlite3` uden kobling til specifikke brugere. Brugere kan anmode om sletning af deres konto ved at kontakte teamet (se nedenfor). |
 | **Adgangskodehåndtering** | Adgangskoder hashes med bcrypt inden lagring. Ingen adgangskoder opbevares i klartekst. |
 | **Datalagring** | Data lagres på Azure VM'er i Europa (Sweden Central for Azure Function; VM-region efter projekt-setup). PostgreSQL-data backuppes dagligt med 7-dages retention. |
 | **Dataminimering** | Vi opbevarer ikke mere data end nødvendigt for tjenestens drift. |
