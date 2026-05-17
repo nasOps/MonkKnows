@@ -45,6 +45,15 @@ Følgende er **ikke** dækket af denne SLA:
 
 Planlagt vedligeholdelse (deploys, certifikatfornyelse, database-migrationer) er **inkluderet** i oppetidsberegningen.
 
+**Måling af oppetid:**
+Prometheus scraper `https://monkknows.dk/metrics` hvert 15. sekund og genererer automatisk en `up`-metrik (`1` = scrape lykkedes, `0` = fejlede). Faktisk månedlig oppetid kan beregnes i Grafana med:
+
+```
+avg_over_time(up{job="monkknows"}[30d])
+```
+
+Dette måler om `/metrics`-endpointet er tilgængeligt og kan bruges som proxy for tjenestens overordnede tilgængelighed. Det er denne måling der skal lægges til grund for at vurdere om 95 %-målet overholdes og for at fastsætte et realistisk tal at love en kunde.
+
 ### Svartid
 
 Konkrete p95-svartidsmål skal defineres på baggrund af faktiske Grafana-målinger (Operations-dashboard, latency-paneler). Tallene opdateres her når baseline er etableret.
