@@ -46,14 +46,9 @@ Planlagt vedligeholdelse (deploys, certifikatfornyelse, database-migrationer) er
 
 ### Svartid
 
-| Endpoint | P95-mål |
-|---|---|
-| `GET /` | < 500 ms |
-| `GET /api/search` | < 1 000 ms |
-| `GET /api/weather` | < 2 000 ms (inkl. kald til OpenWeatherMap) |
-| `POST /api/login`, `POST /api/register` | < 1 000 ms |
+Konkrete p95-svartidsmål skal defineres på baggrund af faktiske Grafana-målinger (Operations-dashboard, latency-paneler). Tallene opdateres her når baseline er etableret.
 
-Svartider måles fra Prometheus-scrape på `https://monkknows.dk/metrics` (Grafana Operations-dashboard, latency-paneler, p95). Ved vedvarende overskridelse af p95-mål i mere end 30 minutter betragtes det som en serviceforringelse.
+Svartider måles fra Prometheus-scrape på `https://monkknows.dk/metrics`.
 
 ---
 
@@ -97,9 +92,9 @@ MonkKnows er et skoleprojekt med et team på tre studerende. Der er ingen 24/7-v
 
 | Område | Status |
 |---|---|
-| **GDPR** | MonkKnows registrerer brugerkonti med brugernavn, e-mailadresse og adgangskode (bcrypt-hashed). E-mailadressen er personhenførbar og opbevares kun for at identificere kontoen. Vi opbevarer ikke navn eller andre oplysninger ud over brugernavn og e-mail. Søgeforespørgsler logges til `logging.sqlite3` uden kobling til specifikke brugere. Brugere kan anmode om sletning af deres konto ved at kontakte teamet (se nedenfor). |
+| **GDPR** | MonkKnows registrerer brugerkonti med brugernavn, e-mailadresse og adgangskode (bcrypt-hashed). E-mailadressen er personhenførbar og opbevares kun for at identificere kontoen. Vi opbevarer ikke navn eller andre oplysninger ud over brugernavn og e-mail. Søgeforespørgsler logges i PostgreSQL med felterne: søgeterm, endpoint, HTTP-metode, statuskode, varighed, antal resultater og en daglig-roterende trunkeret SHA256-hash af IP-adressen (16 tegn). Loggen er ikke koblet til specifikke brugerkonti. Brugere kan anmode om sletning af deres konto ved at kontakte teamet (se nedenfor). |
 | **Adgangskodehåndtering** | Adgangskoder hashes med bcrypt inden lagring. Ingen adgangskoder opbevares i klartekst. |
-| **Datalagring** | Data lagres på Azure VM'er i Europa (Sweden Central for Azure Function; VM-region efter projekt-setup). PostgreSQL-data backuppes dagligt med 7-dages retention. |
+| **Datalagring** | Data lagres på Azure VM'er i Sverige (App-VM og Monitoring-VM begge i Gävleborg; Azure Function i Sweden Central). PostgreSQL-data backuppes dagligt med 7-dages retention. |
 | **Dataminimering** | Vi opbevarer ikke mere data end nødvendigt for tjenestens drift. |
 
 MonkKnows er et uddannelsesprojekt og er ikke certificeret efter ISO 27001 eller SOC 2.
