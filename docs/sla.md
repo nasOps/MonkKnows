@@ -64,17 +64,22 @@ Svartider måles fra Prometheus-scrape på `https://monkknows.dk/metrics`.
 
 ## 3. Hændelses- og gendannelsesstider
 
-MonkKnows er et skoleprojekt med et team på tre studerende. Der er ingen 24/7-vagtordning eller SLA-kompensation. Nedenstående er de realistiske responstider inden for normale åbningstider (08:00–22:00 dansk tid, hverdage).
+En professionel virksomhed opererer typisk med sværhedsgrader og tilhørende responstider:
 
-| Hændelsestype | Eksempel | Mål for bekræftelse | Mål for løsning |
+| Severity | Definition | Bekræftelse | Løsning |
 |---|---|---|---|
-| Kritisk nedetid | Appen svarer ikke / 5xx på alle requests | 1 time | 4 timer |
-| Serviceforringelse | Forhøjede fejlrater, langsom respons | 2 timer | 8 timer |
-| Mindre fejl | Enkelt endpoint fejler, ikke-kritisk funktion | Næste hverdag | Inden for 3 hverdage |
+| S1 — Critical | Total nedetid, alle brugere påvirket | 15 min | 4 timer |
+| S2 — High | Væsentlig forringelse, mange brugere påvirket | 1 time | 8 timer |
+| S3 — Medium | Begrænset påvirkning, workaround findes | 4 timer | 2 hverdage |
+| S4 — Low | Kosmetisk fejl, ingen funktionel påvirkning | 1 hverdag | Best effort |
+
+Dette understøttes af 24/7-vagtordninger og kompensationsordninger ved overskridelse.
+
+**MonkKnows:** Vi er et team på tre studerende uden vagtordning. Alle hændelser uanset sværhedsgrad håndteres næste hverdag.
 
 **Overvågning:** Discord-alerts via `monitor_logs.sh` (kører hvert 5. minut, scanner container-logs for 4xx/5xx-mønstre). Prometheus + Grafana på VM2 bruges til at diagnosticere hændelser.
 
-**Der ydes ingen kompensation** ved overskridelse af disse mål, da tjenesten leveres gratis som en del af et uddannelsesprojekt.
+**Der ydes ingen kompensation** ved overskridelse, da tjenesten leveres gratis som en del af et uddannelsesprojekt.
 
 ---
 
