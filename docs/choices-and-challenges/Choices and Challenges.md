@@ -3063,3 +3063,9 @@ Med 5 tråde kan Puma håndtere 5 samtidige requests. På en server med lav traf
 **`puma.rb` konfigurationsfil** — fravalgt.
 
 En konfigurationsfil ville primært gøre standardindstillingerne synlige i koden, men ændre ingenting i praksis. Flere workers er fravalgt fordi RAM er begrænset. `preload_app!`, som indlæser appen én gang og lader workers arve den for at spare memory, er kun relevant hvis vi tilføjer workers.
+
+### Fremtidige muligheder
+
+**Fjern LXD og snapd**
+
+LXD er en container-manager der blev auto-installeret af Azure, men som ikke bruges. Den er inaktiv, men snapd kører i baggrunden for at vedligeholde den og bruger ~41 MB RAM. At fjerne LXD og snapd ville frigøre hukommelse på en server der allerede er presset. Det er en systemændring på en kørende prod-server og bør testes forsigtigt inden det rulles ud.
