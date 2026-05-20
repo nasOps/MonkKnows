@@ -3019,6 +3019,9 @@ Vi gennemgik koden og fandt ingen steder hvor der laves unødvendigt mange datab
 
 **Caching af vejrdata og brugeraktivitet**
 `WeatherService` cacher vejrdata i 10 minutter, så der ikke laves et eksternt API-kald ved hvert besøg på vejrsiden. Brugeraktivitet har en in-memory throttle der begrænser hvor ofte aktivitet skrives til databasen, så hyppige requests fra samme bruger ikke overbelaster databasen.
+
+**Connection pooling**
+At oprette en ny forbindelse til databasen ved hvert request koster tid. Connection pooling løser det ved at have et antal forbindelser klar på forhånd, som requests låner og afleverer tilbage. `database.yml` er konfigureret med `pool: 5`, som passer præcist med Pumas `max_threads: 5`. Det betyder at hver tråd har sin egen databaseforbindelse klar uden ventetid.
 - Forced password reset (#222) burde have været vores første post-v1.0.0 MAJOR. At det blev bundlet ind i v1.3.0 viser hvor let det er at tabe semver-disciplin når man tænker i sprints frem for kontrakter.
 
 ------
