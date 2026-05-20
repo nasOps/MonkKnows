@@ -2945,7 +2945,7 @@ Vi rollbacker ikke v2.0.0 → v1.3.0. Tagget er pushed, deployet er kørt grønt
 
 ------
 
-## Performance Optimization — Indexes og søgelog-optimering
+## Performance Optimering — Indexes og søgelog-optimering
 
 ### Problem
 
@@ -3012,3 +3012,54 @@ Vi gennemgik koden og fandt ingen steder hvor der laves unødvendigt mange datab
 **Caching af vejrdata og brugeraktivitet**
 `WeatherService` cacher vejrdata i 10 minutter, så der ikke laves et eksternt API-kald ved hvert besøg på vejrsiden. Brugeraktivitet har en in-memory throttle der begrænser hvor ofte aktivitet skrives til databasen, så hyppige requests fra samme bruger ikke overbelaster databasen.
 - Forced password reset (#222) burde have været vores første post-v1.0.0 MAJOR. At det blev bundlet ind i v1.3.0 viser hvor let det er at tabe semver-disciplin når man tænker i sprints frem for kontrakter.
+
+------
+
+## Performance optimering - Server ressourcer - KPI'er 20/05-2026
+
+Memory:
+- Total: 847 MB
+- Brugt: 585 MB
+- Tilgængelig: 119 MB
+- Ingen swap konfigureret (diskplads der bruges som nødløsning, når RAM er fyldt opk)
+
+Disk:
+- Total: 29 GB
+- Brugt: 14 GB (46%)
+- Ledig: 16 GB
+
+CPU:
+- Load average: 0.00 (stort set idle)
+- 92.9% wa (wait) — CPU'en venter på disk I/O
+
+### Største memory-forbrugere
+
+| Process | Memory |
+|---|---|
+| Puma (app) | 16.5% (~140 MB) |
+| Docker daemon | 10.4% (~90 MB) |
+| containerd | 5.5% (~48 MB) |
+| snapd | 4.7% (~41 MB) |
+| WALinuxAgent (Azure) | 4.5% (~39 MB) |
+| systemd-journald | 3.3% (~29 MB) |
+
+Puma er den største enkeltforbruger. Docker og containerd bruger tilsammen ~138 MB bare til at holde container-infrastrukturen kørende. Med 847 MB RAM og ingen swap er serveren tæt på grænsen.
+
+### Puma-konfiguration
+
+Puma kører med standardindstillinger. Der er ingen `puma.rb` konfigurationsfil i projektet.
+
+| Indstilling | Værdi |
+|---|---|
+| Mode | Single (ingen workers) |
+| Min threads | 0 |
+| Max threads | 5 |
+| Workers | 0 |
+
+Med 5 tråde kan Puma håndtere 5 samtidige requests. På en server med lav trafik og begrænset RAM er dette passende. Flere workers ville give mere kapacitet, men hver worker er en fuld kopi af applikationen i hukommelsen, hvilket ville presse RAM yderligere.
+
+### Fravalgte optimeringer
+
+**`puma.rb` konfigurationsfil** — fravalgt.
+
+En konfigurationsfil ville primært gøre standardindstillingerne synlige i koden, men ændre ingenting i praksis. Flere workers er fravalgt fordi RAM er begrænset. `preload_app!`, som indlæser appen én gang og lader workers arve den for at spare memory, er kun relevant hvis vi tilføjer workers.
