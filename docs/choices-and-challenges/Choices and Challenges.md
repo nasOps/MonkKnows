@@ -2987,6 +2987,14 @@ Scriptet var skrevet til SQLite og virkede ikke med PostgreSQL. Det var aldrig k
 
 Det eneste der kalder dette endpoint er vores Azure Function-crawler, og den kører kun én gang om ugen. Caching ville spare ét databasekald om ugen, hvilket ikke er besværet værd. B-tree indekset vi tilføjede løser det reelle performance-problem.
 
+### Fremtidige muligheder
+
+**Begræns hvad søge-API'et returnerer**
+
+Når man søger via `/api/search`, returnerer API'et alle felter fra databasen for hver side, inklusiv hele sidens tekstindhold. Det svarer til at søge efter "python" og få tilsendt hele Wikipedia-artiklen frem for bare titlen og linket. En søgning der returnerer 14 resultater giver ~300 KB data.
+
+Frontenden bruger kun `title` og `url` fra hvert resultat. Den originale Flask-app gjorde det samme, så adfærden er historisk konsistent og bryder ikke spec'en. Men hvis man begrænsede API'et til kun at returnere `title`, `url` og `language`, ville responses falde fra ~300 KB til under 1 KB.
+
 ### Hvad der allerede var optimeret
 
 Under gennemgangen fandt vi at en del allerede var på plads:
