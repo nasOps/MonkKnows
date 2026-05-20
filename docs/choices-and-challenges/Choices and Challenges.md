@@ -3026,7 +3026,7 @@ At oprette en ny forbindelse til databasen ved hvert request koster tid. Connect
 
 ------
 
-## Performance optimering - Server ressourcer - KPI'er 20/05-2026
+## Performance optimering - Server ressourcer på VM1 - KPI'er 20/05-2026
 
 Memory:
 - Total: 847 MB
@@ -3092,3 +3092,29 @@ LXD er en container-manager der blev auto-installeret af Azure, men som ikke bru
 Lige nu sendes der ingen instruktioner til browseren om hvor længe den må gemme filer som CSS. Det betyder at browseren henter CSS-filen igen ved hvert besøg, selvom den ikke har ændret sig. Ved at tilføje en `Cache-Control`-header i Nginx kan man fortælle browseren at gemme filen i fx et år. Næste gang brugeren besøger siden, bruges den cachede version uden et eneste netværkskald.
 
 Risikoen er at brugere ser en gammel CSS-version hvis filen opdateres, fordi browseren ikke ved at den er ændret. Dette løses normalt med cache-busting, fx ved at tilføje et versionsnummer til filnavnet (`style.css?v=2`). Det er ikke sat op, og er derfor grunden til at dette er fravalgt for nu.
+
+------
+
+## Performance optimering - Server ressourcer på VM2 - KPI'er 20/05-2026
+
+Memory:
+
+
+Disk:
+
+
+CPU:
+
+
+### Største memory-forbrugere
+
+
+### Valgte optimeringer
+
+
+### Fravalgte optimeringer
+
+
+### Fremtidige muligheder
+
+------
