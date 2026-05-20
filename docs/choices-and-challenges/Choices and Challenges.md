@@ -2947,45 +2947,56 @@ Vi rollbacker ikke v2.0.0 → v1.3.0. Tagget er pushed, deployet er kørt grønt
 
 ### Problem
 
-Ved gennemgang af database-queries blev to problemer identificeret:
+Ved gennemgang af databasen blev to problemer identificeret:
 
-**1. `search_logs.query` — sequential scan ved `GROUP BY`**
+**1. Søgeloggen blev gennemsøgt fra ende til anden ved hvert kald**
 
-`GET /api/search-logs/top` kører:
+Endpointet `GET /api/search-logs/top` henter de 10 mest populære søgninger. For at finde dem skal PostgreSQL læse hele `search_logs`-tabellen fra start til slut, tælle og gruppere resultaterne, og derefter sortere dem. Dette kaldes et sequential scan, og problemet er at tabellen vokser med hvert eneste søgekald. Jo mere systemet bruges, jo langsommere bliver dette kald.
 
-```sql
-SELECT query FROM search_logs GROUP BY query ORDER BY COUNT(*) DESC LIMIT 10
-```
+**2. Et script til at oprette indexes eksisterede, men kørte aldrig**
 
-Uden index laver PostgreSQL et fuldt sequential scan + hash aggregate + sort på en tabel der vokser med hvert søgekald. Indexet på `created_at` (oprettet i den originale migration) hjælper ikke denne query.
-
-**2. `pages`-tabelens indexes var ikke i AR-migrationssystemet**
-
-`db/add_indexes.rb` tilføjede tre indexes (`idx_pages_language`, `idx_pages_url`, `idx_pages_last_updated`) på `pages`-tabellen som rå SQL, men scriptet:
-- Var ikke en ActiveRecord-migration og lå ikke i `db/migrate/`
-- Blev aldrig kaldt automatisk — hverken i docker-compose, CI/CD eller rake-tasks
-- Brugte `sqlite_master` til verifikation, som ikke eksisterer i PostgreSQL
-- Var dermed dead code: indexes eksisterede muligvis på produktion fra tidligere, men oprettedes aldrig i et frisk miljø
+Den 13. april 2026 blev `db/add_indexes.rb` oprettet med det formål at oprette indexes på `pages`-tabellen. Tre dage senere migrerede vi fra SQLite til PostgreSQL. Scriptet var skrevet til SQLite og virker ikke med PostgreSQL. Det var heller aldrig koblet til vores automatiske system (CI/CD, Docker eller migrations), så det kørte aldrig automatisk. Scriptet var i praksis dead code, der blot lå i codebasen uden at gøre noget.
 
 ### Valgte optimeringer
 
-**`search_logs.query` — B-tree index tilføjet** (`db/migrate/20260501000000_add_index_to_search_logs_query.rb`)
+**Index på `search_logs.query`** (`db/migrate/20260501000000_add_index_to_search_logs_query.rb`)
 
-Et B-tree index lader PostgreSQL gruppere via index-scan frem for sequential scan. Da tabellen vokser kontinuerligt med hvert søgekald, er gevinsten stigende over tid.
+Vi tilføjede et B-tree index på `query`-kolonnen i `search_logs`-tabellen. Et B-tree index gør databasesøgninger hurtigere, fordi PostgreSQL ikke længere behøver at læse hele tabellen for at finde og gruppere søgningerne. Jo mere systemet bruges og tabellen vokser, jo større er gevinsten.
 
 ### Fravalgte optimeringer
 
-**`idx_pages_language`** — fravalgt.
+**Index på sprog (`idx_pages_language`)** — fravalgt.
 
-`WHERE language = ?` indgår i alle søgeforespørgsler, men søgningen bruger primært GIN-indexet på `tsv`-kolonnen (`idx_pages_tsv`). PostgreSQL bruger GIN-indexet til at finde sider der matcher søgetermen og filtrerer derefter på `language`. GIN-indexet er allerede meget selektivt, så et separat `language`-index ville ikke blive brugt i praksis. Et partial index (fx kun `language = 'en'`) hjælper netop den case med flest rækker, hvor PostgreSQL under alle omstændigheder overvejer sequential scan.
+Alle søgninger filtrerer på sprog, men søgningen bruger allerede et GIN-indeks på `tsv`-kolonnen, som hurtigt finder de relevante sider. Derefter filtrerer PostgreSQL på sprog. GIN-indekset er så præcist i sin søgning, at et ekstra sprog-indeks ikke ville gøre en forskel i praksis.
 
-**`idx_pages_url`** — fravalgt.
+**Index på URL (`idx_pages_url`)** — fravalgt.
 
-URL-kolonnen bruges ikke i nogen `WHERE`- eller `ORDER BY`-clause i application-koden. Indexet giver ingen målbar gevinst.
+URL-kolonnen bruges ikke til at søge eller sortere i koden. Et indeks på en kolonne der ikke søges i, giver ingen gevinst.
 
-**`idx_pages_last_updated`** — fravalgt.
+**Index på sidst opdateret (`idx_pages_last_updated`)** — fravalgt.
 
-`last_updated` sættes ved insert/update men bruges aldrig som filter eller sorteringskolonne i queries. Et index her ville udelukkende tilføje overhead på skrivninger uden at hjælpe læsning.
+`last_updated` opdateres når en side gemmes, men bruges aldrig til at søge eller sortere. Et indeks her ville kun gøre det langsommere at gemme sider, uden at hjælpe på søgehastigheden.
 
-`db/add_indexes.rb` er dead code og kan slettes.
+**`db/add_indexes.rb`** — slettet.
+
+Scriptet var skrevet til SQLite og virkede ikke med PostgreSQL. Det var aldrig koblet til vores automatiske system og kørte derfor aldrig. Da de tre indeks det forsøgte at oprette alle er fravalgt, var der ingen grund til at beholde det.
+
+### Hvad der allerede var optimeret
+
+Under gennemgangen fandt vi at en del allerede var på plads:
+
+**Fuldtekstsøgning med GIN-indeks på `pages`**
+Søgningen bruger PostgreSQLs indbyggede fuldtekstsøgning via en `tsv`-kolonne med et GIN-indeks. GIN er en særlig indekstype der er lavet til at søge i tekst, og den er langt hurtigere end at gennemsøge alle sider manuelt. Indekset opdateres automatisk når en side gemmes.
+
+**Indeks på log-tabeller**
+`search_logs`, `user_activity_logs` og `exception_logs` har alle indeks på de kolonner der bruges til at filtrere og sortere logdata.
+
+**Unique indeks på brugere**
+`email` og `username` har unique indeks, hvilket både sikrer at der ikke kan oprettes dubletter og gør opslag på disse kolonner hurtige.
+
+**Nginx som reverse proxy**
+Al trafik går igennem Nginx før den når applikationen. Det aflaster applikationsserveren og giver mulighed for at slå gzip-komprimering til, så responses fylder mindre.
+
+**Docker multi-stage build**
+Vores Dockerfile bruger et build-stage og et runtime-stage. Det betyder at kompileringsværktøjer ikke følger med i det færdige image, som dermed bliver mindre og hurtigere at starte op.
 - Forced password reset (#222) burde have været vores første post-v1.0.0 MAJOR. At det blev bundlet ind i v1.3.0 viser hvor let det er at tabe semver-disciplin når man tænker i sprints frem for kontrakter.
