@@ -3058,6 +3058,12 @@ Puma kører med standardindstillinger. Der er ingen `puma.rb` konfigurationsfil 
 
 Med 5 tråde kan Puma håndtere 5 samtidige requests. På en server med lav trafik og begrænset RAM er dette passende. Flere workers ville give mere kapacitet, men hver worker er en fuld kopi af applikationen i hukommelsen, hvilket ville presse RAM yderligere.
 
+### Valgte optimeringer
+
+**Gzip-komprimering via Nginx**
+
+Vi slog gzip til i Nginx-konfigurationen. Det betyder at HTML, JSON, CSS og JavaScript komprimeres inden de sendes til browseren. Tekst kan typisk komprimeres til 10-30% af den originale størrelse, så der overføres langt mindre data over netværket. Browseren pakker det automatisk ud. Responses under 1 KB komprimeres ikke, da overhead ikke er det værd for meget små svar.
+
 ### Fravalgte optimeringer
 
 **`puma.rb` konfigurationsfil** — fravalgt.
