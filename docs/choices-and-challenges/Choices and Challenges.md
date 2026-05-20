@@ -3083,3 +3083,9 @@ En konfigurationsfil ville primært gøre standardindstillingerne synlige i kode
 **Fjern LXD og snapd**
 
 LXD er en container-manager der blev auto-installeret af Azure, men som ikke bruges. Den er inaktiv, men snapd kører i baggrunden for at vedligeholde den og bruger ~41 MB RAM. At fjerne LXD og snapd ville frigøre hukommelse på en server der allerede er presset. Det er en systemændring på en kørende prod-server og bør testes forsigtigt inden det rulles ud.
+
+**Browser caching af statiske filer**
+
+Lige nu sendes der ingen instruktioner til browseren om hvor længe den må gemme filer som CSS. Det betyder at browseren henter CSS-filen igen ved hvert besøg, selvom den ikke har ændret sig. Ved at tilføje en `Cache-Control`-header i Nginx kan man fortælle browseren at gemme filen i fx et år. Næste gang brugeren besøger siden, bruges den cachede version uden et eneste netværkskald.
+
+Risikoen er at brugere ser en gammel CSS-version hvis filen opdateres, fordi browseren ikke ved at den er ændret. Dette løses normalt med cache-busting, fx ved at tilføje et versionsnummer til filnavnet (`style.css?v=2`). Det er ikke sat op, og er derfor grunden til at dette er fravalgt for nu.
