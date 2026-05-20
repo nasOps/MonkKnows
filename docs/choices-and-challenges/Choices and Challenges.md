@@ -3032,7 +3032,7 @@ Memory:
 - Total: 847 MB
 - Brugt: 585 MB
 - Tilgængelig: 119 MB
-- Ingen swap konfigureret (diskplads der bruges som nødløsning, når RAM er fyldt opk)
+- Ingen swap konfigureret (diskplads der bruges som nødløsning, når RAM er fyldt op)
 
 Disk:
 - Total: 29 GB
