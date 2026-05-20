@@ -1,57 +1,41 @@
 # Version Control
 
 ## Versionering
-Vi har brugt semantisk versionering som overordnet ramme, men ikke fulgt den konsekvent. Vores releases har i højere grad været styret af følelser omkring et release end af SemVers regler for MAJOR, MINOR og PATCH. Vi har eksempelvis tagget v2.0.0 ved tilføjelsen af PostgreSQL og en crawler — pure tilføjelser uden breaking changes, som rettelig burde have været en MINOR. Resultatet er manglende transparens omkring vores releases, hvor brugeren ikke kan aflæse hvilken version der er stabil.
 
-### Semver-analyse
+Vi har brugt semantisk versionering som overordnet ramme, men ikke fulgt den konsekvent. Vores releases har i højere grad været styret af følelsen af "nu er det tid til et release" end af SemVers regler for MAJOR, MINOR og PATCH. Det tydeligste eksempel er v2.0.0, som vi taggede da vi tilføjede PostgreSQL og en crawler — pure tilføjelser uden breaking changes, der rettelig burde have været en MINOR. Resultatet er manglende transparens omkring vores releases: en bruger kan ikke aflæse på versionsnummeret om noget er stabilt eller om der er sket noget brudt.
 
-Hvis vi havde fulgt strikt semver fra v1.0.0 ville vi ligge på **~v1.3.0** i dag (vi ligger på v2.0.0).
+Hvis vi havde fulgt strikt SemVer fra v1.0.0 og fremad, ville vi i dag ligge omkring v1.3.0 i stedet for v2.0.0. Vi har overshootet flere gange undervejs: v1.2.0 ("Trunk-Based Dev") var et workflow-skift snarere end en versionsbump værd, v1.3.0 ("Security & Hardening") var mest PATCH/MINOR-arbejde hvor kun FTS5 reelt fortjente en MINOR, og v2.0.0 ("PG + Crawler") var pure tilføjelser uden breaking changes og burde være landet som MINOR. Den eneste kandidat siden v1.0.0 der efter lærebogen ville være en rigtig MAJOR, er PR #222 (forced password reset), som returnerede 403 på endpoints der tidligere svarede 200. Den kolonne blev dog droppet igen, så bruddet var midlertidigt og blev aldrig en del af nogen released version.
 
-#### Hvor vi overshootede
+Læringen er ikke at SemVer er forkert, men at det kræver en disciplin omkring at lade mekaniske kriterier (breaking changes ja/nej) styre versionsbumpene frem for følelsen af et release-værdigt øjeblik.
 
-| Tag | Reel klassifikation |
-|---|---|
-| v1.2.0 — "Trunk-Based Dev" | Workflow-skift, ikke en version-bump værd |
-| v1.3.0 — "Security & Hardening" | Mest PATCH/MINOR — kun FTS5 var rigtig MINOR-værdig |
-| v2.0.0 — "PG + Crawler" | Pure tilføjelser, ingen breaking changes → MINOR |
+## Branching strategy
 
-### Den eneste rigtige MAJOR-kandidat siden v1.0.0
+Vi startede projektet med en tilpasset version af Gitflow, hvor `development` fungerede som integrations- og staging-branch. Feature-branches blev oprettet direkte fra GitHub-issues og pegede mod `development`, og når `development` var stabil, lavede vi en PR fra den til `main`. Det fungerede en periode, men gabet mellem `development` og `main` voksede over tid. Hver gang vi endelig samlede mod til at lave dev → main-merge, var det blevet en stor og risikabel forandring med mange flettede features og tilsvarende svært at lokalisere bugs i. Det er nøjagtig den ulempe Gitflow er kendt for, og vi mærkede den i praksis.
 
-PR #222 (forced password reset) returnerede 403 for tidligere-200 endpoints. Lærebogs-MAJOR — men kolonnen blev droppet igen, så det var midlertidigt.
+Vi skiftede derfor til trunk-based development den 7. april 2026. Konkret betyder det at feature-branches nu oprettes direkte fra `main` og merges tilbage til `main` via PR — der er ingen mellemstation. `development` blev bevaret som read-only arkiv-branch under overgangen, men bruges ikke længere aktivt. Skiftet reducerede lead time fra feature til produktion, gjorde det nemmere at lokalisere bugs fordi vi ikke længere flettede store batches kode, og fjernede et helt lag af koordinering. Til gengæld kræver det disciplin: PRs går nu direkte til produktion, så de skal være små, selvstændige og reviewbare. Vi har skullet øve os i den disciplin undervejs.
 
----
+I forbindelse med skiftet strammede vi flere ting op. Vi indførte Conventional Commits på engelsk (`feat:`, `fix:`, `chore:`, `docs:`, `ci:`) i imperativ form, fordi vi bruger squash merge og dermed kun ser PR-titlen i `main`'s historik — den skal kunne læses som en commit. Vi slog `deleteBranchOnMerge` til så feature-branches ryddes op automatisk efter merge, hvilket fjerner den ophobning af døde branches vi havde i Gitflow-tiden. Vi slog dismiss-stale-reviews til, så et nyt push invaliderer tidligere approvals, og vi krævede at alle review-tråde skal løses før merge. Stale branches blev arkiveret som `archive/*`-tags og slettet, og vi reducerede mængden af duplikerede rulesets fra fire til to (én per protected branch).
 
-## Branching Strategy
-- Vi startede med at bruge en tilpasset version af Gitflow med development som integrations/staging branch. Ud fra denne oprettede vi feature-branches direkte fra GitHub issues, og lavede PRs til development. Når development var stabil, lavede vi en PR til main.
-- Da vi oplevede at udviklingen i development løb langt foran main, og at merges til main blev store og risikable, skiftede vi til trunk-based development. Nu laver vi PRs direkte til main, og development er kun en read-only archive branch.
-- Vi skiftede derfor fra Gitflow til Trunk-based development. Således reduceres lead time for features, og vi får hurtigere feedback på PRs. Vi skulle dog øve os i at holde PRs små og selvstændige, da de nu går direkte til produktion. Gevinsten var derudover, at bugs var lettere at lokalisere, fordi vi ikke mergede store chunks af kode.
-  ang. CI/CD/CD/CF
+`main` er beskyttet med krav om PR, én required approval, dismiss-stale-reviews ved nye pushes, krav om løste review-tråde, et CI status-check (`build-test`) der skal være grønt, kun squash-merge, blokerede force-pushes og forbud mod sletning. Det betyder i praksis at en feature-branch kan ikke nå produktion uden review og grøn CI, uanset hvem der pusher.
 
-Vi har i forbindelse med CI/CD oprettet rigtigt mange workflows, nogle e2e, et build workflow, nogle test, noget flere CD's og lign.
+Den daglige arbejdsgang er enkel: vi opretter et issue på GitHub med relevant template og labels, opretter en branch fra `main`, committer regelmæssigt med Conventional Commits, opretter en PR til `main` når vi er klar, og lader CI køre Bundler Audit, Brakeman, Hadolint, RuboCop, RSpec og smoke test. Når der er én approval, CI er grøn, og review-trådene er løst, squash-merger vi til `main`, og feature-branchen slettes automatisk. Derfra triggrer CD automatisk og deployer til produktion.
 
+## CI/CD/CF og automatisering
 
-Formålet var, at alle steps var inddelte og vi derfor havde et hurtigt overblik.
+Vi havde i en periode rigtigt mange separate workflow-filer — ét per tool (brakeman, bundler-audit, OWASP ZAP) plus et generisk CI og et generisk CD. Formålet var at hver pipeline-step var let at finde, men resultatet blev det modsatte: det var svært at danne sig et overblik, og workflow-filerne mappede ikke til de fire DevOps-stadier som kursusmaterialet definerer. Vi konsoliderede til tre filer organiseret efter formål — `ci.yml`, `cd.yml` og `cf.yml` — så det er synligt for en udefrakommende hvad der hører til hvor og hvilket DevOps-stadie hver pipeline udfylder. Det er en bevidst beslutning om at organisere efter intention frem for efter værktøj.
 
-Dog har vi senere været nødsaget til, at indele det i kategorier, såsom CI/CD/CD/CF som en del af at være transparent. Vi har forsøgt, at gøre det synligt for den uindviet, at se hvad der gør hvad, og hvor hvilket hører til.
+Vi har bevidst valgt at holde alle hemmeligheder ude af både image og repo. CD-workflowet bygger en `.env`-fil ud fra GitHub Secrets og SCP'er den til serveren ved hver deploy. Det giver os adskillelse mellem kode og hemmeligheder (vi kan rotere uden at redeploye kode), eliminerer risikoen for at hemmeligheder ved et uheld committes, og åbner for at forskellige miljøer kan have forskellige værdier uden at vi skal forke koden.
 
-Ingen secrets i image, ingen secrets i repo. CD-workflowet bygger .env fra GitHub secrets og SCPer den til serveren ved hver deploy. Det giver:
+## GitHub som platform
 
-Adskillelse af kode og hemmeligheder (kan rotere uden redeploy af kode)
-Ingen risiko for accidental commit af hemmeligheder
-Mulighed for at forskellige miljøer har forskellige værdier uden kode-fork
-Det vi ikke har — og hvorfor - Ingen manuel approval-gate på CD. Trade-off: hurtigere flow, men ingen "sidste-chance" før prod. Kompenseret af PR-review og smoke tests. Acceptabelt for et kursusprojekt; tvivlsomt til ægte enterprise.                       - Ingen separat staging-miljø. Trunk-based dev sender direkte til prod. Vi opfanger fejl med smoke tests og rollback-via-tag, ikke med staging.
-Ingen rolling deploys / blue-green. Containere stoppes og genstartes; nedetid håndteres af Docker-healthcheck + --wait (PR #277). Blue-green var option #4 i
-deploy-MTTR-analysen — fravalgt som for tungt.
+Vi har gjort aktivt brug af bredden i GitHub. Issues har vi oprettet med relevante tags og labels, hvilket understøtter Collaboration and Communication ved at gøre arbejdsopgaver synlige og veldefinerede for alle i gruppen. Milestones har vi brugt til mandatory-opgaver og holdt dem adskilt fra projects-boardet, fordi de ikke handler om selve udviklingsprocessen — det holder kanban-boardet fokuseret og reducerer støj, i tråd med Value-stream Mapping og LEAN-princippet om at identificere det der skaber værdi og skære resten væk. Discussions har vi brugt til at vende idéer og samle løse tanker af typen "det her skal vi også lige huske" — i stedet for at idéer forsvinder i en Messenger-tråd, lever de et offentligt sted i repoen, hvilket direkte understøtter Transparency, Visibility and Knowledge Sharing.
 
-Vi har brugt følgende features fra GitHub: issues, labels, milestones, discussions, PRs og projects som et kanban board.
-Issues er oprettet med relevante tags og labels, hvilket understøtter Collaboration and Communication (uge 4) ved at gøre arbejdsopgaver synlige og veldefinerede for hele gruppen.
-Milestones har vi brugt til mandatory-opgaver, adskilt fra projects-boardet, da de ikke har noget med selve udviklingsprocessen at gøre. Det holder kanban-boardet fokuseret og reducerer støj — i tråd med Value-stream Mapping og LEAN (uge 10): identificer det der skaber værdi, og skær resten væk.
-Discussions har vi brugt til at vende idéer og samle løse tanker — "det her skal vi også lige huske". Det er et direkte udtryk for Transparency, visibility and knowledge sharing (uge 2): i stedet for at idéer forsvinder i en Messenger-tråd, lever de et offentligt sted i repoen.
-PRs har vi konsekvent oprettet gennem hele projektforløbet, hvor diskussioner, spørgsmål og forslag er holdt som kommentarer. Det bryder informationssiloer ned (uge 2) og giver et naturligt alternativ til statusmøder — Collaboration and Communication (uge 4) nævner netop: instead of a daily standup meeting → daily PR?
-Som en del af kommunikationsplanen har været på tværs af flere platforme, efter nemhed. Det vigtigere for vidensdelingen i teamet, at der der bliver vidensdelt, og det kan gøres hurtigt gennem discord, sms, messenger eller andet frem, for det skulle være en chore at vidensdele gennem github, i prædefineret formater og sprog.
+PRs har været det centrale samarbejdsværktøj gennem hele forløbet, hvor diskussioner, spørgsmål og forslag er holdt som kommentarer i den PR de hører til. Det bryder informationssiloer ned og fungerer som et naturligt alternativ til statusmøder — kursusmaterialet nævner netop "instead of a daily standup meeting → daily PR?", og det er præcis sådan vi har brugt dem. Vi har dog ikke holdt al kommunikation på GitHub. Vi har bevidst suppleret med Discord, sms og iMessage afhængigt af hvad der var hurtigst, fordi det vigtigste for os har været at videndelingen *sker*, ikke at den følger et bestemt format. Hvis det skulle være en chore at videndele gennem GitHub i prædefinerede skabeloner, ville det blive gjort mindre.
 
-Actions: automatiserer tests og deployment (CI/CD).
+GitHub Actions automatiserer tests og deployment. Branches bruger vi til at arbejde på nye features uden at påvirke `main`, og vi har søgt at lave små commits gennem hele forløbet — det skaber transparens omkring hvad der er ændret hvornår, og giver et brugbart snapshot af filerne på et givent tidspunkt når man skal grave i historikken.
 
-Branches blev brugt til at arbejde på nye features udem at påvirke hovedkoden på main, fordi branchen er en parallel kopi af denne.
+## Hvad vi ikke har — og hvorfor
 
-Vi søgte at lave små commits for at skabe transparens omkring ændringer, så disse kunne ses i historikken som et snapshot af filerne på et givent tidspunkt.
+Vi har ikke en manuel approval-gate på CD. Trade-off'en er hurtigere flow mod ingen "sidste-chance" før produktion, og vi kompenserer med PR-review og smoke tests. Det er acceptabelt for et kursusprojekt, men i et reelt enterprise-setup ville vi sætte en gate ind. Vi har heller ikke et separat staging-miljø — trunk-based development sender direkte til produktion, og vi opfanger fejl med smoke tests og rollback via tag i stedet for at validere i staging. Endelig kører vi ikke rolling deploys eller blue-green: containere stoppes og genstartes, og nedetid håndteres af Docker-healthcheck og `docker compose up --wait` (PR #277). Blue-green var faktisk option #4 i deploy-MTTR-analysen, men vi fravalgte det som for tungt for projektets skala.
+
+De fordele vi har oplevet ved trunk-based er en simplere mental model — der er ikke længere noget "skal det gå til development eller main?" — at hver merge til `main` triggrer CD så features når produktion hurtigere, og at squash-merge plus Conventional Commits giver en ren og søgbar historik på `main`. Ulempen er som nævnt at det kræver disciplin, og at vi har mistet det safety net som et fælles staging-lag ville give til at teste flere features sammen før produktion.

@@ -73,6 +73,23 @@ jobs:
         with:
           dockerfile: ruby-sinatra/Dockerfile
 
+# Analyses source code and reports (metrics) to SonarCloud and Quality Gates in GitHub
+  sonarcloud:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+
   # --- Build & test (depends on all quality gates) ---
 
   build-test:
@@ -174,7 +191,7 @@ jobs:
       - name: Install Playwright
         run: |
           cd ruby-sinatra/spec/e2e
-          npm install
+          npm ci
           npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
