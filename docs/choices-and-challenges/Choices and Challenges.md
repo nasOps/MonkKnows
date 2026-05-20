@@ -2983,6 +2983,10 @@ URL-kolonnen bruges ikke til at søge eller sortere i koden. Et indeks på en ko
 
 Scriptet var skrevet til SQLite og virkede ikke med PostgreSQL. Det var aldrig koblet til vores automatiske system og kørte derfor aldrig. Da de tre indeks det forsøgte at oprette alle er fravalgt, var der ingen grund til at beholde det.
 
+**Caching af `/api/search-logs/top`** — fravalgt.
+
+Det eneste der kalder dette endpoint er vores Azure Function-crawler, og den kører kun én gang om ugen. Caching ville spare ét databasekald om ugen, hvilket ikke er besværet værd. B-tree indekset vi tilføjede løser det reelle performance-problem.
+
 ### Hvad der allerede var optimeret
 
 Under gennemgangen fandt vi at en del allerede var på plads:
@@ -3004,4 +3008,7 @@ Vores Dockerfile bruger et build-stage og et runtime-stage. Det betyder at kompi
 
 **Ingen N+1 query-problemer**
 Vi gennemgik koden og fandt ingen steder hvor der laves unødvendigt mange databasekald. Søgeresultater tilgår kun simple kolonner, bruger-opslag henter altid kun én række, og metrics-queries bruger `.count` og `.distinct` direkte i databasen, så PostgreSQL returnerer et enkelt tal frem for at sende alle rækker til applikationen.
+
+**Caching af vejrdata og brugeraktivitet**
+`WeatherService` cacher vejrdata i 10 minutter, så der ikke laves et eksternt API-kald ved hvert besøg på vejrsiden. Brugeraktivitet har en in-memory throttle der begrænser hvor ofte aktivitet skrives til databasen, så hyppige requests fra samme bruger ikke overbelaster databasen.
 - Forced password reset (#222) burde have været vores første post-v1.0.0 MAJOR. At det blev bundlet ind i v1.3.0 viser hvor let det er at tabe semver-disciplin når man tænker i sprints frem for kontrakter.
