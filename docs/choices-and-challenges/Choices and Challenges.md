@@ -2943,7 +2943,9 @@ Vi rollbacker ikke v2.0.0 → v1.3.0. Tagget er pushed, deployet er kørt grønt
 - "Vi har gjort meget arbejde" er ikke et semver-argument. Mængden af PRs siden sidste tag siger intet om hvorvidt API-kontrakten er ændret.
 - Den rigtige måde at versionere er at lade OpenAPI-specen være primær sandhedskilde: bump version når specen ændres bagudkompatibelt (MINOR) eller bryder (MAJOR), bug-fixes ellers. Det er en strammere kobling end milestone-tagging og giver versionsnummeret reel betydning.
 
-## Performance Optimization — Database Indexes (Issue #282)
+------
+
+## Performance Optimization — Indexes og søgelog-optimering
 
 ### Problem
 
@@ -2999,4 +3001,7 @@ Al trafik går igennem Nginx før den når applikationen. Det aflaster applikati
 
 **Docker multi-stage build**
 Vores Dockerfile bruger et build-stage og et runtime-stage. Det betyder at kompileringsværktøjer ikke følger med i det færdige image, som dermed bliver mindre og hurtigere at starte op.
+
+**Ingen N+1 query-problemer**
+Vi gennemgik koden og fandt ingen steder hvor der laves unødvendigt mange databasekald. Søgeresultater tilgår kun simple kolonner, bruger-opslag henter altid kun én række, og metrics-queries bruger `.count` og `.distinct` direkte i databasen, så PostgreSQL returnerer et enkelt tal frem for at sende alle rækker til applikationen.
 - Forced password reset (#222) burde have været vores første post-v1.0.0 MAJOR. At det blev bundlet ind i v1.3.0 viser hvor let det er at tabe semver-disciplin når man tænker i sprints frem for kontrakter.
