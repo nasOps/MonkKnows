@@ -25,7 +25,7 @@ g.db.execute("SELECT * FROM users WHERE username = ?", (username,))
 ### 1.2 Weak Password Hashing (MD5)
 `app.py` hashes passwords with MD5, which has been cryptographically broken since 2004. No salt is used, making identical passwords produce identical hashes and enabling rainbow table attacks.
 
-**Mitigation in Sinatra:** Passwords are hashed with `bcrypt` via ActiveRecord's `has_secure_password`.
+**Mitigation in Sinatra:** Passwords are hashed with `bcrypt` via a custom `verify_password?` method. New users get a `password_digest` (bcrypt); existing MD5 users are migrated on login.
 
 ---
 
@@ -63,7 +63,7 @@ Registration only checks for presence of `@` in the email field. Values like `@`
 ### 2.4 No Password Requirements
 The only password validation is that the field is non-empty. Single-character passwords are accepted.
 
-**Mitigation in Sinatra:** Model validation enforces a minimum password length.
+**Mitigation in Sinatra:** Model validation requires password presence on new records.
 
 ---
 
