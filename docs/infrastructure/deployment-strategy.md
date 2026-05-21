@@ -53,3 +53,10 @@ Derudover har VM1 kun 1 vCPU og 847 MB RAM uden swap, hvilket begrænser mulighe
 ---
 
 ## Vores valg
+En Blue-Green-tilgang giver mening, da brugerbasen er så lille, at en Canary- eller Rolling Updates-strategi ikke vurderes at give reel værdi på nuværende tidspunkt.
+
+En Blue-Green-deployment sikrer, at der altid er en live webapplikation, og at der kun skiftes til den nye version, hvis containeren er healthy, målt via healthchecket på /health-endpointet.
+
+I forlængelse af dette er det et naturligt skridt at tænke Infrastructure as Code (IaC) ind i opsætningen, så en ny VM kun kræver, at eksempelvis Terraform definerer det eksakte miljø med alt konfigureret. Processen bliver dermed at spinne en ny VM op, vente på at containeren bliver healthy, hvorefter skiftet sker, og den gamle VM lukkes ned for at spare omkostninger.
+
+Hvis den nye VM ikke bliver healthy, kan man med sikkerhed vide, at brugerne stadig er på den oprindelige VM, hvor alt fungerer korrekt. Derefter kan der troubleshoottes enten på VM-niveau eller i pipelinen, alt efter hvor problemet ligger.
