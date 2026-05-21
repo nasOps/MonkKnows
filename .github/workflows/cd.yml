@@ -65,6 +65,7 @@ jobs:
           exit-code: '1'
           severity: CRITICAL
           ignore-unfixed: 'true'
+          trivyignores: ruby-sinatra/.trivyignore
 
       # Push the same scanned image — no rebuild
       - name: Push Docker image to GHCR

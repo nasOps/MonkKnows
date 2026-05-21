@@ -6,6 +6,7 @@ gem 'activerecord', '~> 7.0'
 gem 'bcrypt', '~> 3.1'
 gem 'digest' # To hash IP addresses for logging unique users
 gem 'dotenv'
+gem 'net-imap', '>= 0.5.7' # Pinned to override ruby:3.2-slim stdlib version — patches CVE-2026-42258
 # ostruct is no longer part of default gems from Ruby 4.0
 # so we include it explicitly to avoid warnings
 gem 'ostruct'

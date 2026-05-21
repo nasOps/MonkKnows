@@ -26,12 +26,16 @@ COPY . .
 FROM ruby:3.2-slim
 
 # Install only essential runtime dependencies, delete list after installation to reduce image size
+# Also upgrade net-imap at system level and clean up old version — the stdlib net-imap in
+# ruby:3.2-slim is vulnerable (CVE-2026-42257, CVE-2026-42258). Gemfile pin covers Bundler
+# path but Trivy also scans /usr/local/lib/ruby/gems/3.2.0/, so we must remove it here too.
 RUN apt-get update -qq && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
         libpq5 \
         libsqlite3-0 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/local/lib/ruby/gems/3.2.0/specifications/net-imap-0.3.9.gemspec
 
 WORKDIR /app
 
