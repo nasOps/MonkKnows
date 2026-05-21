@@ -2992,4 +2992,222 @@ Omvendt indeholder `ruby-sinatra-spec.json` signalværdi: den viser at vi ikke b
 - Spec-filer der ikke bruges af tests rotter hurtigere end kode — de mangler den feedback-loop der tvinger opdateringer.
 - Formålet med en fil bør fremgå af dens placering, ikke kun af dens indhold. At flytte filer er billigere end at forklare undtagelser i dokumentation.
 - Tre specs til samme API er et tegn på at migrationens arbejdsproces ikke var eksplicit nok om hvornår arbejdsdokumenter skifter til artefakter eller udgår.
+## Performance Optimering — Indexes og søgelog-optimering
+
+### Problem
+
+Ved gennemgang af databasen blev to problemer identificeret:
+
+**1. Søgeloggen blev gennemsøgt fra ende til anden ved hvert kald**
+
+Endpointet `GET /api/search-logs/top` henter de 10 mest populære søgninger. For at finde dem skal PostgreSQL læse hele `search_logs`-tabellen fra start til slut, tælle og gruppere resultaterne, og derefter sortere dem. Dette kaldes et sequential scan, og problemet er at tabellen vokser med hvert eneste søgekald. Jo mere systemet bruges, jo langsommere bliver dette kald.
+
+**2. Et script til at oprette indexes eksisterede, men kørte aldrig**
+
+Den 13. april 2026 blev `db/add_indexes.rb` oprettet med det formål at oprette indexes på `pages`-tabellen. Tre dage senere migrerede vi fra SQLite til PostgreSQL. Scriptet var skrevet til SQLite og virker ikke med PostgreSQL. Det var heller aldrig koblet til vores automatiske system (CI/CD, Docker eller migrations), så det kørte aldrig automatisk. Scriptet var i praksis dead code, der blot lå i codebasen uden at gøre noget.
+
+### Valgte optimeringer
+
+**Index på `search_logs.query`** (`db/migrate/20260501000000_add_index_to_search_logs_query.rb`)
+
+Vi tilføjede et B-tree index på `query`-kolonnen i `search_logs`-tabellen. Et B-tree index gør databasesøgninger hurtigere, fordi PostgreSQL ikke længere behøver at læse hele tabellen for at finde og gruppere søgningerne. Jo mere systemet bruges og tabellen vokser, jo større er gevinsten.
+
+### Fravalgte optimeringer
+
+**Index på sprog (`idx_pages_language`)** — fravalgt.
+
+Alle søgninger filtrerer på sprog, men søgningen bruger allerede et GIN-indeks på `tsv`-kolonnen, som hurtigt finder de relevante sider. Derefter filtrerer PostgreSQL på sprog. GIN-indekset er så præcist i sin søgning, at et ekstra sprog-indeks ikke ville gøre en forskel i praksis.
+
+**Index på URL (`idx_pages_url`)** — fravalgt.
+
+URL-kolonnen bruges ikke til at søge eller sortere i koden. Et indeks på en kolonne der ikke søges i, giver ingen gevinst.
+
+**Index på sidst opdateret (`idx_pages_last_updated`)** — fravalgt.
+
+`last_updated` opdateres når en side gemmes, men bruges aldrig til at søge eller sortere. Et indeks her ville kun gøre det langsommere at gemme sider, uden at hjælpe på søgehastigheden.
+
+**`db/add_indexes.rb`** — slettet.
+
+Scriptet var skrevet til SQLite og virkede ikke med PostgreSQL. Det var aldrig koblet til vores automatiske system og kørte derfor aldrig. Da de tre indeks det forsøgte at oprette alle er fravalgt, var der ingen grund til at beholde det.
+
+**Caching af `/api/search-logs/top`** — fravalgt.
+
+Det eneste der kalder dette endpoint er vores Azure Function-crawler, og den kører kun én gang om ugen. Caching ville spare ét databasekald om ugen, hvilket ikke er besværet værd. B-tree indekset vi tilføjede løser det reelle performance-problem.
+
+### Fremtidige muligheder
+
+**Begræns hvad søge-API'et returnerer**
+
+Når man søger via `/api/search`, returnerer API'et alle felter fra databasen for hver side, inklusiv hele sidens tekstindhold. Det svarer til at søge efter "python" og få tilsendt hele Wikipedia-artiklen frem for bare titlen og linket. En søgning der returnerer 14 resultater giver ~300 KB data.
+
+Frontenden bruger kun `title` og `url` fra hvert resultat. Den originale Flask-app gjorde det samme, så adfærden er historisk konsistent og bryder ikke spec'en. Men hvis man begrænsede API'et til kun at returnere `title`, `url` og `language`, ville responses falde fra ~300 KB til under 1 KB.
+
+### Hvad der allerede var optimeret
+
+Under gennemgangen fandt vi at en del allerede var på plads:
+
+**Fuldtekstsøgning med GIN-indeks på `pages`**
+Søgningen bruger PostgreSQLs indbyggede fuldtekstsøgning via en `tsv`-kolonne med et GIN-indeks. GIN er en særlig indekstype der er lavet til at søge i tekst, og den er langt hurtigere end at gennemsøge alle sider manuelt. Indekset opdateres automatisk når en side gemmes.
+
+**Indeks på log-tabeller**
+`search_logs`, `user_activity_logs` og `exception_logs` har alle indeks på de kolonner der bruges til at filtrere og sortere logdata.
+
+**Unique indeks på brugere**
+`email` og `username` har unique indeks, hvilket både sikrer at der ikke kan oprettes dubletter og gør opslag på disse kolonner hurtige.
+
+**Nginx som reverse proxy**
+Al trafik går igennem Nginx før den når applikationen. Det aflaster applikationsserveren og giver mulighed for at slå gzip-komprimering til, så responses fylder mindre.
+
+**Docker multi-stage build**
+Vores Dockerfile bruger et build-stage og et runtime-stage. Det betyder at kompileringsværktøjer ikke følger med i det færdige image, som dermed bliver mindre og hurtigere at starte op.
+
+**Ingen N+1 query-problemer**
+Vi gennemgik koden og fandt ingen steder hvor der laves unødvendigt mange databasekald. Søgeresultater tilgår kun simple kolonner, bruger-opslag henter altid kun én række, og metrics-queries bruger `.count` og `.distinct` direkte i databasen, så PostgreSQL returnerer et enkelt tal frem for at sende alle rækker til applikationen.
+
+**Caching af vejrdata og brugeraktivitet**
+`WeatherService` cacher vejrdata i 10 minutter, så der ikke laves et eksternt API-kald ved hvert besøg på vejrsiden. Brugeraktivitet har en in-memory throttle der begrænser hvor ofte aktivitet skrives til databasen, så hyppige requests fra samme bruger ikke overbelaster databasen.
+
+**Connection pooling**
+At oprette en ny forbindelse til databasen ved hvert request koster tid. Connection pooling løser det ved at have et antal forbindelser klar på forhånd, som requests låner og afleverer tilbage. `database.yml` er konfigureret med `pool: 5`, som passer præcist med Pumas `max_threads: 5`. Det betyder at hver tråd har sin egen databaseforbindelse klar uden ventetid. Pool-størrelsen er ikke sat højere, da det ville kræve flere Puma-tråde og dermed mere RAM, som VM1 ikke har.
 - Forced password reset (#222) burde have været vores første post-v1.0.0 MAJOR. At det blev bundlet ind i v1.3.0 viser hvor let det er at tabe semver-disciplin når man tænker i sprints frem for kontrakter.
+
+------
+
+## Performance optimering - Server ressourcer på VM1 - KPI'er 20/05-2026
+
+Memory:
+- Total: 847 MB
+- Brugt: 585 MB
+- Tilgængelig: 119 MB
+- Ingen swap konfigureret (diskplads der bruges som nødløsning, når RAM er fyldt op)
+
+Disk:
+- Total: 29 GB
+- Brugt: 14 GB (46%)
+- Ledig: 16 GB
+
+CPU:
+- Load average: 0.00 (stort set idle)
+- 92.9% wa (wait) — CPU'en venter på disk I/O
+
+### Største memory-forbrugere
+
+| Process | Memory |
+|---|---|
+| Puma (app) | 16.5% (~140 MB) |
+| Docker daemon | 10.4% (~90 MB) |
+| containerd | 5.5% (~48 MB) |
+| snapd | 4.7% (~41 MB) |
+| WALinuxAgent (Azure) | 4.5% (~39 MB) |
+| systemd-journald | 3.3% (~29 MB) |
+
+Puma er den største enkeltforbruger. Docker og containerd bruger tilsammen ~138 MB bare til at holde container-infrastrukturen kørende. Med 847 MB RAM og ingen swap er serveren tæt på grænsen.
+
+### Puma-konfiguration
+
+Puma kører med standardindstillinger. Der er ingen `puma.rb` konfigurationsfil i projektet.
+
+| Indstilling | Værdi |
+|---|---|
+| Mode | Single (ingen workers) |
+| Min threads | 0 |
+| Max threads | 5 |
+| Workers | 0 |
+
+Med 5 tråde kan Puma håndtere 5 samtidige requests. På en server med lav trafik og begrænset RAM er dette passende. Flere workers ville give mere kapacitet, men hver worker er en fuld kopi af applikationen i hukommelsen, hvilket ville presse RAM yderligere.
+
+### Valgte optimeringer
+
+**Gzip-komprimering via Nginx**
+
+Vi slog gzip til i Nginx-konfigurationen. Det betyder at HTML, JSON, CSS og JavaScript komprimeres inden de sendes til browseren. Tekst kan typisk komprimeres til 10-30% af den originale størrelse, så der overføres langt mindre data over netværket. Browseren pakker det automatisk ud. Responses under 1 KB komprimeres ikke, da overhead ikke er det værd for meget små svar.
+
+### Fravalgte optimeringer
+
+**`puma.rb` konfigurationsfil** — fravalgt.
+
+En konfigurationsfil ville primært gøre standardindstillingerne synlige i koden, men ændre ingenting i praksis. Flere workers er fravalgt fordi RAM er begrænset. `preload_app!`, som indlæser appen én gang og lader workers arve den for at spare memory, er kun relevant hvis vi tilføjer workers.
+
+### Fremtidige muligheder
+
+**Fjern LXD og snapd**
+
+LXD er en container-manager der blev auto-installeret af Azure, men som ikke bruges. Den er inaktiv, men snapd kører i baggrunden for at vedligeholde den og bruger ~41 MB RAM. At fjerne LXD og snapd ville frigøre hukommelse på en server der allerede er presset. Det er en systemændring på en kørende prod-server og bør testes forsigtigt inden det rulles ud.
+
+**Browser caching af statiske filer**
+
+Lige nu sendes der ingen instruktioner til browseren om hvor længe den må gemme filer som CSS. Det betyder at browseren henter CSS-filen igen ved hvert besøg, selvom den ikke har ændret sig. Ved at tilføje en `Cache-Control`-header i Nginx kan man fortælle browseren at gemme filen i fx et år. Næste gang brugeren besøger siden, bruges den cachede version uden et eneste netværkskald.
+
+Risikoen er at brugere ser en gammel CSS-version hvis filen opdateres, fordi browseren ikke ved at den er ændret. Dette løses normalt med cache-busting, fx ved at tilføje et versionsnummer til filnavnet (`style.css?v=2`). Det er ikke sat op, og er derfor grunden til at dette er fravalgt for nu.
+
+------
+
+## Performance optimering - Server ressourcer på VM2 - KPI'er 20/05-2026
+
+Memory:
+
+
+Disk:
+
+
+CPU:
+
+
+### Største memory-forbrugere
+
+
+### Valgte optimeringer
+
+
+### Fravalgte optimeringer
+
+
+### Fremtidige muligheder
+
+------
+## Trivy CRITICAL CVE i stdlib-gem — pin frem for ignore
+
+### Context
+
+CD-pipelinen bruger Trivy til at scanne Docker-imaget inden det pushes til GHCR (`severity: CRITICAL`, `ignore-unfixed: true`). Base-imaget `ruby:3.2-slim` shipper en version af `net-imap` (Ruby standard library gem) der er sårbar over for CVE-2026-42258 (CRITICAL). Fordi `ignore-unfixed: true` allerede er sat, betyder fejlen at en patch eksisterer — Trivy rapporterer kun fixable CVE'er.
+
+### Challenge
+
+Der er fire måder at håndtere en sårbar stdlib-gem på:
+
+1. **Opgrader base-imaget** — Skift til en nyere patch af `ruby:3.2-slim` der shipper en opdateret `net-imap`. Problemet er at vi ikke kontrollerer hvornår det officielle image opdateres, og vi kan ikke garantere at en nyere tag er tilgængelig i `3.2`-linjen.
+2. **Tilføj CVE til `.trivyignore`** — Supprimerer fejlen uden at løse den. Hvis `ignore-unfixed: true` er sat burde vi aldrig ignorere en CVE der HAR en fix. Det ville underminere hele formålet med scanningen.
+3. **Pin gem'et eksplicit i Gemfile** — Overskriver stdlib-versionen i Bundlers gem-sti (`/usr/local/bundle/`). Løser problemet for appens afhængigheder, men Trivy scanner også system-gem-stien.
+4. **Opgradér gem'et på system-niveau i Dockerfile** — Kør `gem install net-imap` + `gem cleanup`. Virker ikke på bundled stdlib-gems i Ruby 3.2 — RubyGems behandler dem som beskyttede og `gem cleanup` fjerner dem ikke.
+5. **Slet gemspec-filen direkte i Dockerfile** — `rm -f /usr/local/lib/ruby/gems/3.2.0/specifications/net-imap-0.3.9.gemspec`. Trivy bruger gemspecs til CVE-detektion: ingen gemspec, ingen fund. App-koden bruger stadig den patchede version via Bundler.
+
+### Choice
+
+**Beslutning: Gemfile-pin (3) + direkte sletning af gemspec i Dockerfile (5).**
+
+**Iteration 1 (PR #301):** Vi pinnede `net-imap >= 0.5.7` i Gemfile — Bundler installerede `0.6.4` i `/usr/local/bundle/`. CD fejlede stadig fordi Trivy også scanner system-stien.
+
+**Iteration 2 (PR #302):** `gem install net-imap + gem cleanup` i Dockerfile runtime stage. CD fejlede stadig — `gem cleanup` fjerner ikke bundled stdlib-gems i Ruby 3.2.
+
+**Iteration 3 (dette fix):** `rm -f /usr/local/lib/ruby/gems/3.2.0/specifications/net-imap-0.3.9.gemspec` i Dockerfile. Fjerner gemspec-filen Trivy detekterer direkte. Deterministic og uafhængig af RubyGems' interne logik.
+
+**Fordele:**
+
+- Deterministisk — `rm -f` fejler ikke stille og roligt som `gem cleanup`
+- Gemspec fjernet fra system-stien: Trivy finder ingen sårbar version
+- Gemfile-pin sikrer at appen bruger den patchede version
+- Ingen afhængighed af at RubyGems opfører sig forudsigeligt med stdlib-gems
+
+**Ulemper:**
+
+- Hardkodet versionsnummer (`0.3.9`) i Dockerfile — skal opdateres hvis base-imaget opdaterer sin bundlede version
+- `rm -f` på system-gem er ukonventionelt og kan overraske fremtidige læsere
+- To steder at vedligeholde: Gemfile og Dockerfile
+
+**Læring:**
+
+- **`gem cleanup` virker ikke på bundled stdlib-gems** — Ruby 3.2 behandler gems i `/usr/local/lib/ruby/gems/3.2.0/` anderledes end installerede gems. Det er ikke dokumenteret tydeligt og kostede en ekstra iteration.
+- **Trivy scanner to gem-stier uafhængigt:** `/usr/local/bundle/` (Bundler) og `/usr/local/lib/ruby/gems/` (system). En Gemfile-pin løser kun den ene.
+- **Iterativ debugging kræver præcis log-analyse** — hver iteration afslørede et nyt lag. CD-loggens konkrete sti (`net-imap-0.3.9.gemspec` vs. `net-imap-0.6.4.gemspec`) var afgørende for at forstå problemet.
+- **Trivy detekterer via gemspecs, ikke gem-kode** — det er muligt at fjerne gemspec'en uden at fjerne den underliggende gem-kode. Dette er kirurgisk men kræver at man forstår Trivys scanningsmekanisme.
+- `ignore-unfixed: true` i Trivy er ikke en undskyldning for at ignorere CVE'er — det er et filter der fjerner støj fra CVE'er uden tilgængelig fix. Når Trivy stadig rapporterer en CVE med det flag sat, eksisterer der en løsning.
