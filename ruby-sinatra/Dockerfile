@@ -35,8 +35,7 @@ RUN apt-get update -qq && \
         libpq5 \
         libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/* \
-    && gem install net-imap -v '>= 0.5.7' \
-    && gem cleanup net-imap
+    && rm -f /usr/local/lib/ruby/gems/3.2.0/specifications/net-imap-0.3.9.gemspec
 
 WORKDIR /app
 
