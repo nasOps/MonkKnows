@@ -2945,6 +2945,53 @@ Vi rollbacker ikke v2.0.0 → v1.3.0. Tagget er pushed, deployet er kørt grønt
 
 ------
 
+## OpenAPI-specs — fra tre filer til én aktiv kontrakt
+
+### Context
+
+Under migrationens forløb opbyggede vi tre OpenAPI-specifikationsfiler i `docs/openapi/`:
+
+- `whoknows-spec.json` — Anders' originale spec, source of truth for kursuskontrakten (OpenAPI 3.0.0)
+- `ruby-sinatra-spec.json` — vores manuelt skrevne spec, løbende opdateret under udviklingen af Sinatra-appen (OpenAPI 3.1.0)
+- `generated-flasgger-spec.json` — auto-genereret fra Python/Flask legacy-koden via Flasgger
+
+`ruby-sinatra-spec.json` tjente som arbejdsdokument: vi sammenlignede løbende vores implementation mod `whoknows-spec.json` for at sikre kontraktoverholdelse. Den indeholder bevidste udvidelser ud over Anders' spec — bl.a. mere præcise response descriptions og ekstra query parameters på `GET /`.
+
+Vores contract tests (`spec/integration/contract_spec.rb`) kørte fra starten udelukkende mod `whoknows-spec.json` via `committee`-gem'et.
+
+### Challenge
+
+Da Ruby-appen var færdig og kontrakten verificeret, stod vi med tre filer der beskrev det samme API på tre forskellige måder. Det skabte to problemer:
+
+1. **Vedligeholdelsesforpligtelse:** Fremtidige ændringer i API'et kræver opdatering af `ruby-sinatra-spec.json` for at holde den i sync — men da den ikke bruges af tests, vil den uundgåeligt rotte.
+2. **Falsk tryghed:** Tilstedeværelsen af en Ruby-specifik spec i `docs/openapi/` signalerede at den var autoritativ, men tests validerede kun mod `whoknows-spec.json`. En fremtidig udvikler kunne nemt opdatere den forkerte fil.
+
+Omvendt indeholder `ruby-sinatra-spec.json` signalværdi: den viser at vi ikke blot opfyldte kontrakten, men aktivt forbedrede den med mere præcis dokumentation.
+
+### Choice
+
+**Beslutning:** Reorganiser spec-filerne efter rolle frem for oprydning ved sletning.
+
+- `generated-flasgger-spec.json` flyttes til `legacy-flask/` — den tilhører legacy-kodebasen og har ingen rolle i den aktive API-kontrakt.
+- `ruby-sinatra-spec.json` flyttes til `docs/specs/` som et historisk artefakt — den dokumenterer hvad vi rent faktisk byggede og de bevidste forbedringer af kontrakten, men fjernes fra `docs/openapi/` for at undgå forvirring om hvad der validerer.
+- `docs/openapi/` indeholder herefter kun `whoknows-spec.json` — én fil, én kontrakt, ingen tvetydighed.
+
+**Fordele:**
+
+- `docs/openapi/` har nu kun én fil — det er klart for enhver ny udvikler hvad der er source of truth.
+- `ruby-sinatra-spec.json` bevares som artefakt og kan bruges til at vise eksaminator at vi overgik minimumskontrakten.
+- `generated-flasgger-spec.json` er logisk placeret tæt på den kodebase den stammer fra.
+
+**Ulemper:**
+
+- `ruby-sinatra-spec.json` er ikke længere synligt knyttet til den aktive app — en læser af `docs/specs/` skal kende baggrunden for at forstå filen.
+- Ingen automatiseret garanti for at artefaktet holder trit med virkeligheden over tid.
+
+**Læring:**
+
+- Spec-filer der ikke bruges af tests rotter hurtigere end kode — de mangler den feedback-loop der tvinger opdateringer.
+- Formålet med en fil bør fremgå af dens placering, ikke kun af dens indhold. At flytte filer er billigere end at forklare undtagelser i dokumentation.
+- Tre specs til samme API er et tegn på at migrationens arbejdsproces ikke var eksplicit nok om hvornår arbejdsdokumenter skifter til artefakter eller udgår.
 ## Performance Optimering — Indexes og søgelog-optimering
 
 ### Problem
