@@ -41,7 +41,7 @@ Følgende er **ikke** dækket af denne SLA:
 | **Månedlig oppetid** | **95 %** |
 | Tilladt nedetid pr. måned | ~36 timer |
 
-95 % er et bevidst konservativt tal. MonkKnows kører på én enkelt Azure VM (App-VM) uden redundans eller load balancing. Deploy via CD-pipelinen medfører en genstart af app-containeren; cold-start er konfigureret med op til 300 sekunders start_period før containeren erklæres healthy. En oppetidsgaranti på 99 % eller derover ville ikke være realistisk eller ærlig for dette setup.
+95 % er et bevidst konservativt tal. MonkKnows kører på én enkelt Azure VM (App-VM) uden redundans. Deploy via CD-pipelinen medfører en genstart af app-containeren. En oppetidsgaranti på 99 % eller derover ville ikke være realistisk eller ærlig for dette setup.
 
 Planlagt vedligeholdelse (deploys, certifikatfornyelse, database-migrationer) er **inkluderet** i oppetidsberegningen.
 
@@ -64,20 +64,16 @@ Svartider måles fra Prometheus-scrape på `https://monkknows.dk/metrics`.
 
 ## 3. Hændelses- og gendannelsesstider
 
-En professionel virksomhed opererer typisk med sværhedsgrader og tilhørende responstider:
+| Severity | Definition | Bekræftelse | Løsning     |
+|---|---|-------------|-------------|
+| S1 — Critical | Total nedetid, alle brugere påvirket | 6 timer     | 24 timer    |
+| S2 — High | Væsentlig forringelse, mange brugere påvirket | 8 timer     | 30 timer    |
+| S3 — Medium | Begrænset påvirkning, workaround findes | 12 timer    | 2 hverdage  |
+| S4 — Low | Kosmetisk fejl, ingen funktionel påvirkning | 48 timer    | Best effort |
 
-| Severity | Definition | Bekræftelse | Løsning |
-|---|---|---|---|
-| S1 — Critical | Total nedetid, alle brugere påvirket | 15 min | 4 timer |
-| S2 — High | Væsentlig forringelse, mange brugere påvirket | 1 time | 8 timer |
-| S3 — Medium | Begrænset påvirkning, workaround findes | 4 timer | 2 hverdage |
-| S4 — Low | Kosmetisk fejl, ingen funktionel påvirkning | 1 hverdag | Best effort |
+**MonkKnows:** Vi er et team på tre studerende uden vagtordning. Alle hændelser uanset sværhedsgrad håndteres tidligst næste hverdag.
 
-Dette understøttes af 24/7-vagtordninger og kompensationsordninger ved overskridelse.
-
-**MonkKnows:** Vi er et team på tre studerende uden vagtordning. Alle hændelser uanset sværhedsgrad håndteres næste hverdag.
-
-**Overvågning:** Discord-alerts via `monitor_logs.sh` (kører hvert 5. minut, scanner container-logs for 4xx/5xx-mønstre). Prometheus + Grafana på VM2 bruges til at diagnosticere hændelser.
+**Overvågning:** Prometheus + Grafana på VM2 bruges til at diagnosticere hændelser. Postman aktiveres, når plotserveren stopper.
 
 **Der ydes ingen kompensation** ved overskridelse, da tjenesten leveres gratis som en del af et uddannelsesprojekt.
 
@@ -128,4 +124,4 @@ Spørgsmål om denne SLA eller anmodninger om datasletning kan rettes via GitHub
 
 ---
 
-_Dette dokument er senest revideret: 2026-05-17_
+_Dette dokument er senest revideret: 2026-05-21
