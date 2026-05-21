@@ -113,6 +113,6 @@ curl http://localhost:9187/metrics | head -20  # bør vise pg_* metrics
 ## Kendte gaps (op til oral exam)
 
 - **Ingen central log-aggregation** (Loki/ELK). Logs spredt over PG-tabeller, container stdout, journalctl, Discord-alert. Bevidst valg — kursus siger "do not overengineer".
-- **`monitor_logs.sh` findes kun på VM1**, ikke i repo'et. Hvis VM1 genopbygges er alerting-scriptet tabt. TODO: kopier til `scripts/monitor_logs.sh` og lad CD installere det.
+- **`monitor_logs.sh` ligger nu i `scripts/monitor_logs.sh`** (committed 2026-05-21) men CD installerer det ikke automatisk endnu. Manuel deploy: `scp scripts/monitor_logs.sh monkknows:/tmp/ && ssh monkknows 'sudo install -m 755 /tmp/monitor_logs.sh /usr/local/bin/monitor_logs.sh'`. Kræver desuden `/etc/monkknows/monitor.env` (chmod 0600) med `DISCORD_WEBHOOK=...`.
 - **`monitor_logs.sh` scraper kun `app-web-1`** — ikke nginx, ikke PG, ikke journalctl. Udvidelse er noteret som follow-up.
 - **Ingen metric-based alerting.** Se "Alerting-thresholds" ovenfor.

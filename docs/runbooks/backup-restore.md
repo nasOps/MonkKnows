@@ -86,6 +86,8 @@ Tallene bør matche dem fra før incidenten (eller fra backup-tidspunktet hvis d
 
 ## Test-restore (månedligt)
 
+> **Senest verificeret: 2026-05-21** — restore af `monkknows_2026-05-21_0300.sql.gz` til `monkknows_restore_test` på VM2 leverede identiske row counts (3323 users, 51 pages, 5511 search_logs) som live DB. Backup-strategien er bevisligt genoprettelig.
+
 Kør mod en throwaway-container — rør IKKE produktion.
 
 ```bash
