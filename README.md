@@ -18,14 +18,19 @@ MonkKnows/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
 │   └── workflows/
-│       └── ci.yaml
 ├── docs/
 │   ├── branching-strategi/
 │   ├── choices-and-challenges/
-│   └── openapi/
-├── legacy-flask/           # Python legacy application
-├── ruby-sinatra/           # Active Ruby/Sinatra application
-└── .gitignore
+│   ├── openapi/
+│   │   └── whoknows-spec.json       # API contract (source of truth — Anders)
+│   ├── runbooks/
+│   └── specs/
+│       └── ruby-sinatra-spec.json   # Implementation artifact — documents our extensions beyond the contract
+├── legacy-flask/
+│   └── generated-flasgger-spec.json # Auto-generated spec from legacy Flask app
+├── monitoring/                      # Prometheus + Grafana config
+├── ruby-sinatra/                    # Active Ruby/Sinatra application
+└── scripts/
 ```
 
 ---
