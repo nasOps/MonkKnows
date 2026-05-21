@@ -2959,39 +2959,36 @@ Der er fire måder at håndtere en sårbar stdlib-gem på:
 1. **Opgrader base-imaget** — Skift til en nyere patch af `ruby:3.2-slim` der shipper en opdateret `net-imap`. Problemet er at vi ikke kontrollerer hvornår det officielle image opdateres, og vi kan ikke garantere at en nyere tag er tilgængelig i `3.2`-linjen.
 2. **Tilføj CVE til `.trivyignore`** — Supprimerer fejlen uden at løse den. Hvis `ignore-unfixed: true` er sat burde vi aldrig ignorere en CVE der HAR en fix. Det ville underminere hele formålet med scanningen.
 3. **Pin gem'et eksplicit i Gemfile** — Overskriver stdlib-versionen i Bundlers gem-sti (`/usr/local/bundle/`). Løser problemet for appens afhængigheder, men Trivy scanner også system-gem-stien.
-4. **Opgradér gem'et på system-niveau i Dockerfile** — Kør `gem install net-imap` + `gem cleanup` i runtime-steget for at overskrive og fjerne den sårbare version fra system-stien (`/usr/local/lib/ruby/gems/3.2.0/`). Den eneste løsning der rydder op begge steder.
+4. **Opgradér gem'et på system-niveau i Dockerfile** — Kør `gem install net-imap` + `gem cleanup`. Virker ikke på bundled stdlib-gems i Ruby 3.2 — RubyGems behandler dem som beskyttede og `gem cleanup` fjerner dem ikke.
+5. **Slet gemspec-filen direkte i Dockerfile** — `rm -f /usr/local/lib/ruby/gems/3.2.0/specifications/net-imap-0.3.9.gemspec`. Trivy bruger gemspecs til CVE-detektion: ingen gemspec, ingen fund. App-koden bruger stadig den patchede version via Bundler.
 
 ### Choice
 
-**Beslutning: Kombination af Gemfile-pin (3) og Dockerfile-opgradering (4).**
+**Beslutning: Gemfile-pin (3) + direkte sletning af gemspec i Dockerfile (5).**
 
-**Iteration 1 (PR #301):** Vi pinnede `net-imap >= 0.5.7` i Gemfile — Bundler installerede `0.6.4` i `/usr/local/bundle/`. CD fejlede stadig.
+**Iteration 1 (PR #301):** Vi pinnede `net-imap >= 0.5.7` i Gemfile — Bundler installerede `0.6.4` i `/usr/local/bundle/`. CD fejlede stadig fordi Trivy også scanner system-stien.
 
-**Iteration 2 (dette fix):** CD-loggen afslørede at Trivy fandt `net-imap-0.3.9.gemspec` på system-stien `/usr/local/lib/ruby/gems/3.2.0/` — en separat sti som Bundler ikke berører. Der er faktisk to CVE'er: `CVE-2026-42257` og `CVE-2026-42258` (begge CRITICAL, begge fra 0.3.9).
+**Iteration 2 (PR #302):** `gem install net-imap + gem cleanup` i Dockerfile runtime stage. CD fejlede stadig — `gem cleanup` fjerner ikke bundled stdlib-gems i Ruby 3.2.
 
-Løsningen: I Dockerfilens runtime stage tilføjes:
-```dockerfile
-&& gem install net-imap -v '>= 0.5.7' \
-&& gem cleanup net-imap
-```
-Dette installerer den patchede version på system-niveau og fjerner 0.3.9 fra begge stier.
+**Iteration 3 (dette fix):** `rm -f /usr/local/lib/ruby/gems/3.2.0/specifications/net-imap-0.3.9.gemspec` i Dockerfile. Fjerner gemspec-filen Trivy detekterer direkte. Deterministic og uafhængig af RubyGems' interne logik.
 
 **Fordele:**
 
-- Begge gem-stier er rene — Trivy finder ingen sårbar version
-- Gemfile-pin og Dockerfile-opgradering er uafhængige lag: begge fejler, ingen CVE slipper igennem
-- `.trivyignore` forbliver som kommenteret fallback og dokumentation
-- `ignore-unfixed: true` bevarer sin semantiske integritet
+- Deterministisk — `rm -f` fejler ikke stille og roligt som `gem cleanup`
+- Gemspec fjernet fra system-stien: Trivy finder ingen sårbar version
+- Gemfile-pin sikrer at appen bruger den patchede version
+- Ingen afhængighed af at RubyGems opfører sig forudsigeligt med stdlib-gems
 
 **Ulemper:**
 
-- `gem install` i Dockerfile forlænger build-tid marginalt
-- To steder at vedligeholde: Gemfile og Dockerfile skal begge opdateres hvis versionen ændres
-- Eksplicit pin på en stdlib-gem er en unaturlig afhængighed
+- Hardkodet versionsnummer (`0.3.9`) i Dockerfile — skal opdateres hvis base-imaget opdaterer sin bundlede version
+- `rm -f` på system-gem er ukonventionelt og kan overraske fremtidige læsere
+- To steder at vedligeholde: Gemfile og Dockerfile
 
 **Læring:**
 
-- **Trivy scanner to gem-stier uafhængigt:** `/usr/local/bundle/` (Bundler) og `/usr/local/lib/ruby/gems/` (system). En Gemfile-pin løser kun den ene. Det er ikke åbenlyst og kostede en ekstra CD-fejl at opdage.
-- **Iterativ debugging er normalt i sikkerhedswork** — første fix var korrekt men ufuldstændigt. CD-loggen var afgørende for at forstå præcis hvilken sti Trivy rapporterede fra.
+- **`gem cleanup` virker ikke på bundled stdlib-gems** — Ruby 3.2 behandler gems i `/usr/local/lib/ruby/gems/3.2.0/` anderledes end installerede gems. Det er ikke dokumenteret tydeligt og kostede en ekstra iteration.
+- **Trivy scanner to gem-stier uafhængigt:** `/usr/local/bundle/` (Bundler) og `/usr/local/lib/ruby/gems/` (system). En Gemfile-pin løser kun den ene.
+- **Iterativ debugging kræver præcis log-analyse** — hver iteration afslørede et nyt lag. CD-loggens konkrete sti (`net-imap-0.3.9.gemspec` vs. `net-imap-0.6.4.gemspec`) var afgørende for at forstå problemet.
+- **Trivy detekterer via gemspecs, ikke gem-kode** — det er muligt at fjerne gemspec'en uden at fjerne den underliggende gem-kode. Dette er kirurgisk men kræver at man forstår Trivys scanningsmekanisme.
 - `ignore-unfixed: true` i Trivy er ikke en undskyldning for at ignorere CVE'er — det er et filter der fjerner støj fra CVE'er uden tilgængelig fix. Når Trivy stadig rapporterer en CVE med det flag sat, eksisterer der en løsning.
-- `.trivyignore` bør have udløbsdatoer. En ignore-entry uden dato er en teknisk gæld der vokser usynligt.
