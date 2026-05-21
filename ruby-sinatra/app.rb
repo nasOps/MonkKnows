@@ -4,7 +4,6 @@
 
 # Main application file - Routes + Controllers (combined)
 require 'sinatra'
-# require 'sinatra/activerecord'
 require 'json'
 require 'digest'
 require_relative 'config/environment'
@@ -17,8 +16,6 @@ require_relative 'models/search_log'
 require 'dotenv/load' if ENV['RACK_ENV'] != 'production'
 require 'prometheus/client'
 
-# TODO: Change class name to MonkKnowsApp
-# App is defined as modular Sinatra class
 class WhoknowsApp < Sinatra::Base
   register Sinatra::ActiveRecordExtension
 
@@ -181,7 +178,6 @@ class WhoknowsApp < Sinatra::Base
     query = params[:q].to_s.strip
     query = nil if query.empty?
 
-    # Saves the logging from search queries (from routes "/" and "/api/search") to PG
     if query && ['/', '/api/search'].include?(request.path_info)
       SEARCH_RESULT_COUNT.observe(@result_count) if @result_count
       begin
@@ -333,8 +329,6 @@ class WhoknowsApp < Sinatra::Base
 
   # POST /api/register - User registration
   # OpenAPI: operationId "register_api_register_post"
-  # POST /api/register - opretter en ny bruger
-  # Flask-akvivalent: app.py linje 143-165
   post '/api/register' do
     content_type :json
 
@@ -361,7 +355,6 @@ class WhoknowsApp < Sinatra::Base
       session[:user_id] = user.id
       @current_user = user
       track_user_activity
-      # Like Flask's "You were successfully registered..."
       status 200
       { statusCode: 200, message: 'You were successfully registered' }.to_json
     else
@@ -391,7 +384,6 @@ class WhoknowsApp < Sinatra::Base
       }.to_json
     end
 
-    # Gem bruger-id i session - svarer til Flask's session['user_id'] = user['id']
     session[:user_id] = user.id
     @current_user = user
     track_user_activity

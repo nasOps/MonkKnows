@@ -6,7 +6,6 @@ require 'digest'
 # User-model - mapper til 'users'-tabellen via ActiveRecord.
 # ActiveRecord finder automatisk tabellen ud fra klassenavnet (User => users).
 class User < ActiveRecord::Base
-  # Validations - svarer til if/elsif-tjek i Flask's /api/register route
   validates :username, presence: { message: 'You have to enter a username' },
                        uniqueness: { message: 'The username is already taken' }
 
