@@ -51,7 +51,7 @@ Forvent: `LAST_CHECK` opdateres hvert 5. minut. Ingen "webhook failed"-linjer.
 | Symptom | Mulig årsag | Action |
 |---------|-------------|--------|
 | Prometheus `monkknows` target DOWN | Nginx blokerer Prometheus' IP (efter `/metrics`-hardening i denne sprint), eller app er nede | Tjek `/metrics`-allow-listen i `nginx.conf` matcher VM2's IP (20.91.203.235). Curl fra VM2: `curl -I https://monkknows.dk/metrics` |
-| Prometheus `node` vm1 DOWN | Azure NSG blokerer eller node_exporter er stoppet | `ssh monkknows 'docker ps | grep node-exporter'` og `curl 4.225.161.111:9100/metrics` fra VM2 |
+| Prometheus `node` vm1 DOWN | Azure NSG blokerer eller node_exporter er stoppet | `ssh monkknows 'docker ps \| grep node-exporter'` og `curl 4.225.161.111:9100/metrics` fra VM2 |
 | Prometheus `postgres` DOWN | Exporter-container mangler env-vars eller user mangler i DB | Se "Deploy postgres_exporter" nedenfor |
 | Grafana panel tomt for >5 min | Prometheus scraper ikke, eller dashboard-query er forkert | Verificer Prometheus targets først; ellers redigér panel og test query i Prometheus UI |
 | Ingen logs i `search_logs` | App fejler tavst, eller DB er nede | `ssh monkknows 'docker logs --tail 50 app-web-1'` — kig efter exceptions |

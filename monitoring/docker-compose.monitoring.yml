@@ -22,8 +22,8 @@ services:
       - DATA_SOURCE_NAME=postgresql://${POSTGRES_EXPORTER_USER:?POSTGRES_EXPORTER_USER required}:${POSTGRES_EXPORTER_PASSWORD:?POSTGRES_EXPORTER_PASSWORD required}@host.docker.internal:5432/monkknows?sslmode=disable
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    ports:
-      - "9187:9187"
+    expose:
+      - "9187"
     restart: unless-stopped
     mem_limit: 64m
     cpus: 0.10
