@@ -24,3 +24,13 @@ scrape_configs:
         labels:
           host: 'vm1'
           role: 'app'
+
+  # PostgreSQL health metrics via postgres_exporter sidecar.
+  # Connection: host.docker.internal:5432 reaches the monkknows-db container
+  # on the same VM2 host via the docker bridge gateway.
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+        labels:
+          host: 'vm2'
+          role: 'db'
