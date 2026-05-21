@@ -2943,3 +2943,46 @@ Vi rollbacker ikke v2.0.0 → v1.3.0. Tagget er pushed, deployet er kørt grønt
 - "Vi har gjort meget arbejde" er ikke et semver-argument. Mængden af PRs siden sidste tag siger intet om hvorvidt API-kontrakten er ændret.
 - Den rigtige måde at versionere er at lade OpenAPI-specen være primær sandhedskilde: bump version når specen ændres bagudkompatibelt (MINOR) eller bryder (MAJOR), bug-fixes ellers. Det er en strammere kobling end milestone-tagging og giver versionsnummeret reel betydning.
 - Forced password reset (#222) burde have været vores første post-v1.0.0 MAJOR. At det blev bundlet ind i v1.3.0 viser hvor let det er at tabe semver-disciplin når man tænker i sprints frem for kontrakter.
+
+------
+
+## Trivy CRITICAL CVE i stdlib-gem — pin frem for ignore
+
+### Context
+
+CD-pipelinen bruger Trivy til at scanne Docker-imaget inden det pushes til GHCR (`severity: CRITICAL`, `ignore-unfixed: true`). Base-imaget `ruby:3.2-slim` shipper en version af `net-imap` (Ruby standard library gem) der er sårbar over for CVE-2026-42258 (CRITICAL). Fordi `ignore-unfixed: true` allerede er sat, betyder fejlen at en patch eksisterer — Trivy rapporterer kun fixable CVE'er.
+
+### Challenge
+
+Der er tre måder at håndtere en sårbar stdlib-gem på:
+
+1. **Opgrader base-imaget** — Skift til en nyere patch af `ruby:3.2-slim` der shipper en opdateret `net-imap`. Problemet er at vi ikke kontrollerer hvornår det officielle image opdateres, og vi kan ikke garantere at en nyere tag er tilgængelig i `3.2`-linjen.
+2. **Tilføj CVE til `.trivyignore`** — Supprimerer fejlen uden at løse den. Hvis `ignore-unfixed: true` er sat burde vi aldrig ignorere en CVE der HAR en fix. Det ville underminere hele formålet med scanningen.
+3. **Pin gem'et eksplicit i Gemfile** — Overskriver stdlib-versionen ved at tvinge Bundler til at installere en nyere, patchet version. Løser problemet ved kilden.
+
+### Choice
+
+**Beslutning: Pin `net-imap >= 0.5.7` i Gemfile. Bundler resolver til 0.6.4 (seneste stabile).**
+
+Gem-pin er den eneste løsning der faktisk fjerner sårbarheden frem for at skjule den. Bundler installerer den patchede version i imaget under build-steget, så Trivy scanner den nye version.
+
+Som belt-and-suspenders oprettes desuden `ruby-sinatra/.trivyignore` med CVE-entry'en **kommenteret ud**. Filen tjener to formål: den dokumenterer hændelsen og giver en hurtig fallback hvis gem-pin mod forventning ikke propagerer til det scannede image-lag. `trivyignores`-parameteren er tilføjet til Trivy-steget i `cd.yml` så filen faktisk bruges hvis den aktiveres.
+
+**Fordele:**
+
+- Sårbarheden er fjernet, ikke suppresseret — scanningen har reel værdi
+- Gem-pin er synlig i Gemfile og Gemfile.lock — reviewers kan se hvad der er overskrevet og hvorfor
+- `.trivyignore`-templaten med udløbsdato-format giver en struktureret håndtering af fremtidige edge cases
+- `ignore-unfixed: true` bevarer sin semantiske integritet
+
+**Ulemper:**
+
+- Eksplicit pin på en stdlib-gem er en unaturlig afhængighed — fremtidige udviklere kan undre sig over hvorfor `net-imap` er i Gemfile
+- Vi kører nu på `net-imap 0.6.4` som er nyere end Ruby 3.2's bundlede version — minor risiko for API-uoverensstemmelser hvis vi nogensinde bruger IMAP direkte (vi gør ikke)
+- Gem-pinnet skal opdateres eller fjernes hvis Ruby 3.2-linjen begynder at shippe en patchet stdlib-version
+
+**Læring:**
+
+- `ignore-unfixed: true` i Trivy er ikke en undskyldning for at ignorere CVE'er — det er et filter der fjerner støj fra CVE'er uden tilgængelig fix. Når Trivy stadig rapporterer en CVE med det flag sat, eksisterer der en løsning.
+- Stdlib-gems i Ruby er ikke immutable — de kan overskrives via Gemfile ligesom tredjepartsgems. Det er en ikke-åbenlys egenskab ved Bundler der er værd at kende.
+- `.trivyignore` bør have udløbsdatoer. En ignore-entry uden dato er en teknisk gæld der vokser usynligt.

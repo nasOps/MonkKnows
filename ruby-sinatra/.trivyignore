@@ -1,0 +1,9 @@
+# Trivy ignore file — only use for CVEs where no fix is available yet.
+# Always set an expiry date so ignores don't silently outlive their reason.
+# Format: CVE-ID exp:YYYY-MM-DD
+
+# CVE-2026-42258 is patched by pinning net-imap >= 0.5.7 in Gemfile (see commit).
+# This entry is a belt-and-suspenders fallback in case the pin does not propagate
+# into the scanned image layer. Remove once CD has been verified green.
+# exp:2026-08-01
+# CVE-2026-42258
