@@ -118,6 +118,14 @@ jobs:
       - name: Run tests
         run: bundle exec rspec
 
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-report
+          path: ruby-sinatra/coverage/
+          retention-days: 30
+
   # --- Smoke test (depends on build-test) ---
 
   smoke-test:
