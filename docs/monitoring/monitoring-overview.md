@@ -40,7 +40,7 @@ Driftsmetrikker fra app, infrastruktur og database.
 | Error Rate 4xx vs 5xx | Fejlrate over tid |
 | Top 10 Error Classes (1h) | Hyppigste exception-typer |
 | Bot/Scanner Traffic | Trafik til ukendte routes (scannere, crawlers) |
-| Weather API Latency (p95) | Ekstern API-svartid |
+| Weather API Latency (p95) | Ekstern API-svartid (kun faktiske API-kald, ikke cache-hits) |
 | Weather API Errors per Type | Fejltype fordeling |
 | CPU Load (1m/5m/15m) | CPU-load pa begge VMs |
 | Memory Usage (%) | RAM-forbrug pa begge VMs |
@@ -88,6 +88,14 @@ Lynis korer nightly via `lynis.timer` (systemd) og scanner host-OS'et pa VM1.
 | KRNL-6000 | Sysctl-vaerdier afviger fra anbefalet profil |
 | HRDN-7222 | Compilere (`gcc`, `cc`, `as`) er world-executable |
 | HRDN-7230 | Ingen malware-scanner installeret |
+
+## Weather API-cache
+
+`WeatherService` cacher svar fra OpenWeatherMap i 10 minutter (`CACHE_DURATION = 600`). Cachen er in-memory og mutex-beskyttet.
+
+Prometheus maler kun faktiske API-kald, ikke cache-hits. Det betyder:
+- `app_weather_api_duration_seconds` undervurderer den reelle API-belastning hvis man sammenligner med request-raten
+- Det er ikke muligt at se cache hit-rate i Grafana
 
 ## Hvad der ikke monitoreres
 
