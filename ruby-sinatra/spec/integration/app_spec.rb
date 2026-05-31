@@ -71,6 +71,14 @@ RSpec.describe 'Whoknows App' do
       expect(last_response.status).to eq(200)
     end
 
+    it 'returns 200 when password2 is omitted in JSON payload' do
+      payload = valid_params.except(:password2).merge(username: 'jsonuser', email: 'json@example.com')
+      post '/api/register', payload.to_json, { 'CONTENT_TYPE' => 'application/json' }
+      expect(last_response.status).to eq(200)
+      body = JSON.parse(last_response.body)
+      expect(body['message']).to eq('You were successfully registered')
+    end
+
     it 'returns 422 when passwords do not match' do
       post '/api/register', valid_params.merge(password2: 'wrongpass')
       expect(last_response.status).to eq(422)
