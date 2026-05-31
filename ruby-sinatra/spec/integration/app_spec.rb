@@ -66,6 +66,11 @@ RSpec.describe 'Whoknows App' do
       expect(body['message']).to eq('You were successfully registered')
     end
 
+    it 'returns 200 when password2 is omitted (optional per OpenAPI spec)' do
+      post '/api/register', valid_params.except(:password2)
+      expect(last_response.status).to eq(200)
+    end
+
     it 'returns 422 when passwords do not match' do
       post '/api/register', valid_params.merge(password2: 'wrongpass')
       expect(last_response.status).to eq(422)
