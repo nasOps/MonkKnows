@@ -62,6 +62,8 @@ def run_crawler() -> int:
             page = _scrape(url)
             if page:
                 pages.append(page)
+            else:
+                logging.warning("Skipped (no content): %s", url)
         except Exception as e:
             logging.warning("Failed to scrape %s: %s", url, e)
         time.sleep(1)
