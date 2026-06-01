@@ -2,7 +2,8 @@
 # Manually trigger the MonkKnows crawler Azure Function via HTTP.
 #
 # Usage:
-#   ./scripts/trigger-crawler.sh <function-key>
+#   AZURE_CRAWLER_FUNCTION_KEY=<function-key> ./scripts/trigger-crawler.sh
+#   (or add AZURE_CRAWLER_FUNCTION_KEY to ruby-sinatra/.env)
 #
 # The function key is found in Azure Portal:
 #   monkknows-crawler > Functions > crawler_http > Function Keys > default
