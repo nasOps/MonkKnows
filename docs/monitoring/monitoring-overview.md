@@ -56,6 +56,35 @@ Driftsmetrikker fra app, infrastruktur og database.
 | `node` (vm2) | `host.docker.internal:9100` | Host-metrikker VM2 |
 | `postgres` | `postgres_exporter:9187` | PostgreSQL-metrikker |
 
+Prometheus evaluerer desuden `rules.yml` ved hvert `evaluation_interval` (15s) — se Recording Rules nedenfor.
+
+### Recording Rules (`rules.yml`)
+
+Forudberegner dyre `histogram_quantile`-queries hvert 15. sekund og gemmer resultatet som færdige tidsserier. Løste et problem hvor latency-paneler tog ~84 sekunder at indlæse fordi Prometheus genberegnede over ~200 bucket-serier ved hvert datapunkt (PR #316, 2026-06-01).
+
+| Regel | Hvad | Brugt i panel |
+|---|---|---|
+| `job:http_request_duration_seconds:p50/p95/p99/p999` | Samlet request-latency (alle ruter) | Operations panel #12 |
+| `path:http_request_duration_seconds:p95` | Per-rute latency med `path`-label | Operations panel #13 |
+| `path:app_response_size_bytes:p95` | Response-størrelse per rute | Operations panel #14 |
+| `job:app_weather_api_duration_seconds:p95` | Weather API-latency | Operations panel #18 |
+
+Navneformatet `<aggregation>:<metric>:<function>` følger Prometheus' officielle konvention for recording rules.
+
+> [!NOTE]
+> De forudberegnede serier har kun historik fra det tidspunkt `rules.yml` blev deployet. Rå `*_bucket`-data findes stadig i Prometheus hvis man vil beregne baglæns.
+
+### Resource limits (efter PR #316)
+
+| Service | mem_limit | cpus |
+|---|---|---|
+| `prometheus` | 1024m (↑ fra 256m) | 1.0 (↑ fra 0.50) |
+| `postgres_exporter` | 64m | 0.10 |
+| `node_exporter` | 64m | 0.10 |
+| `grafana` | 384m (↑ fra 256m) | 0.50 |
+
+Prometheus og Grafana var begge i resource-problemer: Prometheus i OOM crash-loop (54 restarts, bekræftet i `dmesg`), Grafana konstant på ~100% af sin 256m-grænse ved tunge dashboard-renders.
+
 ## Discord-alerts (VM1)
 
 `monitor_logs.sh` korer via cron hvert 5. minut og sender Discord-alert ved fund.
@@ -97,8 +126,16 @@ Prometheus maler kun faktiske API-kald, ikke cache-hits. Det betyder:
 - `app_weather_api_duration_seconds` undervurderer den reelle API-belastning hvis man sammenligner med request-raten
 - Det er ikke muligt at se cache hit-rate i Grafana
 
+## Node exporter
+
+`node_exporter` kører på **begge** VMs og leverer CPU/RAM/disk/netværks-metrics:
+
+- **VM2:** kører i `docker-compose.monitoring.yml` (deployes automatisk via `cd-monitoring.yml`)
+- **VM1:** kører via `node_exporter.compose.yml` — deployet manuelt, ingen CD-workflow endnu
+
 ## Hvad der ikke monitoreres
 
-- Host-niveau sikkerhedsaendringer varsles ikke aktivt (Lynis logger, men sender ingen alerts)
+- Host-niveau sikkerhedsændringer varsles ikke aktivt (Lynis logger, men sender ingen alerts)
 - Lynis hardening-score eksponeres ikke til Prometheus/Grafana
-- Lynis-opsaetningen er ikke i CD-pipelinen og vil ga tabt hvis VM1 genoprettes
+- Lynis-opsætningen er ikke i CD-pipelinen og vil gå tabt hvis VM1 genoprettes
+- `node_exporter` på VM1 er manuelt deployet — ikke i CD-pipelinen
