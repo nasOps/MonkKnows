@@ -335,9 +335,8 @@ class WhoknowsApp < Sinatra::Base
     password  = params[:password]
     password2 = params[:password2]
 
-    # Tjek password-match foerst (ikke en model-validation,
-    # da password2 ikke er en kolonne i databasen)
-    if password != password2
+    # Tjek password-match kun hvis password2 er sendt med (optional per OpenAPI spec)
+    if password2 && !password2.empty? && password != password2
       status 422
       return {
         detail: [{ loc: %w[body password2], msg: 'The two passwords do not match', type: 'value_error' }]
