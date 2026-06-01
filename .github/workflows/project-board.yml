@@ -4,6 +4,12 @@ on:
   pull_request:
     types: [opened, ready_for_review, closed]
 
+permissions: {}
+
+env:
+  PROJECT_ID: "PVT_kwDOD2E2es4BOZ61"
+  STATUS_FIELD_ID: "PVTSSF_lADOD2E2es4BOZ61zg9HgqY"
+
 jobs:
   add-to-review:
     name: Add PR to "In Review"
@@ -21,7 +27,7 @@ jobs:
                 item { id }
               }
             }' \
-            -f project="PVT_kwDOD2E2es4BOZ61" \
+            -f project="$PROJECT_ID" \
             -f pr="$PR_NODE_ID" \
             --jq '.data.addProjectV2ItemById.item.id')
 
@@ -36,9 +42,9 @@ jobs:
                 projectV2Item { id }
               }
             }' \
-            -f project="PVT_kwDOD2E2es4BOZ61" \
+            -f project="$PROJECT_ID" \
             -f item="$ITEM_ID" \
-            -f field="PVTSSF_lADOD2E2es4BOZ61zg9HgqY" \
+            -f field="$STATUS_FIELD_ID" \
             -f option="df73e18b"
 
   mark-as-done:
@@ -56,13 +62,18 @@ jobs:
               node(id: $pr) {
                 ... on PullRequest {
                   projectItems(first: 10) {
-                    nodes { id }
+                    nodes { id project { id } }
                   }
                 }
               }
             }' \
             -f pr="$PR_NODE_ID" \
-            --jq '.data.node.projectItems.nodes[0].id')
+            --jq ".data.node.projectItems.nodes[] | select(.project.id == \"$PROJECT_ID\") | .id" | head -n1)
+
+          if [ -z "$ITEM_ID" ]; then
+            echo "PR is not on the project board; nothing to update."
+            exit 0
+          fi
 
           gh api graphql -f query='
             mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
@@ -75,7 +86,7 @@ jobs:
                 projectV2Item { id }
               }
             }' \
-            -f project="PVT_kwDOD2E2es4BOZ61" \
+            -f project="$PROJECT_ID" \
             -f item="$ITEM_ID" \
-            -f field="PVTSSF_lADOD2E2es4BOZ61zg9HgqY" \
+            -f field="$STATUS_FIELD_ID" \
             -f option="98236657"
