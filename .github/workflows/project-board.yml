@@ -1,0 +1,81 @@
+name: Project Board Automation
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, closed]
+
+jobs:
+  add-to-review:
+    name: Add PR to "In Review"
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed' && github.event.pull_request.draft == false
+    steps:
+      - name: Add to project and set "In Review"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_sobr0002 }}
+          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
+        run: |
+          ITEM_ID=$(gh api graphql -f query='
+            mutation($project: ID!, $pr: ID!) {
+              addProjectV2ItemById(input: {projectId: $project, contentId: $pr}) {
+                item { id }
+              }
+            }' \
+            -f project="PVT_kwDOD2E2es4BOZ61" \
+            -f pr="$PR_NODE_ID" \
+            --jq '.data.addProjectV2ItemById.item.id')
+
+          gh api graphql -f query='
+            mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $project,
+                itemId: $item,
+                fieldId: $field,
+                value: { singleSelectOptionId: $option }
+              }) {
+                projectV2Item { id }
+              }
+            }' \
+            -f project="PVT_kwDOD2E2es4BOZ61" \
+            -f item="$ITEM_ID" \
+            -f field="PVTSSF_lADOD2E2es4BOZ61zg9HgqY" \
+            -f option="df73e18b"
+
+  mark-as-done:
+    name: Mark PR as "Done"
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    steps:
+      - name: Find project item and set "Done"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_sobr0002 }}
+          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
+        run: |
+          ITEM_ID=$(gh api graphql -f query='
+            query($pr: ID!) {
+              node(id: $pr) {
+                ... on PullRequest {
+                  projectItems(first: 10) {
+                    nodes { id }
+                  }
+                }
+              }
+            }' \
+            -f pr="$PR_NODE_ID" \
+            --jq '.data.node.projectItems.nodes[0].id')
+
+          gh api graphql -f query='
+            mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $project,
+                itemId: $item,
+                fieldId: $field,
+                value: { singleSelectOptionId: $option }
+              }) {
+                projectV2Item { id }
+              }
+            }' \
+            -f project="PVT_kwDOD2E2es4BOZ61" \
+            -f item="$ITEM_ID" \
+            -f field="PVTSSF_lADOD2E2es4BOZ61zg9HgqY" \
+            -f option="98236657"
