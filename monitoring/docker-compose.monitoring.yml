@@ -13,7 +13,10 @@ services:
       # Required to reach node_exporter (host network mode) on the same VM
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-    mem_limit: 256m
+    # 256m var for stramt: working set ligger ~254 MB og head-compaction
+    # spikede over grænsen -> cgroup OOM-kill i loop (54 restarts, bekræftet
+    # i dmesg 2026-06-01). VM2 har ~4 GB, så 512m giver rigelig luft.
+    mem_limit: 512m
     cpus: 0.50
 
   postgres_exporter:
