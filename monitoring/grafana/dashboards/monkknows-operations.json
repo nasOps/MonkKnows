@@ -80,19 +80,19 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket{job=\"monkknows\"}[5m])) by (le))",
+          "expr": "job:http_request_duration_seconds:p50",
           "legendFormat": "p50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket{job=\"monkknows\"}[5m])) by (le))",
+          "expr": "job:http_request_duration_seconds:p95",
           "legendFormat": "p95"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(http_server_request_duration_seconds_bucket{job=\"monkknows\"}[5m])) by (le))",
+          "expr": "job:http_request_duration_seconds:p99",
           "legendFormat": "p99"
         },
         {
-          "expr": "histogram_quantile(0.999, sum(rate(http_server_request_duration_seconds_bucket{job=\"monkknows\"}[5m])) by (le))",
+          "expr": "job:http_request_duration_seconds:p999",
           "legendFormat": "p99.9"
         }
       ],
@@ -105,11 +105,11 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket{job=\"monkknows\",path=\"/api/login\"}[5m])) by (le))",
+          "expr": "path:http_request_duration_seconds:p95{path=\"/api/login\"}",
           "legendFormat": "/api/login p95"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket{job=\"monkknows\",path=\"/api/register\"}[5m])) by (le))",
+          "expr": "path:http_request_duration_seconds:p95{path=\"/api/register\"}",
           "legendFormat": "/api/register p95"
         }
       ],
@@ -122,7 +122,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(app_response_size_bytes_bucket{job=\"monkknows\"}[5m])) by (le, path))",
+          "expr": "path:app_response_size_bytes:p95",
           "legendFormat": "{{path}}"
         }
       ],
@@ -178,7 +178,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(app_weather_api_duration_seconds_bucket{job=\"monkknows\"}[5m])) by (le))",
+          "expr": "job:app_weather_api_duration_seconds:p95",
           "legendFormat": "p95"
         }
       ],

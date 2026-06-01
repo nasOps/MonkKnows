@@ -1,0 +1,35 @@
+# Prometheus recording rules — forudberegner de dyre histogram-percentiler.
+#
+# Hvorfor: dashboard-panelerne beregnede histogram_quantile over ~200 bucket-
+# serier ved HVERT punkt på grafen, hver gang man åbnede en visning. En 2-dages
+# visning af latency-panelet tog ~84 sek på en CPU-throttlet Prometheus.
+# Ved at forudberegne percentilerne hvert 15. s og gemme dem som færdige serier
+# slår panelet nu bare én serie op -> fra ~84 sek til ~millisekunder.
+#
+# OBS: de forudberegnede serier har kun historik fra det tidspunkt reglerne
+# deployes. Rå *_bucket-data findes stadig hvis man vil regne baglæns.
+groups:
+  - name: monkknows_latency
+    interval: 15s
+    rules:
+      # --- Samlet request-latency (Operations-panel #12) ---
+      - record: job:http_request_duration_seconds:p50
+        expr: histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le))
+      - record: job:http_request_duration_seconds:p95
+        expr: histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le))
+      - record: job:http_request_duration_seconds:p99
+        expr: histogram_quantile(0.99, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le))
+      - record: job:http_request_duration_seconds:p999
+        expr: histogram_quantile(0.999, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le))
+
+      # --- Per-rute p95 (Operations-panel #13: auth-endpoints) ---
+      - record: path:http_request_duration_seconds:p95
+        expr: histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le, path))
+
+      # --- Svar-størrelse p95 per rute (Operations-panel #14) ---
+      - record: path:app_response_size_bytes:p95
+        expr: histogram_quantile(0.95, sum(rate(app_response_size_bytes_bucket[5m])) by (le, path))
+
+      # --- Weather-API latency p95 (Operations-panel #18) ---
+      - record: job:app_weather_api_duration_seconds:p95
+        expr: histogram_quantile(0.95, sum(rate(app_weather_api_duration_seconds_bucket[5m])) by (le))
