@@ -78,7 +78,7 @@ def _build_url_list() -> list[str]:
     dynamic_urls = [_wikipedia_url(term) for term in top_terms]
     seen = set()
     result = []
-    for url in SEED_URLS + dynamic_urls:
+    for url in dynamic_urls + SEED_URLS:
         if url not in seen:
             seen.add(url)
             result.append(url)
