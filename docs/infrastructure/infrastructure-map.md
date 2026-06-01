@@ -1,6 +1,6 @@
 # MonkKnows Infrastructure Map
 
-_Sidst opdateret: 2026-04-30 (deploy MTTR investigation)_
+_Sidst opdateret: 2026-05-21_
 
 ---
 

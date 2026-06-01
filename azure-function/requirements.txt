@@ -1,4 +1,4 @@
 azure-functions==1.24.0
-requests==2.33.1
-beautifulsoup4==4.14.3
+requests==2.33.1 # Crawling the wiki URL
+beautifulsoup4==4.14.3 # Scraping the wiki URL, parsing the HTML content
 lxml==6.1.0
