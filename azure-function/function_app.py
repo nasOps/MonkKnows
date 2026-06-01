@@ -90,6 +90,7 @@ def _fetch_top_search_terms(limit: int = 10) -> list[str]:
         response = requests.get(
             f"{APP_URL}/api/search-logs/top",
             params={"limit": limit},
+            headers={"Authorization": f"Bearer {CRAWLER_API_KEY}"},
             timeout=10,
         )
         response.raise_for_status()
