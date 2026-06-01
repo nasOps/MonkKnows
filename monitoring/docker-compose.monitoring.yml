@@ -5,6 +5,7 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./rules.yml:/etc/prometheus/rules.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -13,8 +14,12 @@ services:
       # Required to reach node_exporter (host network mode) on the same VM
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-    mem_limit: 256m
-    cpus: 0.50
+    # 256m var for stramt (OOM crash-loop, dmesg 2026-06-01) og tunge query'er
+    # (1-uges latency-panel ~84s) sprængte både RAM og den halve CPU. VM2 har
+    # ~4 GB + flere kerner, så 1024m + 1 core giver luft. Recording rules
+    # (rules.yml) fjerner det meste af query-tyngden.
+    mem_limit: 1024m
+    cpus: 1.0
 
   postgres_exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
@@ -57,7 +62,8 @@ services:
     depends_on:
       - prometheus
     restart: unless-stopped
-    mem_limit: 256m
+    # Lå konstant på ~100% af 256m ved tunge dashboard-renders -> 384m giver luft
+    mem_limit: 384m
     cpus: 0.50
 
 volumes:
