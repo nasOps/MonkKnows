@@ -22,6 +22,7 @@ tingeling.md
 *.sqlite3-journal
 
 # ---- Environment / Secrets ----
+.env
 ruby-sinatra/.env
 .venv
 env/

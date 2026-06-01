@@ -2708,15 +2708,14 @@ Vi overvejede tre platforme:
 
 **Beslutning: Azure Function med Python + GitHub Actions deploy**
 
-Vores eksisterende CD-pipeline (`build → GHCR → SSH`) er til app-containeren. Azure Function deployes via en separat `deploy-crawler.yml` workflow der kun trigges ved ændringer i `azure-function/`. Crawleren kører manuelt (HTTP trigger) nu, og kan sættes til ugentlig schedule (timer trigger) ved at uncommente én linje i `function_app.py`.
+Vores eksisterende CD-pipeline (`build → GHCR → SSH`) er til app-containeren. Azure Function deployes via en separat `deploy-crawler.yml` workflow der kun trigges ved ændringer i `azure-function/`. Crawleren kører på ugentlig schedule (timer trigger, hver søndag 02:00 UTC) og kan trigges manuelt via HTTP trigger.
 
 **Fordele:**
 
 - Rigtig serverless Azure Function — matcher lærerens anbefaling præcist
-- Betaler kun for faktisk køretid (Flex Consumption plan, scale to zero)
+- Betaler kun for faktisk køretid (Linux Consumption plan, scale to zero)
 - Officiel Python-runtime — ingen custom handler boilerplate
 - Adskilt fra app-serveren — konkurrerer ikke om VM1's ressourcer
-- Manuel trigger nu, schedule-klar uden kodeændringer
 
 **Ulemper:**
 
@@ -2724,11 +2723,23 @@ Vores eksisterende CD-pipeline (`build → GHCR → SSH`) er til app-containeren
 - Ny Azure-ressource (Function App) at oprette og konfigurere
 - To sprog i repo'et (Ruby + Python)
 
+**Deployment-udfordringer (løst maj 2026):**
+
+Funktionen var oprettet som Flex Consumption i Azure Portal, men `azure/functions-action` bruger ZipDeploy via Kudu, som ikke understøttes af Flex Consumption-planens deployment-endpoint. Kudu returnerede 404 på alle deploymentforsøg. Da Linux Consumption ikke er tilgængeligt i Azure Portal (kun Flex Consumption vises for Linux Python), blev den nye Function App oprettet via Azure CLI med `--consumption-plan-location`, som opretter en Linux Consumption (Dynamic) app.
+
+Derudover var basic authentication på SCM-endpointet slået fra som standard på den nye app, hvilket gav 401 Unauthorized ved deployment. Dette blev løst med `az resource update ... properties.allow=true`.
+
+Endelig var Python-afhængighederne ikke inkluderet i zip-pakken. `deploy-crawler.yml` installerede pakker på GitHub runner men ikke i selve deploy-pakken. Rettelsen: `pip install --target=".python_packages/lib/site-packages"` som installerer pakker i den mappe Azure Functions Python-runtimen leder i ved zip deploy.
+
+Resultatet er at funktionen aldrig kørte i produktion fra deployment den 30. april til maj 2026.
+
 **Læring:**
 
 - GitHub Actions er et CI/CD-værktøj, ikke en job-runner. Det virker til dette formål, men det rigtige enterprise-værktøj til scheduled/event-driven jobs er en serverless funktion.
 - Runtime-support er afgørende ved valg af serverless platform. Ruby kræver custom handler i Azure Functions — det er et ekstra abstraktionslag der giver fejlmuligheder og vedligeholdelsesbesvær.
 - Crawlerens sprog behøver ikke matche appens sprog, fordi den er fuldt afkoblet — den kommunikerer udelukkende via REST API'et.
+- Nye Azure-tjenester har sikkerhed slået til som standard. Basic auth på SCM-endpoints er deaktiveret by default og skal eksplicit aktiveres for publish profile-baseret deployment.
+- Flex Consumption er Microsofts nyeste serverless plan men har begrænset tooling-support. `azure/functions-action` med publish profile virker kun mod standard Consumption (Linux Dynamic).
 
 ------
 
