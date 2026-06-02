@@ -41,24 +41,18 @@ Følgende er **ikke** dækket af denne SLA:
 | **Månedlig oppetid** | **95 %** |
 | Tilladt nedetid pr. måned | ~36 timer |
 
-95 % er et bevidst konservativt tal. MonkKnows kører på én enkelt Azure VM (App-VM) uden redundans. Deploy via CD-pipelinen medfører en genstart af app-containeren. En oppetidsgaranti på 99 % eller derover ville ikke være realistisk eller ærlig for dette setup.
+Grafana måles til 99,1 % oppetid over de sidste 30 dage. 
+- Manglende server redundans og at vores svartid på hændelses- og gendannelsestider er tidligst næste hverdag, vurderes oppetiden til 95 %.
 
-Planlagt vedligeholdelse (deploys, certifikatfornyelse, database-migrationer) er **inkluderet** i oppetidsberegningen.
+Deployment er **inkluderet** i oppetidsberegningen.
 
 **Måling af oppetid:**
-Prometheus scraper `https://monkknows.dk/metrics` hvert 15. sekund og genererer automatisk en `up`-metrik (`1` = scrape lykkedes, `0` = fejlede). Faktisk månedlig oppetid kan beregnes i Grafana med:
-
-```
-avg_over_time(up{job="monkknows"}[30d])
-```
-
-Dette måler om `/metrics`-endpointet er tilgængeligt og kan bruges som proxy for tjenestens overordnede tilgængelighed. Det er denne måling der skal lægges til grund for at vurdere om 95 %-målet overholdes og for at fastsætte et realistisk tal at love en kunde.
 
 ### Svartid
 
-Konkrete p95-svartidsmål skal defineres på baggrund af faktiske Grafana-målinger (Operations-dashboard, latency-paneler). Tallene opdateres her når baseline er etableret.
-
-Svartider måles fra Prometheus-scrape på `https://monkknows.dk/metrics`.
+Grafana: 
+- 95 % af alle brugere har en svartid under 800 ms. 
+- 99,9 % af alle brugere har en svartid under 1 sek.
 
 ---
 
