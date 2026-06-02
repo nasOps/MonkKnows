@@ -1,0 +1,13 @@
+# Trivy ignore file — only use for CVEs where no fix is available yet.
+# Always set an expiry date so ignores don't silently outlive their reason.
+# Format: CVE-ID exp:YYYY-MM-DD
+
+# CVE-2026-42257 and CVE-2026-42258 are patched by:
+#   1. Gemfile pin: gem 'net-imap', '>= 0.5.7' (covers /usr/local/bundle/ path)
+#   2. Dockerfile: gem install net-imap + gem cleanup in runtime stage (covers stdlib path)
+# Both CVEs were found at /usr/local/lib/ruby/gems/3.2.0/specifications/net-imap-0.3.9.gemspec
+# — the stdlib path is NOT covered by Bundler alone.
+# These entries remain commented out as documentation. Activate only if Dockerfile fix fails.
+# exp:2026-08-01
+# CVE-2026-42257
+# CVE-2026-42258

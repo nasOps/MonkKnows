@@ -1,0 +1,48 @@
+name: Project Board Automation
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+permissions: {}
+
+env:
+  PROJECT_ID: "PVT_kwDOD2E2es4BOZ61"
+  STATUS_FIELD_ID: "PVTSSF_lADOD2E2es4BOZ61zg9HgqY"
+
+jobs:
+  add-to-review:
+    name: Add PR to "In Review"
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Add to project and set "In Review"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_sobr0002 }}
+          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
+        run: |
+          ITEM_ID=$(gh api graphql -f query='
+            mutation($project: ID!, $pr: ID!) {
+              addProjectV2ItemById(input: {projectId: $project, contentId: $pr}) {
+                item { id }
+              }
+            }' \
+            -f project="$PROJECT_ID" \
+            -f pr="$PR_NODE_ID" \
+            --jq '.data.addProjectV2ItemById.item.id')
+
+          gh api graphql -f query='
+            mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $project,
+                itemId: $item,
+                fieldId: $field,
+                value: { singleSelectOptionId: $option }
+              }) {
+                projectV2Item { id }
+              }
+            }' \
+            -f project="$PROJECT_ID" \
+            -f item="$ITEM_ID" \
+            -f field="$STATUS_FIELD_ID" \
+            -f option="df73e18b"

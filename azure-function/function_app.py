@@ -62,6 +62,8 @@ def run_crawler() -> int:
             page = _scrape(url)
             if page:
                 pages.append(page)
+            else:
+                logging.warning("Skipped (no content): %s", url)
         except Exception as e:
             logging.warning("Failed to scrape %s: %s", url, e)
         time.sleep(1)
@@ -78,7 +80,7 @@ def _build_url_list() -> list[str]:
     dynamic_urls = [_wikipedia_url(term) for term in top_terms]
     seen = set()
     result = []
-    for url in SEED_URLS + dynamic_urls:
+    for url in dynamic_urls + SEED_URLS:
         if url not in seen:
             seen.add(url)
             result.append(url)
@@ -90,6 +92,7 @@ def _fetch_top_search_terms(limit: int = 10) -> list[str]:
         response = requests.get(
             f"{APP_URL}/api/search-logs/top",
             params={"limit": limit},
+            headers={"Authorization": f"Bearer {CRAWLER_API_KEY}"},
             timeout=10,
         )
         response.raise_for_status()

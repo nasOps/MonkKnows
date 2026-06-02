@@ -22,6 +22,7 @@ tingeling.md
 *.sqlite3-journal
 
 # ---- Environment / Secrets ----
+.env
 ruby-sinatra/.env
 .venv
 env/
@@ -108,6 +109,8 @@ known_hosts_combined.txt
 
 # ---- Specs (personal planning notes) ----
 docs/specs/**
+!docs/specs/*.md
+!docs/specs/*.json
 
 # ---- Ruby coverage reports ----
 ruby-sinatra/coverage/

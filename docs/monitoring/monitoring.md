@@ -61,6 +61,8 @@ Ud over de tre store er der nogle mindre opdagelser, som er værd at nævne:
 
 - **Manuel server-telemetri afslørede manglende swap.** Før Prometheus var oppe kørte vi en runde manuel telemetri på VM'erne. Ingen kritiske fejl, men VM2 lå på 898 MB RAM uden swap — værd at holde øje med under stress-test ugen før eksamen. Det blinde punkt er siden lukket: `node_exporter` kører på begge VMs og leverer CPU/RAM/disk/netværks-metrics live i Operations-dashboardet, så samme observation i dag ville være automatisk og kontinuerlig i stedet for et øjebliksbillede fra terminalen.
 
+- **Recording rules løste et reelt produktionsproblem.** Operations-dashboardet var ubrugeligt i lange tidsvinduet — latency-paneler tog ~84 sekunder at indlæse fordi `histogram_quantile` genberegnede over ~200 bucket-serier ved hvert datapunkt, hver gang nogen åbnede en visning. PR #316 tilføjede `rules.yml` med forudberegnede percentiler (p50/p95/p99/p99.9) der opdateres hvert 15. sekund, hvilket reducerede indlæsningstiden til millisekunder. Prometheus var samtidig i OOM crash-loop (54 restarts, bekræftet i `dmesg`) og resource limits måtte hæves fra 256m til 1024m. Begge problemer skyldtes at vi ikke havde stresstet dashboardet over et langt tidsvindue inden det gik i produktion — "det ser fint ud lokalt" gælder ikke for systemer der akkumulerer data over tid.
+
 ---
 
 ## Hvad monitoreringen *ikke* gør (endnu)
