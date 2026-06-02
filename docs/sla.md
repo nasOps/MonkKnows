@@ -1,6 +1,6 @@
 # Service Level Agreement (SLA) — MonkKnows
 
-_Gyldig fra: 2026-05-17_
+_Gyldig fra: 2026-06-03_
 _Tjeneste: MonkKnows søge- og vejrtjeneste_
 _URL: [https://monkknows.dk](https://monkknows.dk)_
 
@@ -54,6 +54,8 @@ Grafana:
 - 95 % af alle brugere har en svartid under 800 ms. 
 - 99,9 % af alle brugere har en svartid under 1 sek.
 
+Realistisk svartid er derfor 1 sek.
+
 ---
 
 ## 3. Hændelses- og gendannelsesstider
@@ -75,17 +77,17 @@ Grafana:
 
 ## 4. Sikkerhedsforanstaltninger
 
-| Foranstaltning | Detalje |
-|---|---|
+| Foranstaltning | Detalje                                                                                                                                                                                                            |
+|---|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **HTTPS / TLS** | Al trafik krypteres via Let's Encrypt (certifikat på `monkknows.dk` + `www.monkknows.dk`). HTTP (port 80) redirecter automatisk til HTTPS via nginx 301. HSTS aktiveret med `max-age=31536000; includeSubDomains`. |
-| **Sikkerhedsheaders** | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera, microphone, geolocation deaktiveret). |
-| **Brute-force-beskyttelse** | `fail2ban` aktiv på App-VM, banner IP'er ved gentagne fejlede SSH-loginforsøg. |
-| **Session-sikkerhed** | Sessions signeres med `SESSION_SECRET` (krævet i produktion — appen starter ikke uden). Cookies sendes kun over HTTPS. |
-| **Databaseadgang** | PostgreSQL på VM2 er kun tilgængeligt fra App-VM's IP-adresse og et privat subnet (pg_hba.conf whitelist). Adgangskode gemt som Docker secret (`chmod 600`). |
-| **Containerisering** | Appen kører som ikke-root bruger i en multi-stage Docker-container. Ressource-limits: 256 MB RAM og 0,5 CPU for app-containeren. |
-| **Secrets-håndtering** | Ingen hemmeligheder i kode eller Docker-image. CI/CD-pipelinen bygger `.env` fra GitHub Secrets og SCP'er den til serveren ved deploy. |
-| **Sårbarhedsscanning** | Brakeman (statisk analyse), Bundler Audit (kendte sårbarheder i gems) og Trivy (container image scan) køres i CI/CD-pipeline ved hvert PR og deploy. OWASP ZAP køres i CF-pipeline. |
-| **Lynis** | Lynis sikkerhedsaudit kører nightly på App-VM via `lynis.timer`. |
+| **Sikkerhedsheaders** | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera, microphone, geolocation deaktiveret).     |
+| **Brute-force-beskyttelse** | `fail2ban` aktiv på App-VM, banner IP'er ved gentagne fejlede SSH-loginforsøg.                                                                                                                                     |
+| **Session-sikkerhed** | Sessions signeres med `SESSION_SECRET` (krævet i produktion, appen starter ikke uden). Cookies sendes kun over HTTPS.                                                                                              |
+| **Databaseadgang** | PostgreSQL på VM2 er kun tilgængeligt fra App-VM's IP-adresse og et privat subnet (pg_hba.conf whitelist). Adgangskode gemt som Docker secret (`chmod 600`).                                                       |
+| **Containerisering** | Appen kører som ikke-root bruger i en multi-stage Docker-container. Ressource-limits: 256 MB RAM og 0,5 CPU for app-containeren.                                                                                   |
+| **Secrets-håndtering** | Ingen hemmeligheder i kode eller Docker-image. CI/CD-pipelinen bygger `.env` fra GitHub Secrets og SCP'er den til serveren ved deploy.                                                                             |
+| **Sårbarhedsscanning** | Brakeman (statisk analyse), Bundler Audit (kendte sårbarheder i gems) og Trivy (container image scan) køres i CI/CD-pipeline ved hvert PR og deploy. OWASP ZAP køres i CF-pipeline.                                |
+| **Lynis** | Lynis sikkerhedsaudit kører nightly på App-VM via `lynis.timer`.                                                                                                                                                   |
 
 **Kendte begrænsninger:**
 - Grafana-dashboardet er tilgængeligt på port 3000 uden TLS. Det er beskyttet med brugernavn/password, men credentials sendes ukrypteret.
@@ -118,4 +120,4 @@ Spørgsmål om denne SLA eller anmodninger om datasletning kan rettes via GitHub
 
 ---
 
-_Dette dokument er senest revideret: 2026-05-21
+_Dette dokument er senest revideret: 2026-06-02
