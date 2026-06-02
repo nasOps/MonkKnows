@@ -11,10 +11,86 @@
   },
   "panels": [
     {
+      "id": 5,
+      "title": "Availability — 30d (SLO 95%)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "avg_over_time(up{job=\"monkknows\"}[30d]) * 100", "legendFormat": "availability" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 90,
+          "max": 100,
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 95 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Est. Downtime (30d)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        { "expr": "(1 - avg_over_time(up{job=\"monkknows\"}[30d])) * 30 * 24", "legendFormat": "downtime" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 36 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Current Status",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        { "expr": "up{job=\"monkknows\"}", "legendFormat": "status" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": { "text": "UP", "color": "green" },
+                "0": { "text": "DOWN", "color": "red" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
       "id": 1,
       "title": "Concurrent Requests (now)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 6 },
       "targets": [
         { "expr": "app_http_requests_in_flight{job=\"monkknows\"}", "legendFormat": "in-flight" }
       ],
@@ -24,7 +100,7 @@
       "id": 2,
       "title": "Total Exceptions (1h)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 6 },
       "targets": [
         { "expr": "sum(increase(app_exceptions_total{job=\"monkknows\"}[1h]))", "legendFormat": "exceptions" }
       ],
@@ -34,7 +110,7 @@
       "id": 3,
       "title": "Weather API Errors (1h)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 6 },
       "targets": [
         { "expr": "sum(increase(app_weather_api_errors_total{job=\"monkknows\"}[1h]))", "legendFormat": "errors" }
       ],
@@ -44,7 +120,7 @@
       "id": 4,
       "title": "5xx Error Rate (req/s)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 6 },
       "targets": [
         { "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",code=~\"5..\"}[5m]))", "legendFormat": "5xx" }
       ],
@@ -54,7 +130,7 @@
       "id": 10,
       "title": "Request Rate per Endpoint (app routes)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
       "targets": [
         {
           "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path=~\"/|/api/search|/api/login|/api/register|/api/logout|/api/weather|/health|/hello|/login|/register|/weather|/logout\"}[5m])) by (path)",
@@ -67,7 +143,7 @@
       "id": 11,
       "title": "Concurrent Requests Over Time",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
       "targets": [
         { "expr": "app_http_requests_in_flight{job=\"monkknows\"}", "legendFormat": "in-flight" }
       ],
@@ -77,7 +153,7 @@
       "id": 12,
       "title": "Request Latency (p50 / p95 / p99 / p99.9)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
       "targets": [
         {
           "expr": "job:http_request_duration_seconds:p50",
@@ -102,7 +178,7 @@
       "id": 13,
       "title": "Auth Endpoint Latency (p95)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
       "targets": [
         {
           "expr": "path:http_request_duration_seconds:p95{path=\"/api/login\"}",
@@ -119,7 +195,7 @@
       "id": 14,
       "title": "Response Size p95 per Endpoint",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
       "targets": [
         {
           "expr": "path:app_response_size_bytes:p95",
@@ -132,7 +208,7 @@
       "id": 15,
       "title": "Error Rate: 4xx vs 5xx",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
       "targets": [
         {
           "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",code=~\"4..\"}[5m]))",
@@ -149,7 +225,7 @@
       "id": 16,
       "title": "Top 10 Error Classes (1h)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
       "targets": [
         {
           "expr": "topk(10, sum(increase(app_exceptions_total{job=\"monkknows\"}[1h])) by (error_class))",
@@ -162,7 +238,7 @@
       "id": 17,
       "title": "Bot/Scanner Traffic (non-app routes)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
       "targets": [
         {
           "expr": "sum(rate(http_server_requests_total{job=\"monkknows\",path!~\"/|/api/search|/api/login|/api/register|/api/logout|/api/weather|/health|/hello|/login|/register|/weather|/logout|/metrics\"}[5m])) by (path)",
@@ -175,7 +251,7 @@
       "id": 18,
       "title": "Weather API Latency (p95)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 42 },
       "targets": [
         {
           "expr": "job:app_weather_api_duration_seconds:p95",
@@ -188,7 +264,7 @@
       "id": 19,
       "title": "Weather API Errors per Type",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 42 },
       "targets": [
         {
           "expr": "sum(rate(app_weather_api_errors_total{job=\"monkknows\"}[5m])) by (error_type)",
@@ -201,7 +277,7 @@
       "id": 30,
       "title": "CPU Load (1m / 5m / 15m)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 44 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 50 },
       "targets": [
         { "expr": "node_load1{job=\"node\"}",  "legendFormat": "{{host}} 1m" },
         { "expr": "node_load5{job=\"node\"}",  "legendFormat": "{{host}} 5m" },
@@ -213,7 +289,7 @@
       "id": 31,
       "title": "Memory Usage (%)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 44 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 50 },
       "targets": [
         {
           "expr": "100 * (1 - node_memory_MemAvailable_bytes{job=\"node\"} / node_memory_MemTotal_bytes{job=\"node\"})",
@@ -226,7 +302,7 @@
       "id": 32,
       "title": "Disk Usage / (%)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 44 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 50 },
       "targets": [
         {
           "expr": "100 * (1 - node_filesystem_avail_bytes{job=\"node\",mountpoint=\"/\"} / node_filesystem_size_bytes{job=\"node\",mountpoint=\"/\"})",
@@ -239,7 +315,7 @@
       "id": 33,
       "title": "Network I/O (bytes/s)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 52 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 58 },
       "targets": [
         {
           "expr": "rate(node_network_receive_bytes_total{job=\"node\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m])",

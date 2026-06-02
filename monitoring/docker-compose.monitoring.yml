@@ -21,7 +21,6 @@ services:
     mem_limit: 1024m
     cpus: 1.0
 
-
   postgres_exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     environment:
