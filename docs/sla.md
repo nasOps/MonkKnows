@@ -41,12 +41,12 @@ Følgende er **ikke** dækket af denne SLA:
 | **Månedlig oppetid** | **95 %** |
 | Tilladt nedetid pr. måned | ~36 timer |
 
-Grafana måles til 99,1 % oppetid over de sidste 30 dage. 
 - Manglende server redundans og at vores svartid på hændelses- og gendannelsestider er tidligst næste hverdag, vurderes oppetiden til 95 %.
 
 Deployment er **inkluderet** i oppetidsberegningen.
 
 **Måling af oppetid:**
+Grafana måles til 99,1 % oppetid over de sidste 30 dage.
 
 ### Svartid
 
